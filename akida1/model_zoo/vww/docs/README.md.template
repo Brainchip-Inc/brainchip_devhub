@@ -31,11 +31,11 @@ Reference: Chowdhery et al., *Visual Wake Words Dataset* (2019),
   </thead>
   <tbody>
     <tr>
-      <td align="center">87.01%</td>
-      <td align="center">84.65%</td>
-      <td align="center">84.68%</td>
-      <td align="center">68.29%</td>
-      <td align="center">226,906</td>
+      <td align="center">{float_acc}</td>
+      <td align="center">{qat_acc}</td>
+      <td align="center">{akida_acc}</td>
+      <td align="center">{sparsity}</td>
+      <td align="center">{params}</td>
     </tr>
   </tbody>
 </table>
@@ -59,25 +59,25 @@ Reference: Chowdhery et al., *Visual Wake Words Dataset* (2019),
   <tbody>
     <tr>
       <td>Minimal</td>
-      <td align="center">17</td>
-      <td align="center">1</td>
-      <td align="center">1743040</td>
-      <td align="center">4.358</td>
-      <td align="center">139.3</td>
-      <td align="center">0.619</td>
-      <td align="center">26.0</td>
-      <td align="center">0.116</td>
+      <td align="center">{minimal_nps}</td>
+      <td align="center">{minimal_passes}</td>
+      <td align="center">{minimal_cycles}</td>
+      <td align="center">{minimal_latency_ms}</td>
+      <td align="center">{minimal_total_P}</td>
+      <td align="center">{minimal_total_E}</td>
+      <td align="center">{minimal_dyn_P}</td>
+      <td align="center">{minimal_dyn_E}</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">29</td>
-      <td align="center">1</td>
-      <td align="center">1325867</td>
-      <td align="center">3.315</td>
-      <td align="center">147.7</td>
-      <td align="center">0.502</td>
-      <td align="center">34.0</td>
-      <td align="center">0.116</td>
+      <td align="center">{allnps_nps}</td>
+      <td align="center">{allnps_passes}</td>
+      <td align="center">{allnps_cycles}</td>
+      <td align="center">{allnps_latency_ms}</td>
+      <td align="center">{allnps_total_P}</td>
+      <td align="center">{allnps_total_E}</td>
+      <td align="center">{allnps_dyn_P}</td>
+      <td align="center">{allnps_dyn_E}</td>
     </tr>
   </tbody>
 </table>
