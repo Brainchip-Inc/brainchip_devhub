@@ -19,7 +19,7 @@
 # # Visual Wake Words on Akida 1
 #
 # <p align="right">
-# Run Time: ~1 hour with training included / ~20 seconds with training skipped
+# Run Time: ~1 hour with training included / ~2 minutes with training skipped
 # </p>
 #
 # This notebook steps through the full pipeline for a **Visual Wake Words (VWW)**
@@ -255,7 +255,51 @@ print(f'Akida model saved to {akida_model_path}')
 akida_model.summary()
 
 # %% [markdown]
-# ## Evaluation on Akida Hardware
+# ## Evaluation of Akida Model
+#
+# We now run evaluation through the akida model, to check that accuracy is 
+# comparable to that obtained from the quantized tf_keras model. If an Akida 1
+# hardware device is connected, it will be used for inference; if not, the
+# code will fall back to using the software backend: this delivers a
+# bit-accurate simulation of the results that will be obtained when running
+# the model on hardware. Let's run that check before going any further
+#
+# ### Check for a connected Akida hardware device
+#
+# We can use the `akida.devices()` function to detect connected hardware devices.
+# That returns a list - if it's empty, there were no hardware devices. Otherwise, 
+# typically we'd only have a single akida device connected on a given machine, 
+# and we can just select the first (and only) device returned.
+
+# %%
+import akida
+devices = akida.devices()
+if len(devices)>0:
+    # Hardware is available
+    device = devices[0]
+else:
+    # Hardware is not available
+    device = None
+
+# %% [markdown]
+# In the present case, we want to be a bit more careful and ensure that the
+# device is the right version for the model we want to test (here, Akida IP
+# version 1). We'll import a local function to do that - check out the details 
+# if interested
+
+# %%
+from brainchip_utils.hardware_utils import get_akida_device
+
+# Load the akida model
+akida_model = akida.Model(akida_model_path)
+# Look for a matching hardware device
+device = get_akida_device(target_version = akida_model.ip_version)
+if device is not None:
+    akida_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
+
+
+# %% [markdown]
+# ### Run Evaluation on Akida
 #
 # The Akida runtime cannot consume `tf.data.Dataset` objects directly, rather
 # it expects a 4D numpy array (n, h, w, c) in uint8 format. So we
@@ -265,27 +309,25 @@ akida_model.summary()
 # `(B, C)` before taking the class argmax.
 
 # %%
-import akida
-
-akida_hw_model = akida.Model(akida_model_path)
 
 labels_all = []
-pots_all = []
-
+logits_all = []
 for batch, label_batch in val_ds:
     if not isinstance(batch, np.ndarray):
         batch = batch.numpy()
-    pots_batch = akida_hw_model.predict(batch)
-    pots_batch = pots_batch.squeeze(axis=(1, 2))
+
+    logits_batch = akida_model.predict(batch, batch_size=1)
+
+    logits_batch = logits_batch.squeeze(axis=(1, 2))
     labels_all.append(label_batch)
-    pots_all.append(pots_batch)
+    logits_all.append(logits_batch)
 
 labels_all = np.concatenate(labels_all)
-pots_all = np.concatenate(pots_all)
-preds = np.argmax(pots_all, axis=1)
+logits_all = np.concatenate(logits_all)
+preds = np.argmax(logits_all, axis=1)
 
 akida_accuracy = float(np.mean(preds == np.array(labels_all)))
-print(f'Akida hardware accuracy: {akida_accuracy:.4f}')
+print(f'Akida accuracy: {akida_accuracy:.4f}')
 
 # %% [markdown]
 # ### Activation Sparsity
@@ -310,7 +352,7 @@ def get_samples(data_path, input_shape, num_samples=1024):
     return images[:num_samples].astype(np.uint8)
 
 samples = get_samples(DATA_PATH, INPUT_SHAPE)
-sparsity_dict = compute_sparsity(akida_hw_model, samples=samples)
+sparsity_dict = compute_sparsity(akida_model, samples=samples)
 
 col_w = max(len(k) for k in sparsity_dict) + 2
 print(f"\n{'Layer':<{col_w}} {'Sparsity':>10}")
@@ -319,6 +361,136 @@ for layer, sparsity in sparsity_dict.items():
     print(f"{layer:<{col_w}} {sparsity:>9.2%}")
 print("-" * (col_w + 11))
 print(f"{'Mean':<{col_w}} {np.mean(list(sparsity_dict.values())):>9.2%}")
+
+# %% [markdown]
+# ## Hardware Benchmarking
+#
+# **These cells require a physical AKD1500 device to be connected.** If `device is
+# None` (reported in the evaluation section above), skip ahead to the Summary.
+#
+# Akida is an event-driven architecture: computations scale with the number of
+# non-zero activations, not with tensor size. That means benchmark results are
+# *input-dependent* — random or synthetic data would give artificially fast or
+# slow timings. The `samples` array loaded above (real images from the training
+# split) is therefore the correct input to use here.
+
+# %% [markdown]
+# ### Simple Benchmark
+#
+# The simplest way to time an Akida model is to call `forward` in a loop and
+# read back two clocks after each inference:
+#
+# - **System clock** (`time.perf_counter_ns`) — wall time including Python and
+#   USB/PCIe transfer overhead.
+# - **On-chip clock** (`akida_model.metrics['inference_clk']`) — raw clock cycles
+#   counted by the AKD1500 itself. Dividing by the 400 MHz core frequency gives
+#   the pure compute time.
+#
+# The two numbers should agree closely; a large divergence would indicate a
+# transfer or driver bottleneck.
+
+# %%
+import time
+
+CLOCK_FREQUENCY = 400e6  # 400 MHz for AKD1500
+
+if device is not None:
+    akida_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
+
+    inf_clks = []
+    inf_times = []
+    for i in range(len(samples)):
+        start_t = time.perf_counter_ns()
+        akida_model.forward(samples[i:i+1])
+        inf_times.append(time.perf_counter_ns() - start_t)
+        inf_clks.append(akida_model.metrics['inference_clk'])
+
+    mean_inf_clk = np.mean(inf_clks) / CLOCK_FREQUENCY * 1e3  # cycles → ms
+    mean_inf_time = np.mean(inf_times) * 1e-6                  # ns → ms
+    print(f'Mean inference time (system clock):      {mean_inf_time:.3f} ms')
+    print(f'Mean on-chip time (chip clock cycles):   {mean_inf_clk:.3f} ms')
+
+# %% [markdown]
+# ### Full Model Benchmark
+#
+# The loop above is clear, but it misses two things: power consumption and a
+# comparison between mapping modes. `full_model_benchmark` from
+# [brainchip_utils/hardware_utils.py](../../../brainchip_utils/hardware_utils.py)
+# runs the same timed loop while also coordinating optional INA219 power
+# measurement in a separate process. It sweeps both `MapMode.Minimal` (fewest
+# NPs, lowest power) and `MapMode.AllNps` (all NPs, maximum parallelism) so the
+# trade-off is visible. The multiprocessing and power-meter wiring are
+# non-trivial and not of interest to most users — consult the source if needed.
+
+# %%
+from brainchip_utils.hardware_utils import full_model_benchmark, get_mapping_stats
+from brainchip_utils.plot_utils import plot_full_model_results
+
+if device is not None:
+    map_modes = ['Minimal', 'AllNps']
+    POWER_REPEATS = 10
+    full_results = {}
+    for mm in map_modes:
+        map_mode = getattr(akida.MapMode, mm)
+        print(f'Running full-model benchmark (MapMode={mm}, {POWER_REPEATS} repeat(s))...')
+        full_results[mm] = full_model_benchmark(
+            akida_model, device, samples, map_mode=map_mode, repeats=POWER_REPEATS)
+
+        akida_model.map(device, mode=map_mode)
+        num_nps, num_passes, num_sequences = get_mapping_stats(akida_model)
+        full_results[mm]['num_nps'] = num_nps
+        full_results[mm]['num_passes'] = num_passes
+        print(f'  Mapping: {num_nps} NP(s), {num_passes} pass(es), {num_sequences} sequence(s)')
+        if num_sequences > 1:
+            print('WARNING: model not completely mapped to hardware')
+
+# %% [markdown]
+# The plot below shows one column per map mode: a power trace (if a power meter
+# was connected) and the hardware mapping layout.
+
+# %%
+if device is not None:
+    plot_full_model_results(full_results, akida_model, device,
+                            model_name=akida_model_path,
+                            savepath='benchmark_results_full.png')
+
+# %% [markdown]
+# ### Per-Layer Benchmark
+#
+# Full-model timing tells us the total cost but not where time is spent.
+# `per_layer_benchmark` from
+# [brainchip_utils/hardware_utils.py](../../../brainchip_utils/hardware_utils.py)
+# reconstructs latency layer by layer by running cumulative sub-models and
+# differencing the results.
+#
+# Because Akida processes events (non-zero activations), a layer's cost is
+# proportional to its *input* sparsity: a layer receiving 90% sparse inputs has
+# far fewer events to process than one receiving 10% sparse inputs. The per-layer
+# timing and the sparsity values computed above are therefore naturally correlated —
+# low-sparsity layers are typically the latency bottlenecks.
+
+# %%
+from brainchip_utils.hardware_utils import per_layer_benchmark
+from brainchip_utils.plot_utils import plot_per_layer_results
+
+if device is not None:
+    # Map without hw_only so akida_model.sequences is populated for the plot
+    akida_model.map(device, mode=akida.MapMode.Minimal)
+
+    print(f'Running per-layer benchmark ({len(samples)} samples)...')
+    per_layer_results = per_layer_benchmark(akida_model, device, samples)
+
+# %% [markdown]
+# The plot stacks three panels: per-layer latency, input sparsity per layer, and
+# the hardware mapping. The inverse relationship between sparsity and latency is
+# the direct signature of the event-driven compute model: dense activations
+# generate more events, and more events mean more work for the hardware.
+
+# %%
+if device is not None:
+    plot_per_layer_results(per_layer_results, akida_model, sparsity_dict,
+                           model_name=akida_model_path,
+                           savepath='benchmark_results_layers.png')
 
 # %% [markdown]
 # ## Summary
