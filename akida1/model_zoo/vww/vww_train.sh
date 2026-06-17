@@ -14,3 +14,5 @@ python vww_eval.py -l models/akidanet_vww_qat.h5 $DATA_ARG
 
 cnn2snn convert -m models/akidanet_vww_qat.h5
 python vww_eval.py -l models/akidanet_vww_qat.fbz $DATA_ARG
+
+python vww_benchmark.py -l models/akidanet_vww_qat.fbz $DATA_ARG
