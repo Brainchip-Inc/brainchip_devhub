@@ -7,32 +7,28 @@ Example
     python eval.py -d /data/vww_coco2014_96/ -l akidanet_vww.h5
 """
 import argparse
+import json
+import pathlib
 import numpy as np
 
 import akida
 
 from cnn2snn import load_quantized_model
-from akida_models.sparsity import compute_sparsity
 
-from vww_data import get_data, get_samples
-
-
-def pretty_print_sparsity(sparsity_dict):
-    col_w = max(len(k) for k in sparsity_dict) + 2
-    print(f"\n{'Layer':<{col_w}} {'Sparsity':>10}")
-    print("-" * (col_w + 11))
-    for layer, sparsity in sparsity_dict.items():
-        print(f"{layer:<{col_w}} {sparsity:>9.2%}")
-    print("-" * (col_w + 11))
-    mean_sparsity = np.mean(list(sparsity_dict.values()))
-    print(f"{'Mean':<{col_w}} {mean_sparsity:>9.2%}")
-
+from vww_data import get_data
+from brainchip_utils.hardware_utils import get_akida_device
 
 # ---------------------------------------------------------------------------
 # Evaluation on Akida
 # ---------------------------------------------------------------------------
 def evaluate_akida_model(akida_model, val_dataset):
     """Run inference with an Akida model and return (predictions, labels)."""
+    device = get_akida_device(target_version = akida_model.ip_version)
+    if device is not None:
+        akida_model.map(device, mode=akida.MapMode.Minimal)
+        print('Running inference on Akida hardware device')
+        akida_model.summary()
+
     labels_all = None
     logits_all = None
 
@@ -65,6 +61,8 @@ if __name__ == '__main__':
                         help='Model to load (.h5 tf_keras or .fbz akida model)')
     parser.add_argument('-d', '--data', default='./data/vw_coco2014_96',
                         help='VWW dataset root (contains train/ and val/ subdirs)')
+    parser.add_argument('--save-metrics', action='store_true',
+                        help='Write accuracy (and param count for .h5) to metrics.json')
     args = parser.parse_args()
 
 
@@ -91,14 +89,28 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     if isakida:
         preds, labels = evaluate_akida_model(model, val_ds)
+        accuracy = float(np.mean(np.equal(preds, labels)))
     else:
         _, accuracy = model.evaluate(val_ds, verbose=0)
         print(f'Validation accuracy: {accuracy:.4f}')
 
-
-    try:
-        samples = get_samples(args.data, imsize, num_samples=1024)
-        sparsity_dict = compute_sparsity(model, samples=samples)
-        pretty_print_sparsity(sparsity_dict)
-    except:
-        pass
+    # ---------------------------------------------------------------------------
+    # Persist metrics
+    # ---------------------------------------------------------------------------
+    if args.save_metrics:
+        # The is used to update the stored metrics that are used to generate the
+        # performance tables in the README of this folder. 
+        # This should only be used for code maintenance, when the model or training
+        # pipeline is updated and a new trained model integrated.
+        metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
+        metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
+        acc_str = f'{accuracy * 100:.2f}%'
+        if isakida:
+            metrics['akida_acc'] = acc_str
+        elif 'qat' in pathlib.Path(args.loadmodel).stem:
+            metrics['qat_acc'] = acc_str
+        else:
+            metrics['float_acc'] = acc_str
+            metrics['params'] = f'{model.count_params():,}'
+        metrics_path.write_text(json.dumps(metrics, indent=4) + '\n')
+        print(f'Metrics saved to {metrics_path}')
