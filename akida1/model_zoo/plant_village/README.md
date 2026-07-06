@@ -116,8 +116,8 @@ by conversion to Akida format:
 
 | Stage | Description |
 |---|---|
-| Full-precision | Float32 training from scratch, 50 epochs |
-| Post-training quantization | `cnn2snn quantize` reduces to 8-bit weights and activations (8-bit input) |
+| Full-precision | Float32 training from scratch, 10 epochs |
+| Post-training quantization | `cnn2snn quantize` reduces to 4-bit weights and activations (8-bit input) |
 | Quantization-aware tuning | 2 epochs fine-tuning of the quantized model to recover accuracy |
 | Conversion to Akida | Automated conversion to Akida model format |
 
@@ -190,9 +190,12 @@ bash plant_village_train.sh [DATADIR]
 The optional `DATADIR` argument overrides the default dataset location
 (`./data/plant_village`).
 
-The script executes the following steps in order. This will take from
-1-2 hours to run if a modern GPU is available, almost all of which is
-the 50 epochs of initial training.
+The script executes the following steps in order. This will take about 20 minutes
+to run if a modern GPU is available.
+
+If you don't want to run training but only to e.g. evaluate or benchmark the Akida
+version of the model, you can skip directly to the evaluation steps below, and
+swap in references to models in the `pretrained_models/` folder instead.
 
 **1. Build the model**
 ```bash
@@ -205,10 +208,10 @@ weights.
 ```bash
 python plant_village_train.py -l models/akidanet_plant_village_untrained.h5 \
                               -s models/akidanet_plant_village.h5 \
-                              -e 50 -lr 1e-2
+                              -e 10 -lr 1e-3
 ```
-Trains from scratch for 50 epochs in full precision (Float32) with exponential
-LR decay from 1e-2 to 1e-4.
+Trains from scratch for 10 epochs in full precision (Float32) with exponential
+LR decay from 1e-3 to 1e-5.
 
 **3. Float evaluation**
 ```bash
@@ -218,14 +221,14 @@ Reports validation accuracy of the float model.
 
 **4. Post-training quantization**
 ```bash
-cnn2snn quantize -m models/akidanet_plant_village.h5 -i 8 -w 8 -a 8
+cnn2snn quantize -m models/akidanet_plant_village.h5 -i 8 -w 4 -a 4
 ```
-Quantizes the model to 8-bit inputs, 8-bit weights, and 8-bit activations,
-producing `akidanet_plant_village_iq8_wq8_aq8.h5`.
+Quantizes the model to 8-bit inputs, 4-bit weights, and 4-bit activations,
+producing `akidanet_plant_village_iq8_wq4_aq4.h5`.
 
 **5. Quantization-aware tuning (QAT)**
 ```bash
-python plant_village_train.py -l models/akidanet_plant_village_iq8_wq8_aq8.h5 \
+python plant_village_train.py -l models/akidanet_plant_village_iq8_wq4_aq4.h5 \
                               -s models/akidanet_plant_village_qat.h5 \
                               -lr 1e-4 -e 2
 ```
