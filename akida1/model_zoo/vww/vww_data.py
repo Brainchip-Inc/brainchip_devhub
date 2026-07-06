@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tf_keras.preprocessing.image import ImageDataGenerator
 
+# Define the base directory for the VWW dataset
 
 def get_data(data_path, input_shape, batch_size, dtype=tf.uint8):
     """ Loads VWW data.
@@ -24,46 +25,35 @@ def get_data(data_path, input_shape, batch_size, dtype=tf.uint8):
         image = tf.cast(image, dtype)
         return image, label
 
+    # Set aside .1 split for validation
+    validation_split = 0.1
+
     # Create a data generator with data augmentation and load files from
     # directory
-    datagen = ImageDataGenerator(rotation_range=10,
-                                 width_shift_range=0.05,
-                                 height_shift_range=0.05,
-                                 zoom_range=.1,
-                                 horizontal_flip=True)
-
+    datagen = ImageDataGenerator(
+        rotation_range = 10,
+        width_shift_range = 0.05,
+        height_shift_range = 0.05,
+        zoom_range = 0.1,
+        horizontal_flip = True,
+        validation_split = validation_split,
+        rescale = 1. / 255)
+    
     train_generator = datagen.flow_from_directory(
-        os.path.join(data_path, 'train'),
+        data_path,
         target_size=input_shape[:2],
         batch_size=batch_size,
-        class_mode='sparse')
+        subset = 'training',
+        color_mode='rgb')
 
-    train_dataset = tf.data.Dataset.from_generator(
-        lambda: iter(train_generator),
-        output_signature=(
-            tf.TensorSpec(shape=(None,) + input_shape, dtype=dtype),
-            tf.TensorSpec(shape=(None,), dtype=tf.float32),)
-    ).take(len(train_generator)).map(
-        cast_data, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
-
-    val_generator = ImageDataGenerator().flow_from_directory(
-        os.path.join(data_path, 'val'),
+    val_generator = datagen.flow_from_directory(
+        data_path,
         target_size=input_shape[:2],
         batch_size=batch_size,
-        shuffle=False,
-        class_mode='sparse')
+        subset = 'validation',
+        color_mode='rgb')
 
-    val_dataset = tf.data.Dataset.from_generator(
-        lambda: iter(val_generator),
-        output_signature=(
-            tf.TensorSpec(shape=(None,) + input_shape, dtype=dtype),
-            tf.TensorSpec(shape=(None,), dtype=tf.float32),)
-    ).take(len(val_generator)).map(
-        cast_data, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
-
-    return train_dataset, val_dataset
-
-
+    return train_generator, val_generator 
 
 def get_samples(data_path, input_shape, num_samples=1024):
     """ Loads image samples from the train split as a numpy array.
@@ -80,7 +70,7 @@ def get_samples(data_path, input_shape, num_samples=1024):
         np.ndarray: array of shape (num_samples, height, width, channels), dtype uint8
     """
     generator = ImageDataGenerator().flow_from_directory(
-        os.path.join(data_path, 'train'),
+        data_path,
         target_size=input_shape[:2],
         batch_size=num_samples,
         shuffle=False)
