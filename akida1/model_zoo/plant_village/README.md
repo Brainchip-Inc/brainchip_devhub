@@ -167,6 +167,14 @@ ln -s /path/to/your/data/plant_village ./data/plant_village
 
 This way the scripts work out of the box without any extra arguments.
 
+## Reference Models
+
+Pretrained models are made available here, within the `pretrained_models/`
+folder. However, those are handled using the `git-lfs` package (git large
+file storage). For those to be downloaded with the repo, you will need to
+set up `git-lfs`. For further instructions, see the
+[Trained models](../../../README.md#trained-models) section of the top-level README.
+
 ## Usage
 
 ### Notebook

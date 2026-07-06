@@ -34,6 +34,22 @@ Resources for developing and deploying AI models on BrainChip Akida neuromorphic
 2. **Pick your platform** — use the table above, or start with Akida 2 if you have access to it.
 3. **Run an example** — each platform directory has self-contained examples you can run immediately.
 
+
+---
+
+### Trained models
+
+Pretrained model weights (`.h5`, `.fbz`, etc.) are stored directly in this repository, tracked with [Git LFS](https://git-lfs.com/) rather than regular git. If you cloned the repo without LFS support, these files will show up as small text pointers instead of real weights.
+
+To pull the actual model files:
+
+```bash
+git lfs install   # one-time setup per machine
+git lfs pull       # fetch the real model files for this clone
+```
+
+If `git-lfs` isn't installed on your machine yet, see the [official installation instructions](https://git-lfs.com/) for your platform.
+
 ---
 
 ## Repository Structure
