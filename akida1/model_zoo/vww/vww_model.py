@@ -23,21 +23,32 @@ Usage:
 import argparse
 
 from tf_keras.utils import set_random_seed
-
-from akida_models import akidanet_imagenet
+from tf_keras import Model
+from akida_models.layer_blocks import dense_block
+from akida_models import akidanet_imagenet_pretrained
 from cnn2snn import set_akida_version, AkidaVersion
 
+def build_vww_model(seed = 42):
+    set_random_seed(seed)
 
-def build_vww_model():
-    # Create a base model with 2 classes
+    classes = 2
     with set_akida_version(AkidaVersion.v1):
-        model = akidanet_imagenet(input_shape=(96, 96, 3),
-                                classes=2,
-                                alpha=0.25,
-                                include_top=True,
-                                input_scaling=(255, 0))
+        base_model = akidanet_imagenet_pretrained(
+                                           
+                                            alpha=0.25,
+                                            quantized=False
+        )
 
-    model.summary()
+    x = base_model.get_layer('separable_13/relu').output
+    # 2 class block
+    x = dense_block(x,
+                    units = classes,
+                    name = 'predictions',
+                    add_batchnorm = False,
+                    relu_activation = False
+                    )
+    
+    model = Model(base_model.input, x, name = 'akidanet_vww')
     return model
 
 
@@ -55,5 +66,6 @@ if __name__ == "__main__":
     set_random_seed(args.seed)
     
     model = build_vww_model()
+    model.summary()
     model.save(args.savepath, include_optimizer=False)
     print(f'Model saved to {args.savepath}')

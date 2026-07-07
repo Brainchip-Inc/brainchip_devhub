@@ -36,22 +36,23 @@ def get_data(data_path, input_shape, batch_size, dtype=tf.uint8):
         height_shift_range = 0.05,
         zoom_range = 0.1,
         horizontal_flip = True,
-        validation_split = validation_split,
-        rescale = 1. / 255)
+        validation_split = validation_split)
     
     train_generator = datagen.flow_from_directory(
         data_path,
         target_size=input_shape[:2],
         batch_size=batch_size,
         subset = 'training',
-        color_mode='rgb')
+        color_mode='rgb',
+        class_mode = 'sparse')
 
     val_generator = datagen.flow_from_directory(
         data_path,
         target_size=input_shape[:2],
         batch_size=batch_size,
         subset = 'validation',
-        color_mode='rgb')
+        color_mode='rgb',
+        class_mode = 'sparse')
 
     return train_generator, val_generator 
 
