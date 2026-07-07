@@ -2,33 +2,7 @@
 
 # PlantVillage Disease Classification
 
-
-## Dataset
-
-The **PlantVillage** dataset contains 54,303 images of healthy and diseased
-plant leaves, divided into **38 categories** by plant species and disease type.
-It is a widely-used benchmark for agricultural AI research and edge deployment.
-
-Images cover 14 crop species (including tomato, potato, corn, grape, apple and
-others) and up to 26 distinct diseases, plus healthy variants. All images are
-RGB photographs of individual leaves against a uniform background, originally
-at variable resolutions. For this example they are resized to **224 × 224 RGB**.
-
-The dataset is loaded via TensorFlow Datasets (`plant_village`). It is split as:
-- **Train**: 80 % of the full dataset (~43,442 images)
-- **Validation**: next 10 % (~5,430 images)
-- **Test** (held out): final 10 % (~5,431 images)
-
-<img src="docs/dataset_mosaic.png" alt="4×4 mosaic of random PlantVillage samples across 16 classes" width="700">
-
-*16 randomly selected samples from the 38-class dataset, illustrating the variety of plant species and disease types.*
-
-Original dataset licensed under CC0 1.0 (public domain):
-> J, ARUN PANDIAN; GOPAL, GEETHARAMANI (2019), *"Data for: Identification of
-> Plant Leaf Diseases Using a 9-layer Deep Convolutional Neural Network"*,
-> Mendeley Data, V1, doi: 10.17632/tywbtsjrjv.1
-
-## Model
+## Model Card
 
 <table>
   <thead>
@@ -109,40 +83,35 @@ raw uint8 pixel values with no additional normalisation.
 
 <img src="docs/ref_benchmark_results_layers.png" alt="Per-layer latency breakdown" width="700">
 
-## Pipeline
-
-Training follows a three-stage quantization pipeline, followed
-by conversion to Akida format:
-
-| Stage | Description |
-|---|---|
-| Full-precision | Float32 training from scratch, 10 epochs |
-| Post-training quantization | `cnn2snn quantize` reduces to 4-bit weights and activations (8-bit input) |
-| Quantization-aware tuning | 2 epochs fine-tuning of the quantized model to recover accuracy |
-| Conversion to Akida | Automated conversion to Akida model format |
-
 ## Requirements
-This example generated and tested under
-```
-tensorflow[and-cuda]==2.19.1
-tf_keras==2.19.0
-akida==2.19.1
-quantizeml==1.2.3
-cnn2snn==2.19.1
-akida_models==1.14.0
-tensorflow_datasets>=4.9.0
 
-ipykernel
-pooch
-```
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README.
 
-The hardware benchmarking (`plant_village_benchmark.py` and step 9 in the notebook) and results plotting steps
-additionally require the `brainchip_utils` package from this repository. Install it into
-your environment from the repo root:
+## Dataset
 
-```bash
-pip install -v -e .
-```
+The **PlantVillage** dataset contains 54,303 images of healthy and diseased
+plant leaves, divided into **38 categories** by plant species and disease type.
+It is a widely-used benchmark for agricultural AI research and edge deployment.
+
+Images cover 14 crop species (including tomato, potato, corn, grape, apple and
+others) and up to 26 distinct diseases, plus healthy variants. All images are
+RGB photographs of individual leaves against a uniform background, originally
+at variable resolutions. For this example they are resized to **224 × 224 RGB**.
+
+The dataset is loaded via TensorFlow Datasets (`plant_village`). It is split as:
+- **Train**: 80 % of the full dataset (~43,442 images)
+- **Validation**: next 10 % (~5,430 images)
+- **Test** (held out): final 10 % (~5,431 images)
+
+<img src="docs/dataset_mosaic.png" alt="4×4 mosaic of random PlantVillage samples across 16 classes" width="700">
+
+*16 randomly selected samples from the 38-class dataset, illustrating the variety of plant species and disease types.*
+
+Original dataset licensed under CC0 1.0 (public domain):
+> J, ARUN PANDIAN; GOPAL, GEETHARAMANI (2019), *"Data for: Identification of
+> Plant Leaf Diseases Using a 9-layer Deep Convolutional Neural Network"*,
+> Mendeley Data, V1, doi: 10.17632/tywbtsjrjv.1
 
 ## Dataset setup
 
@@ -167,6 +136,18 @@ ln -s /path/to/your/data/plant_village ./data/plant_village
 
 This way the scripts work out of the box without any extra arguments.
 
+## Pipeline
+
+Training follows a three-stage quantization pipeline, followed
+by conversion to Akida format:
+
+| Stage | Description |
+|---|---|
+| Full-precision | Float32 training from scratch, 10 epochs |
+| Post-training quantization | `cnn2snn quantize` reduces to 4-bit weights and activations (8-bit input) |
+| Quantization-aware tuning | 2 epochs fine-tuning of the quantized model to recover accuracy |
+| Conversion to Akida | Automated conversion to Akida model format |
+
 ## Reference Models
 
 Pretrained models are made available here, within the `pretrained_models/`
@@ -179,12 +160,19 @@ set up `git-lfs`. For further instructions, see the
 
 ### Notebook
 
-[plant_village_notebook.ipynb](plant_village_notebook.ipynb) walks through the complete training
-pipeline end-to-end. It is written to expose and explain the Akida-specific
+Two notebooks are provided that walk through a) preparation of a trained Akida-compatible model and
+b) evaluation and benchmarking of that model on Akida.
+
+[plant_village_notebook_training.ipynb](plant_village_notebook_training.ipynb) walks through the 
+complete training pipeline end-to-end. It is written to expose and explain the Akida-specific
 aspects of the workflow: how the model is constructed for Akida compatibility,
 what the quantization constraints mean in practice, and what the conversion
 step does. Start here if you want to understand *why* the pipeline is structured
 the way it is.
+
+[plant_village_notebook_benchmark.ipynb](plant_village_notebook_benchmark.ipynb) walks through 
+evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking
+of model latency and power.
 
 ### Script
 
@@ -198,89 +186,7 @@ bash plant_village_train.sh [DATADIR]
 The optional `DATADIR` argument overrides the default dataset location
 (`./data/plant_village`).
 
-The script executes the following steps in order. This will take about 20 minutes
-to run if a modern GPU is available.
-
-If you don't want to run training but only to e.g. evaluate or benchmark the Akida
-version of the model, you can skip directly to the evaluation steps below, and
-swap in references to models in the `pretrained_models/` folder instead.
-
-**1. Build the model**
-```bash
-python plant_village_model.py -s models/akidanet_plant_village_untrained.h5
-```
-Instantiates AkidaNet (alpha = 0.5, 224 × 224 input, 38 classes) and saves the untrained
-weights.
-
-**2. Float training**
-```bash
-python plant_village_train.py -l models/akidanet_plant_village_untrained.h5 \
-                              -s models/akidanet_plant_village.h5 \
-                              -e 10 -lr 1e-3
-```
-Trains from scratch for 10 epochs in full precision (Float32) with exponential
-LR decay from 1e-3 to 1e-5.
-
-**3. Float evaluation**
-```bash
-python plant_village_eval.py -l models/akidanet_plant_village.h5
-```
-Reports validation accuracy of the float model.
-
-**4. Post-training quantization**
-```bash
-cnn2snn quantize -m models/akidanet_plant_village.h5 -i 8 -w 4 -a 4
-```
-Quantizes the model to 8-bit inputs, 4-bit weights, and 4-bit activations,
-producing `akidanet_plant_village_iq8_wq4_aq4.h5`.
-
-**5. Quantization-aware tuning (QAT)**
-```bash
-python plant_village_train.py -l models/akidanet_plant_village_iq8_wq4_aq4.h5 \
-                              -s models/akidanet_plant_village_qat.h5 \
-                              -lr 1e-4 -e 2
-```
-Fine-tunes the quantized model for 2 epochs at a lower learning rate to
-recover accuracy lost during quantization.
-
-**6. Quantized evaluation**
-```bash
-python plant_village_eval.py -l models/akidanet_plant_village_qat.h5
-```
-Reports validation accuracy of the quantized model.
-
-**7. Conversion to Akida format**
-```bash
-cnn2snn convert -m models/akidanet_plant_village_qat.h5
-```
-Converts the quantized Keras model to the Akida `.fbz` format ready for
-on-chip deployment.
-
-**8. Akida evaluation**
-```bash
-python plant_village_eval.py -l models/akidanet_plant_village_qat.fbz
-```
-Reports validation accuracy running inference through the Akida model,
-confirming parity with the quantized Keras result. This evaluation step
-is done using an Akida 1 hardware device if one is connected. Otherwise
-it will fall back to using the Akida software backend.
-
-**9. Akida benchmark**
-```bash
-python plant_village_benchmark.py -l models/akidanet_plant_village_qat.fbz
-```
-This will only run if an Akida 1 hardware device is connected. It benchmarks
-the inference latency across a large number of samples (but at batch-size=1)
-and if power measurement is available on the machine, records total and
-dynamic power consumption, and energy per inference. These benchmarks are run
-in both `Minimal` and `AllNps` mapping modes.
-
-Following this, a second set of benchmarks are run (in `Minimal` mapping mode)
-which break down the latency per layer. The activation sparsity per layer is
-also recorded.
-
-Benchmark results are recorded in two plots, `benchmark_results_full.png` and
-`benchmark_results_layers.png`.
+That will take about 20 minutes to run if a modern GPU is available.
 
 ## Contributing and Maintenance
 
@@ -294,10 +200,10 @@ and Akida model versions, plus the hardware benchmark, including the
 `--save-metrics` argument, and then regenerate the README from the template
 using `update_readme.py`:
 ```bash
-python plant_village_eval.py -l models/akidanet_plant_village.h5 --save-metrics
-python plant_village_eval.py -l models/akidanet_plant_village_qat.h5 --save-metrics
-python plant_village_eval.py -l models/akidanet_plant_village_qat.fbz --save-metrics
-python plant_village_benchmark.py -l models/akidanet_plant_village_qat.fbz --save-metrics
+python plant_village_eval.py -l pretrained_models/akidanet_plant_village.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/akidanet_plant_village_qat.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/akidanet_plant_village_qat.fbz --save-metrics
+python plant_village_benchmark.py -l pretrained_models/akidanet_plant_village_qat.fbz --save-metrics
 python update_readme.py
 ```
 Then commit the changed files (template, metrics and updated README).
