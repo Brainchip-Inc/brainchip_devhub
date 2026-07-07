@@ -173,7 +173,7 @@ def plot_power_trace(power_data, ax):
     ax.set_ylabel('Power (mW)')
     ax.set_xlabel('Time relative to inference start (s)')
     ax.set_title('Power timeline')
-    ax.legend(fontsize=8)
+    ax.legend(fontsize=8, loc="lower center")
 
     stats_text = (
         f'Avg time per inference: {avg_inf_time_ms:.2f} ms\n'
@@ -256,7 +256,7 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
     if len(pwr_axes) > 1:
         x_min = min(ax.get_xlim()[0] for ax in pwr_axes)
         x_max = max(ax.get_xlim()[1] for ax in pwr_axes)
-        y_min = min(ax.get_ylim()[0] for ax in pwr_axes)
+        y_min = 0. 
         y_max = max(ax.get_ylim()[1] for ax in pwr_axes)
         for ax in pwr_axes:
             ax.set_xlim(x_min, x_max)
