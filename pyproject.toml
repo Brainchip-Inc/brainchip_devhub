@@ -7,9 +7,9 @@ name = "brainchip_utils"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "akida",
-    "matplotlib",
-    "numpy",
+    "tensorflow[and-cuda]==2.19.1
+    "akida_models==1.14.0
+    "ipykernel
 ]
 
 [tool.setuptools.packages.find]

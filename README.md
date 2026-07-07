@@ -37,18 +37,40 @@ Resources for developing and deploying AI models on BrainChip Akida neuromorphic
 
 ---
 
+### Requirements
+
+- Python versions: 3.10 to 3.12
+
+We recommend using your preference of docker or a virtual environment such as `venv` or `conda`. 
+For example, to create and activate an appropriate virtual environment with `conda`:
+```bash
+conda create -n brainchip_devhub_env python=3.12 -y
+conda activate brainchip_devhub_env
+```
+
+With your container or virtual environment active, all further requirements along with utilities
+local to this repository should be installed by running the following at the top level of the 
+repository (you can check what packages will be installed in the `pyproject.toml` file):
+
+```bash
+pip install -v -e .
+```
+
 ### Trained models
 
 Pretrained model weights (`.h5`, `.fbz`, etc.) are stored directly in this repository, tracked with [Git LFS](https://git-lfs.com/) rather than regular git. If you cloned the repo without LFS support, these files will show up as small text pointers instead of real weights.
 
-To pull the actual model files:
+If `git-lfs` isn't installed on your machine yet, see the [official installation instructions](https://git-lfs.com/) for your platform. On a linux machine, one option is
+```bash
+sudo apt install git-lfs
+```
+
+With git-lfs available, to pull the actual model files:
 
 ```bash
 git lfs install   # one-time setup per machine
 git lfs pull       # fetch the real model files for this clone
 ```
-
-If `git-lfs` isn't installed on your machine yet, see the [official installation instructions](https://git-lfs.com/) for your platform.
 
 ---
 
