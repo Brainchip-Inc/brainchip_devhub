@@ -30,7 +30,7 @@ def get_data(data_path, input_shape, batch_size, dtype=tf.uint8):
 
     # Create a data generator with data augmentation and load files from
     # directory
-    datagen = ImageDataGenerator(
+    train_datagen = ImageDataGenerator(
         rotation_range = 10,
         width_shift_range = 0.05,
         height_shift_range = 0.05,
@@ -38,7 +38,7 @@ def get_data(data_path, input_shape, batch_size, dtype=tf.uint8):
         horizontal_flip = True,
         validation_split = validation_split)
     
-    train_generator = datagen.flow_from_directory(
+    train_generator = train_datagen.flow_from_directory(
         data_path,
         target_size=input_shape[:2],
         batch_size=batch_size,
@@ -46,7 +46,10 @@ def get_data(data_path, input_shape, batch_size, dtype=tf.uint8):
         color_mode='rgb',
         class_mode = 'sparse')
 
-    val_generator = datagen.flow_from_directory(
+    val_datagen = ImageDataGenerator(
+        validation_split = validation_split)
+    
+    val_generator = val_datagen.flow_from_directory(
         data_path,
         target_size=input_shape[:2],
         batch_size=batch_size,

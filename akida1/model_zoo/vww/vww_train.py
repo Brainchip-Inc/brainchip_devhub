@@ -10,42 +10,37 @@ Example
 """
 import argparse
 
+from tf_keras import Model
 from tf_keras.losses import SparseCategoricalCrossentropy
 from tf_keras.optimizers.legacy import Adam
+from tf_keras.optimizers.schedules import CosineDecay
 from tf_keras.callbacks import LearningRateScheduler
 from tf_keras import regularizers
 from tf_keras.layers import ReLU
 from tf_keras.utils import set_random_seed
 
 from cnn2snn import load_quantized_model
-from akida_models.training import RestoreBest
 
 from vww_data import get_data
 
 
-def get_custom_scheduler(initial_lr: float):
-    """
-    Custom LR scheduler:
-    - Epochs  0-19:  initial_lr
-    - Epochs 20-39:  initial_lr x 0.5
-    - Epochs 40+:    initial_lr x 0.25
-    """
-    def lr_schedule(epoch: int, lr: float) -> float:
-        if epoch < 20:
-            return initial_lr
-        elif epoch < 40:
-            return initial_lr * 0.5
-        else:
-            return initial_lr * 0.25
-
-    return LearningRateScheduler(lr_schedule)
-
 
 def train_vww(model, train_ds, val_ds, epochs, learning_rate, regularization=None):
+    
+    steps_per_epoch = len(train_ds)
+    total_steps = steps_per_epoch * epochs
+    warmup_steps = int(0.1 * total_steps)  # 10% of total steps for warmup
+
+    lr_scheduler = CosineDecay(
+        initial_learning_rate=0.0,
+        decay_steps=total_steps - warmup_steps,
+        warmup_target=learning_rate,
+        warmup_steps=warmup_steps,
+    )
     # ---------------------------------------------------------------------------
     # Model
     # ---------------------------------------------------------------------------
-    model.compile(optimizer=Adam(learning_rate=learning_rate),
+    model.compile(optimizer=Adam(learning_rate=lr_scheduler),
                   loss=SparseCategoricalCrossentropy(from_logits=True),
                   metrics=['accuracy'])
     
@@ -60,19 +55,9 @@ def train_vww(model, train_ds, val_ds, epochs, learning_rate, regularization=Non
     # ---------------------------------------------------------------------------
     # Training
     # ---------------------------------------------------------------------------
-    callbacks = []
-
-    lr_scheduler = get_custom_scheduler(initial_lr=learning_rate)
-    callbacks.append(lr_scheduler)
-
-    # Model checkpoints (save best model and retrieve it when training is complete)
-    restore_model = RestoreBest(model)
-    callbacks.append(restore_model)
-
     history = model.fit(
         train_ds,
         epochs=epochs,
-        callbacks=callbacks,
         validation_data=val_ds,
     )
 
