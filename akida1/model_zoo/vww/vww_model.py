@@ -25,7 +25,7 @@ import argparse
 from tf_keras.utils import set_random_seed
 from tf_keras import Model
 from akida_models.layer_blocks import dense_block
-from akida_models.model_utils import rescale
+from akida_models.imagenet.imagenet_train import rescale
 from akida_models import akidanet_imagenet_pretrained
 from cnn2snn import set_akida_version, AkidaVersion
 
