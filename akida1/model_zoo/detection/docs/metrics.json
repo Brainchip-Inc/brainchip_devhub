@@ -1,0 +1,23 @@
+{
+    "float_map": "TBD",
+    "qat_map": "TBD",
+    "akida_map": "TBD",
+    "sparsity": "TBD",
+    "params": "TBD",
+    "minimal_cycles": "TBD",
+    "minimal_latency_ms": "TBD",
+    "minimal_total_P": "TBD",
+    "minimal_total_E": "TBD",
+    "minimal_dyn_P": "TBD",
+    "minimal_dyn_E": "TBD",
+    "allnps_cycles": "TBD",
+    "allnps_latency_ms": "TBD",
+    "allnps_total_P": "TBD",
+    "allnps_total_E": "TBD",
+    "allnps_dyn_P": "TBD",
+    "allnps_dyn_E": "TBD",
+    "minimal_nps": "TBD",
+    "minimal_passes": "TBD",
+    "allnps_nps": "TBD",
+    "allnps_passes": "TBD"
+}
