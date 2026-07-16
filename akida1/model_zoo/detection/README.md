@@ -1,0 +1,222 @@
+<img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+
+# Object Detection (YOLOv2 / PASCAL VOC)
+
+## Model Card
+
+<table>
+  <thead>
+    <tr>
+      <th>Float mAP</th>
+      <th>QAT mAP</th>
+      <th>Akida mAP</th>
+      <th>Sparsity</th>
+      <th>Params</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+    </tr>
+  </tbody>
+</table>
+
+mAP is the mean Average Precision averaged over IoU thresholds from 0.5 to
+0.95 (step 0.05), computed across both classes ('car', 'person').
+
+**AKD1500 hardware benchmark**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency (ms)</th>
+      <th>Total Power (mW)</th>
+      <th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th>
+      <th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+      <td align="center">TBD</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+
+The plot above shows power measurements captured during inference on hardware.
+In **Minimal** mapping the model is scheduled onto the fewest NPs required,
+keeping power consumption low. Switching to **AllNps** spreads the model across
+more NPs (visible in the lower trace plots), which results in a slight increase
+in power during inference but a proportional reduction in latency.
+
+The model is a **YOLOv2** detection head on top of an **AkidaNet** (from
+`akida_models`) backbone, with width multiplier **alpha = 0.5** and input
+resolution **224 x 224**. The backbone is initialized from ImageNet-pretrained
+weights; only the head is trained from scratch.
+
+Latency can also be profiled on a per-layer basis, making it possible to see
+which layers dominate processing time. This is determined by several factors:
+the volume of inputs to the layer and its number of filters, the type of layer
+and kernel size, and the number of NPs the layer is spread over. On Akida,
+input activation sparsity is another strong determinant - layers where input
+sparsity is particularly high take very little processing time.
+
+<img src="docs/ref_benchmark_results_layers.png" alt="Per-layer latency breakdown" width="700">
+
+## Requirements
+
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README.
+
+## Dataset
+
+PASCAL VOC (2007 + 2012) is a general-purpose object detection benchmark.
+This example restricts training and evaluation to the **'car'** and
+**'person'** classes (a lightweight 2-class subset), which matches the
+classes used by the AkidaNet/YOLOv2 VOC model already published for Akida 1.
+Images are resized to **224 x 224 RGB**. Combining the VOC2007 and VOC2012
+`train+validation` splits gives on the order of 15k training images
+(before filtering to images containing at least one object of interest);
+the VOC2007 `test` split (~5k images) is used for validation.
+
+Reference: Everingham et al., *The PASCAL Visual Object Classes (VOC)
+Challenge* (2010), [IJCV](https://doi.org/10.1007/s11263-009-0275-4).
+
+## Dataset setup
+
+VOC images and annotations are loaded through `tensorflow_datasets`, which
+needs the original tar archives available locally (TFDS builds its own
+TFRecord cache from them on first use). Download the following files from
+the official [PASCAL VOC](http://host.robots.ox.ac.uk/pascal/VOC/) pages
+(or the [BrainChip mirror](https://data.brainchip.com/dataset-mirror/voc/)
+if the originals are unreachable) into a single directory:
+
+```bash
+mkdir -p data/voc
+wget -P data/voc https://data.brainchip.com/dataset-mirror/voc/VOCtrainval_06-Nov-2007.tar
+wget -P data/voc https://data.brainchip.com/dataset-mirror/voc/VOCtrainval_11-May-2012.tar
+wget -P data/voc https://data.brainchip.com/dataset-mirror/voc/VOCtest_06-Nov-2007.tar
+wget -P data/voc https://data.brainchip.com/dataset-mirror/voc/VOC2012test.tar
+```
+
+The scripts default to looking for the data at `./data/voc`. If you want to
+store the dataset on a dedicated data drive, you can pass the path
+explicitly to each script (see `--data` / `-d` in the individual scripts).
+
+## Pipeline
+
+Training follows a three-stage quantization pipeline, followed
+by conversion to Akida format:
+
+| Stage | Description |
+|---|---|
+| Full-precision | Float32 training of the YOLOv2 head on an ImageNet-pretrained AkidaNet backbone, 70 epochs |
+| Post-training quantization | `cnn2snn quantize` reduces to 4-bit weights and activations (8-bit input) |
+| Quantization-aware tuning | 5 epochs fine-tuning of the quantized model to recover mAP |
+| Conversion to Akida | Automated conversion to Akida model format |
+
+Note: the reference `akida_models` detection pipeline this example is
+adapted from normally pretrains the detector on COCO before transferring
+and fine-tuning on VOC (see `akida_models/scripts/detection/train_voc.sh`).
+That COCO pretraining stage takes on the order of days on a full COCO
+dataset, so this example skips it and trains the YOLOv2 head directly on
+VOC from an ImageNet-classification backbone instead. This keeps the
+example self-contained and runnable, at the cost of some mAP compared to
+the COCO-pretrained reference pipeline.
+
+## Reference Models
+
+Pretrained models are made available here, within the `pretrained_models/`
+folder. However, those are handled using the `git-lfs` package (git large
+file storage). For those to be downloaded with the repo, you will need to
+set up `git-lfs`. For further instructions, see the
+[Trained models](../../../README.md#trained-models) section of the top-level README.
+
+## Usage
+
+### Notebook
+
+Two notebooks are provided that walk through a) preparation of a trained Akida-compatible model and
+b) evaluation and benchmarking of that model on Akida.
+
+[detection_notebook_training.ipynb](detection_notebook_training.ipynb) walks through the
+complete training pipeline end-to-end. It is written to expose and explain the Akida-specific
+aspects of the workflow: how the model is constructed for Akida compatibility,
+what the quantization constraints mean in practice, and what the conversion
+step does. Start here if you want to understand *why* the pipeline is structured
+the way it is.
+
+[detection_notebook_benchmark.ipynb](detection_notebook_benchmark.ipynb) walks through
+evaluation of model mAP on Akida and, if a hardware device is available, covers benchmarking
+of model latency and power.
+
+### Script
+
+For straightforward reproduction of the training and evaluation results, run
+the full pipeline in one shot:
+
+```bash
+bash detection_train.sh [DATADIR]
+```
+
+The optional `DATADIR` argument overrides the default dataset location
+(`./data/voc`).
+
+That will take several hours to run even on a modern GPU, largely because
+of the 70-epoch float training stage.
+
+## Contributing and Maintenance
+
+This README is autogenerated generated from `docs/README.md.template`
+so that the mAP and hardware benchmark values are written directly
+by the code (via the `metrics.json` file, also in the docs folder).
+
+When the associated model or training pipeline is modified to improve
+performance, you should rerun the evaluations of the float, quantized
+and Akida model versions, plus the hardware benchmark, including the
+`--save-metrics` argument, and then regenerate the README from the template
+using `update_readme.py`:
+```bash
+python detection_eval.py -l pretrained_models/yolo_akidanet_detection.h5 --save-metrics
+python detection_eval.py -l pretrained_models/yolo_akidanet_detection_qat.h5 --save-metrics
+python detection_eval.py -l pretrained_models/yolo_akidanet_detection_qat.fbz --save-metrics
+python detection_benchmark.py -l pretrained_models/yolo_akidanet_detection_qat.fbz --save-metrics
+python update_readme.py
+```
+Then commit the changed files (template, metrics and updated README).
+
+Likewise, if you want to edit the contents of this README, you should
+not edit it directly, but instead edit `docs/README.md.template` and
+then regenerate the README using
+``` bash
+python update_readme.py
+```
