@@ -80,7 +80,7 @@ Overall Evaluation Accuracy: 95.97%
            S       0.64      0.69      0.66      1837
            V       0.84      0.88      0.86      3219
     accuracy                           0.96     49280
-   macro avg       0.82      0.85      0.83     49280
+   macro avg       0.82       0.85     0.83     49280
 weighted avg       0.96      0.96      0.96     49280
 
 4. Spiking Network Activation Sparsity
@@ -100,16 +100,14 @@ The L1L2 activity regularizers successfully produced high activation sparsity ac
 * Total Pipeline Throughput: 1,118.87 beats / second
 
 Per-Layer Overhead Summary (Clock Freq = 400 MHz)
-------------------------------------------------------------
-  Layer Name                | NPU Clocks   | Time (ms)  
-------------------------------------------------------------
+  **Layer Name**            | **NPU Clocks**| **Time (ms)**
   stem_conv                 | 37789.0      | 0.0945 ms
   block1_sepconv            | 46879.1      | 0.1172 ms
   block2_sepconv            | 301932.9     | 0.7548 ms  
   block3_sepconv            | 67361.8      | 0.1684 ms
   dense                     | 4392.2       | 0.0110 ms
   dense_1                   | 2695.0       | 0.0067 ms
-------------------------------------------------------------
+
 
 **Generated Output Artifacts**
 
