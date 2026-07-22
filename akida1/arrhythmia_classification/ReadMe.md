@@ -100,13 +100,50 @@ The L1L2 activity regularizers successfully produced high activation sparsity ac
 * Total Pipeline Throughput: 1,118.87 beats / second
 
 Per-Layer Overhead Summary (Clock Freq = 400 MHz)
-  **Layer Name**            | **NPU Clocks**| **Time (ms)**
-  stem_conv                 | 37789.0      | 0.0945 ms
-  block1_sepconv            | 46879.1      | 0.1172 ms
-  block2_sepconv            | 301932.9     | 0.7548 ms  
-  block3_sepconv            | 67361.8      | 0.1684 ms
-  dense                     | 4392.2       | 0.0110 ms
-  dense_1                   | 2695.0       | 0.0067 ms
+
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; text-align: left;">
+    <thead>
+        <tr>
+            <th>Layer Name</th>
+            <th>NPU Clocks</th>
+            <th>Time (ms)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>stem_conv</td>
+            <td>37789.0</td>
+            <td>0.0945</td>
+        </tr>
+        <tr>
+            <td>block1_sepconv</td>
+            <td>46879.1</td>
+            <td>0.1172</td>
+        </tr>
+        <tr>
+            <td>block2_sepconv</td>
+            <td>301932.9</td>
+            <td>0.7548</td>
+        </tr>
+        <tr>
+            <td>block3_sepconv</td>
+            <td>67361.8</td>
+            <td>0.1684</td>
+        </tr>
+        <tr>
+            <td>dense</td>
+            <td>4392.2</td>
+            <td>0.0110</td>
+        </tr>
+        <tr>
+            <td>dense_1</td>
+            <td>2695.0</td>
+            <td>0.0067</td>
+        </tr>
+    </tbody>
+</table>
+
+<p><strong>Clock Frequency:</strong> 400 MHz</p>
 
 
 **Generated Output Artifacts**
