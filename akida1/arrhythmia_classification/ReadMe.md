@@ -74,14 +74,61 @@ Below are the verified execution results obtained from running the compiled 3-cl
 3. Classification Performance (Akida SNN)
 Overall Evaluation Accuracy: 95.97%
 --- Classification Report (Akida SNN) ---
-              precision    recall  f1-score   support
-
-           N       0.98      0.98      0.98     44224
-           S       0.64      0.69      0.66      1837
-           V       0.84      0.88      0.86      3219
-    accuracy                           0.96     49280
-   macro avg       0.82       0.85     0.83     49280
-weighted avg       0.96      0.96      0.96     49280
+<table style="border-collapse: collapse; border: none;">
+    <thead>
+        <tr>
+            <th style="padding: 5px 15px; text-align: left;">Class</th>
+            <th style="padding: 5px 15px; text-align: right;">Precision</th>
+            <th style="padding: 5px 15px; text-align: right;">Recall</th>
+            <th style="padding: 5px 15px; text-align: right;">F1-Score</th>
+            <th style="padding: 5px 15px; text-align: right;">Support</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td style="padding: 5px 15px;">N</td>
+            <td style="text-align: right;">0.98</td>
+            <td style="text-align: right;">0.98</td>
+            <td style="text-align: right;">0.98</td>
+            <td style="text-align: right;">44224</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px;">S</td>
+            <td style="text-align: right;">0.64</td>
+            <td style="text-align: right;">0.69</td>
+            <td style="text-align: right;">0.66</td>
+            <td style="text-align: right;">1837</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px;">V</td>
+            <td style="text-align: right;">0.84</td>
+            <td style="text-align: right;">0.88</td>
+            <td style="text-align: right;">0.86</td>
+            <td style="text-align: right;">3219</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px;"><strong>Accuracy</strong></td>
+            <td></td>
+            <td></td>
+            <td style="text-align: right;"><strong>0.96</strong></td>
+            <td style="text-align: right;">49280</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px;"><strong>Macro Avg</strong></td>
+            <td style="text-align: right;">0.82</td>
+            <td style="text-align: right;">0.85</td>
+            <td style="text-align: right;">0.83</td>
+            <td style="text-align: right;">49280</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px;"><strong>Weighted Avg</strong></td>
+            <td style="text-align: right;">0.96</td>
+            <td style="text-align: right;">0.96</td>
+            <td style="text-align: right;">0.96</td>
+            <td style="text-align: right;">49280</td>
+        </tr>
+    </tbody>
+</table>
 
 4. Spiking Network Activation Sparsity
 The L1L2 activity regularizers successfully produced high activation sparsity across the network nodes, dramatically minimizing the system power envelope:
