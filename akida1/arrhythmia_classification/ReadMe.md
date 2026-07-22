@@ -18,10 +18,14 @@ The **MIT-BIH Arrhythmia Database** (v1.0.0) is a gold-standard clinical corpus 
 
 1. **Replicate the Conda Environment:**
    Create and initialize the virtual workspace using the project’s specific dependency configuration:
+
    conda env create -f environment.yml
+
    conda activate akida219
+
 2. **Install Local Utilities:**
   Install the repository's native tools in editable mode at the top level of the repository:
+
   pip install -v -e .
 
 ## Script Architecture & Explanations
@@ -31,48 +35,58 @@ The **MIT-BIH Arrhythmia Database** (v1.0.0) is a gold-standard clinical corpus 
 * **eval.py:** Direct deployment-level hardware inference execution engine. Maps .fbz network files to hardware, runs inference, measures throughput/NPU clocks, and profiles per-layer time distributions.  
 * **benchmark.py:** Independent edge-profiling and visualization script. Analyzes overall internal activation sparsity distributions across testing frames and generates layer mapping distributions or latency performance bar charts.  
 
-**Step 1: Download the Source Dataset**
+### Step 1: Download the Source Dataset
+
 wget -r -np -nH --cut-dirs=3 [https://physionet.org/files/mitdb/1.0.0/](https://physionet.org/files/mitdb/1.0.0/)
 
 (Alternatively, download the .zip archive from https://physionet.org/static/published-projects/mitdb/mit-bih-arrhythmia-database-1.0.0.zip and extract it to a directory named ./mitdb).
 
-**Step 2: Run the Training Pipeline**
+### Step 2: Run the Training Pipeline
+
 python train.py --raw_data_dir ./mitdb --data_dir ./processed_data --run_dir --float_epochs 80 --qat_epochs 50 --batch_size 64
 
 Key artifacts like best_fp32_model.h5, best_qat_model.h5, and training logs will be written to a timestamped folder inside akida_ecg_scalogram/.
 
 Processed data: Exports float-normalized 3D/4D numpy files to disk arrays.
 
-**Step 3: Run Hardware Inference & Profiling**
+### Step 3: Run Hardware Inference & Profiling
+
 python eval.py --dataset_path ./mitdb --model .akida_ecg_scalogram/<timestamped folder>/best_qat_model.h5 --batch_size 64 
 
 Processed data: Standardizes the inputs into scaled uint8 bounds [0, 255] for immediate SNN injection.
 
-**Step 4: Standalone Network Benchmarking**
+### Step 4: Standalone Network Benchmarking
+
 python benchmark.py --dataset_path ./mitdb --batch_size 64 --model .akida_ecg_scalogram/<timestamped folder> --sparsity --benchmark --profile_layers --plot
 
 This runs inference, calculates system latencies, and maps performance. It generates visual diagnostics (mapping_chart_3class.png and per_layer_latency_3class.png) in your runtime path.
 
-**AKD1500 Hardware Benchmarking Results**
+## AKD1500 Hardware Benchmarking Results
+
 Below are the verified execution results obtained from running the compiled 3-class model pipeline directly on a physical PCIe Akida AKD1500 NPU (16MB) hardware accelerator.
 
-1. Preprocessing Framework Performance
+### 1. Preprocessing Framework Performance
+
 * Leveraging the parallelized joblib backend on the 49,280 test samples of DS2 yields the following computational footprints:
 * Total Preprocessing Wall Clock Time: 15.7635 seconds
 * Algorithmic Pipeline Throughput: 3,126.20 samples / second
 
-  Core Latency Breakdown per Heartbeat:
+  **Core Latency Breakdown per Heartbeat:**
+
   * Beat Extraction Window: 0.0510 ms
   * CWT Scalogram Transformation: 2.0686 ms (Main algorithmic bottleneck)
   * RR-Interval Feature Tracking: 0.0173 ms
 
-2. Hardware Mapping Summary
+### 2. Hardware Mapping Summary
+
 * Total On-Chip Memory Utilized: 23,448 Bytes
 * Physical Hardware Utilization: 6 Layers mapped onto 6 Neural Processors (NPs) via 1 Sequence Pass.
 * External Memory Overhead (DMAs): 0 Bytes (100% On-Chip Execution).
 
-3. Classification Performance (Akida SNN)
+### 3. Classification Performance (Akida SNN)
+
 Overall Evaluation Accuracy: 95.97%
+
 --- Classification Report (Akida SNN) ---
 <table style="border-collapse: collapse; border: none;">
     <thead>
@@ -130,21 +144,24 @@ Overall Evaluation Accuracy: 95.97%
     </tbody>
 </table>
 
-4. Spiking Network Activation Sparsity
-The L1L2 activity regularizers successfully produced high activation sparsity across the network nodes, dramatically minimizing the system power envelope:
+### 4. Spiking Network Activation Sparsity
 
-* stem_conv: 93.99% Sparsity (% Zeros)
-* block1_sepconv: 72.66% Sparsity
-* block2_sepconv: 94.77% Sparsity
-* block3_sepconv: 77.80% Sparsity
-* dense: 78.81% Sparsity
-* dense_1: 0.00% Sparsity
+The L1/L2 activity regularizers achieved substantial activation sparsity across most layers, with peak sparsity reaching **94.77%** in `block2_sepconv` and **93.99%** in `stem_conv`. This high percentage of zero activations is expected to significantly reduce computational activity and power consumption.
 
-5. NPU Latency & Per-Layer Timing Breakdown
-* Average System-level Latency: 1.1758 ms / beat
-* Average NPU Clock Latency: 1.1535 ms / beat
-* Average NPU Clock Cycles: 461,405.2 cycles / beat
-* Total Pipeline Throughput: 1,118.87 beats / second
+| Layer | Sparsity (%) |
+|---------|------------:|
+| stem_conv | 93.99 |
+| block1_sepconv | 72.66 |
+| block2_sepconv | 94.77 |
+| block3_sepconv | 77.80 |
+| dense | 78.81 |
+| dense_1 | 0.00 |
+
+### 5. NPU Latency & Per-Layer Timing Breakdown
+* **Average System-level Latency:** 1.1758 ms / beat
+* **Average NPU Clock Latency:** 1.1535 ms / beat
+* **Average NPU Clock Cycles:** 461,405.2 cycles / beat
+* **Total Pipeline Throughput:** 1,118.87 beats / second
 
 Per-Layer Overhead Summary (Clock Freq = 400 MHz)
 
