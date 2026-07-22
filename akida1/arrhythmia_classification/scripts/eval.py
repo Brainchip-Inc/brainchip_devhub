@@ -71,9 +71,9 @@ TARGET_NAMES = ["N", "S", "V"]
 # Default paths
 # ---------------------------------------------------------------------------
 DEFAULT_DATASET  = "./data/mitdb"
-DEFAULT_RUN_DIR  = "./runs/acc96_3class_run_akida_20260611_154623"
-DEFAULT_QAT      = os.path.join(DEFAULT_RUN_DIR, "best_qat_model.h5")
-DEFAULT_FBZ      = os.path.join(DEFAULT_RUN_DIR, "best_qat_model_akida1500.fbz")
+DEFAULT_RUN_DIR  = "./model/3class_arrhythmia_classification"
+DEFAULT_QAT      = os.path.join(DEFAULT_RUN_DIR, "arrhythmia_classification_qat_model.h5")
+DEFAULT_FBZ      = os.path.join(DEFAULT_RUN_DIR, "arrhythmia_classification.fbz")
 DEFAULT_SPLITS   = "./data_splits_3class"
 
 # ===========================================================================
@@ -279,7 +279,7 @@ def get_akida_model(model_arg):
     from quantizeml.model_io import load_model
 
     dir_name = os.path.dirname(target_path)
-    float_path = os.path.join(dir_name, "best_fp32_model.h5")
+    float_path = os.path.join(dir_name, "arrhythmia_classification_fp32_model.h5")
     if not os.path.exists(float_path):
         raise FileNotFoundError(f"Could not find companion float model structure: {float_path}")
 
@@ -305,7 +305,7 @@ def get_akida_model(model_arg):
     with set_akida_version(AkidaVersion.v1):
         ak_model = convert(q_model, input_scaling=(scale, shift))
 
-    output_fbz = os.path.join(dir_name, "ecg_akida1500_3class.fbz")
+    output_fbz = os.path.join(dir_name, "arrhythmia_classification.fbz")
     ak_model.save(output_fbz)
     print(f"  ✓ Compiled SNN saved to: {output_fbz}")
     return ak_model

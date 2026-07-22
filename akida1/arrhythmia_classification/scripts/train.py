@@ -69,7 +69,7 @@ def main():
     if args.run_dir:
         """Creates a unique path for saving training outputs and configurations."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.run_dir = f"akida_ecg_scalogram/3class_run_akida_{timestamp}"
+        args.run_dir = f"akida_ecg_scalogram/3class_arrhythmia_classification_{timestamp}"
         os.makedirs(args.run_dir, exist_ok=True)
         print(f"Created active Run Directory: {args.run_dir}")
         
@@ -84,7 +84,7 @@ def main():
         metrics=["accuracy"]
     )
     
-    fp32_path = os.path.join(args.run_dir, "best_fp32_model.h5")
+    fp32_path = os.path.join(args.run_dir, "arrhythmia_classification_fp32_model.h5")
     fp32_callbacks = [
     tf.keras.callbacks.ModelCheckpoint(filepath=fp32_path,monitor="val_loss",save_best_only=True,verbose=1),
     tf.keras.callbacks.ReduceLROnPlateau(monitor="val_loss",factor=0.3,patience=3,verbose=2),
@@ -98,14 +98,14 @@ def main():
     )
 
     # Save training logs and baseline files
-    with open(os.path.join(args.run_dir, "training_log.json"), "w") as f:
+    with open(os.path.join(args.run_dir, "arrhythmia_classification_fp32_training_log.json"), "w") as f:
         json.dump({k: [float(x) for x in v] for k, v in history.history.items()}, f, indent=4)
-    model.save(os.path.join(args.run_dir, "fp32_last_model.h5"))
+    model.save(os.path.join(args.run_dir, "arrhythmia_classification_fp32_last_model.h5"))
    
     #evaluate the FP32 model
     print("\n--- Phase 1: Evaluating FP32 Baseline Model ---")
     # Evaluate FP32 Baseline
-    fp32_path = os.path.join(args.run_dir, "best_fp32_model.h5")
+    fp32_path = os.path.join(args.run_dir, "arrhythmia_classification_fp32_model.h5")
     best_fp32 = tf.keras.models.load_model(fp32_path)
     evaluate_and_report(best_fp32, X_test, y_test, args.run_dir, filename_suffix="")
 
@@ -119,7 +119,7 @@ def main():
         metrics=["accuracy"]
     )
     
-    qat_path = os.path.join(args.run_dir, "best_qat_model.h5")
+    qat_path = os.path.join(args.run_dir, "arrhythmia_classification_qat_model.h5")
     qat_callbacks = [
     tf.keras.callbacks.ModelCheckpoint(filepath=qat_path,monitor="val_loss",save_best_only=True,verbose=1),
     tf.keras.callbacks.ReduceLROnPlateau(monitor="val_loss",factor=0.3,patience=3,verbose=2),
@@ -133,13 +133,13 @@ def main():
     )
     
     # Save QAT logs and weights
-    with open(os.path.join(args.run_dir, "q_training_log.json"), "w") as f:
+    with open(os.path.join(args.run_dir, "arrhythmia_classification_qat_training_log.json"), "w") as f:
         json.dump({k: [float(x) for x in v] for k, v in q_history.history.items()}, f, indent=4)
-    q_model.save(os.path.join(args.run_dir, "qat_last_model.h5"))
+    q_model.save(os.path.join(args.run_dir, "arrhythmia_classification_qat_last_model.h5"))
    
     #evaluate the QAT model
     print("\n--- Phase 2: Evaluating QAT Model ---")
-    qat_path = os.path.join(args.run_dir, "best_qat_model.h5")
+    qat_path = os.path.join(args.run_dir, "arrhythmia_classification_qat_model.h5")
     best_qat = load_quantized_model(qat_path)
     evaluate_and_report(best_qat, X_test, y_test, args.run_dir, filename_suffix="_quant")
 
