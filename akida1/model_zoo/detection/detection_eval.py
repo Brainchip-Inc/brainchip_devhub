@@ -17,10 +17,9 @@ from tf_keras import Model
 from tf_keras.layers import Reshape
 from cnn2snn import load_quantized_model
 
-from akida_models.detection.voc.data import get_voc_dataset
 from akida_models.detection.map_evaluation import MapEvaluation
 
-from detection_data import LABELS, get_anchors
+from detection_data import LABELS, get_anchors, get_voc_dataset
 from brainchip_utils.hardware_utils import get_akida_device
 
 if __name__ == '__main__':
