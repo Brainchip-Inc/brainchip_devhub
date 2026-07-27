@@ -27,29 +27,24 @@ from akida_models.detection.model_yolo import yolo_base
 from akida_models.utils import fetch_file
 from cnn2snn import set_akida_version, AkidaVersion
 
-# ImageNet-pretrained AkidaNet backbone (alpha=0.5), used as the starting
-# point for the detection backbone. Same URL/hash used by
-# `akida_models.imagenet.akidanet_imagenet_pretrained(alpha=0.5, quantized=False)`
-# for Akida 1.
-BACKBONE_URL = 'https://data.brainchip.com/models/AkidaV1/akidanet/akidanet_imagenet_224_alpha_50.h5'
-BACKBONE_HASH = '61f2883a6b798f922a5c0411296219a85f25581d7571f65546557b46066f058f'
 
-NUM_CLASSES = 2  # 'car', 'person' - see LABELS in detection_data.py
-NUM_ANCHORS = 5
-ALPHA = 0.5
-
-
-def build_detection_model(seed=42):
+def build_detection_model(anchors=5, classes=20, seed=42):
     set_random_seed(seed)
+
+    # Use alpha=0.5 width multiplier for the akidanet backbone
+    alpha=0.5
+    BACKBONE_URL = 'https://data.brainchip.com/models/AkidaV1/akidanet/akidanet_imagenet_224_alpha_50.h5'
+    BACKBONE_HASH = '61f2883a6b798f922a5c0411296219a85f25581d7571f65546557b46066f058f'
+    fname = 'akidanet_imagenet_224_alpha_50.h5'
 
     with set_akida_version(AkidaVersion.v1):
         model = yolo_base(input_shape=(224, 224, 3),
-                          classes=NUM_CLASSES,
-                          nb_box=NUM_ANCHORS,
-                          alpha=ALPHA)
+                          classes=classes,
+                          nb_box=anchors,
+                          alpha=alpha)
 
         backbone_weights = fetch_file(BACKBONE_URL,
-                                      fname='akidanet_imagenet_224_alpha_50.h5',
+                                      fname=fname,
                                       file_hash=BACKBONE_HASH,
                                       cache_subdir='models')
         model.load_weights(backbone_weights, by_name=True)
@@ -65,6 +60,11 @@ if __name__ == "__main__":
                         type=str,
                         default='./models/yolo_akidanet_detection.h5',
                         help="Save model with the specified path + name")
+    parser.add_argument("-c",
+                        "--classes", type=int, default=20,
+                            help="Number of classes (default 20)"),
+    parser.add_argument("--anchors", type=int, default=5,
+                            help="Number of anchors (default 5)"),
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')
     args = parser.parse_args()
