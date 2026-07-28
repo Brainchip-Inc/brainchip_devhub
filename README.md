@@ -51,11 +51,7 @@ Akida 1 examples are available today; Akida 2 models/examples can be found [here
 
 Akida is BrainChip's neuromorphic processor — it processes data event by event instead of running dense computation on every input, so it only spends power and cycles on activity that's actually there. In practice, that means real models running at a fraction of the latency and power of conventional hardware.
 
-The two examples in this repo make that concrete on real AKD1500 silicon: [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) reaches 99.43% accuracy, and [Object Detection ()](akida1/model_zoo/vww) runs inference in as little as 3.3 ms at 0.5 mJ per inference.
-
-<p align="center">
-  <img src="akida1/model_zoo/vww/docs/ref_benchmark_results_full.png" alt="AKD1500 power measurements during inference" width="600"/>
-</p>
+The examples in this repo make that concrete on real AKD1500 silicon: [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) reaches 99.43% accuracy.
 
 Full benchmark breakdowns, mapping comparisons, and reproduction steps live in each example's own README.
 
