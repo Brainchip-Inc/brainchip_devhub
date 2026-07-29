@@ -12,9 +12,14 @@ import json
 import pathlib
 
 import akida
+import tensorflow as tf
 
 from tf_keras import Model
 from tf_keras.layers import Reshape
+# Must be called before any TF ops to make GPU ops (conv backward passes,
+# bilinear resize, etc.) deterministic. Has a small throughput cost.
+tf.config.experimental.enable_op_determinism()
+
 from cnn2snn import load_quantized_model
 
 from akida_models.detection.map_evaluation import MapEvaluation

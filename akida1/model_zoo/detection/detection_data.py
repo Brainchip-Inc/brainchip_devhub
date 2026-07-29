@@ -18,6 +18,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
+from tf_keras.utils import set_random_seed
+
 from akida_models.utils import fetch_file
 from akida_models.detection.data_augmentation import build_yolo_aug_pipeline
 from akida_models.detection.preprocess_data import preprocess_dataset
@@ -127,7 +129,7 @@ def get_data(data_path, input_shape, batch_size, seed=42):
         repeats indefinitely, so `num_train` is needed to size
         `steps_per_epoch`.
     """
-    tf.random.set_seed(seed)
+    set_random_seed(seed)
 
     anchors = get_anchors()
     aug_pipe = build_yolo_aug_pipeline()
@@ -147,7 +149,7 @@ def get_data(data_path, input_shape, batch_size, seed=42):
     return train_dataset, val_dataset, num_train
 
 
-def get_samples(data_path, input_shape, num_samples=1024):
+def get_samples(data_path, input_shape, num_samples=1024, seed=42):
     """ Loads image samples from the validation split as a numpy array.
 
     No augmentation is applied; images are only resized to input_shape.
@@ -161,6 +163,8 @@ def get_samples(data_path, input_shape, num_samples=1024):
     Returns:
         np.ndarray: array of shape (num_samples, height, width, channels), dtype uint8
     """
+    set_random_seed(seed)
+
     anchors = get_anchors()
     aug_pipe = build_yolo_aug_pipeline()
 
