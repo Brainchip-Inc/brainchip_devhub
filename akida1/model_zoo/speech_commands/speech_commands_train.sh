@@ -23,8 +23,7 @@ python speech_commands_train.py \
 
 python speech_commands_eval.py \
     -d "$DATADIR" \
-    -l "$OUT_DIR"/speech_commands.h5 \
-    --save-metrics
+    -l "$OUT_DIR"/speech_commands.h5
 
 # quantization and tuning
 cnn2snn quantize -m "$OUT_DIR"/speech_commands.h5 -i 8 -w 4 -a 4
@@ -37,22 +36,19 @@ python speech_commands_train.py \
 
 python speech_commands_eval.py \
     -d "$DATADIR" \
-    -l "$OUT_DIR"/speech_commands_qat.h5 \
-    --save-metrics
+    -l "$OUT_DIR"/speech_commands_qat.h5
 
 cnn2snn convert -m "$OUT_DIR"/speech_commands_qat.h5
 
 python speech_commands_eval.py \
     -d "$DATADIR" \
-    -l "$OUT_DIR"/speech_commands_qat.fbz \
-    --save-metrics
+    -l "$OUT_DIR"/speech_commands_qat.fbz
 
 if [[ "${BENCHMARK}" == "ON" ]] ; then
     echo "Running benchmarking script"
     python speech_commands_benchmark.py \
         -l "$OUT_DIR"/speech_commands_qat.fbz \
-        -d "$DATADIR" \
-        --save-metrics
+        -d "$DATADIR"
 else
     echo "Skipping benchmarking script"
 fi
