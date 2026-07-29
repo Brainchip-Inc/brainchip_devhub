@@ -1,0 +1,256 @@
+<img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+  
+<img src="docs/beemotion_logo.svg" alt="BeEmotion.ai" width="200"/>
+
+# Speech Commands Keyword Spotting (KWS)
+
+This example was developed by our partners at [BeEmotion.ai](https://www.beemotion.ai/) in collaboration with our team.
+
+## Model Card
+
+**Accuracy performance**
+
+<table>
+  <thead>
+    <tr>
+      <th>Float acc.</th>
+      <th>QAT acc.</th>
+      <th>Akida acc.</th>
+      <th>Sparsity</th>
+      <th>Params</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">95.45%</td>
+      <td align="center">92.70%</td>
+      <td align="center">92.75%</td>
+      <td align="center">73.29%</td>
+      <td align="center">22,668</td>
+    </tr>
+  </tbody>
+</table>
+
+The accuracy metrics reported above come from running evaluation on the validation set, as can be seen in `speech_commands_eval.py`.
+
+**AKD1500 hardware benchmark**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency (ms)</th>
+      <th>Total Power (mW)</th>
+      <th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th>
+      <th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">6</td>
+      <td align="center">1</td>
+      <td align="center">127906</td>
+      <td align="center">0.320</td>
+      <td align="center">139.3</td>
+      <td align="center">0.048</td>
+      <td align="center">20.6</td>
+      <td align="center">0.007</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">31</td>
+      <td align="center">1</td>
+      <td align="center">44034</td>
+      <td align="center">0.110</td>
+      <td align="center">189.3</td>
+      <td align="center">0.025</td>
+      <td align="center">69.4</td>
+      <td align="center">0.009</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+
+The plot above shows power measurements captured during inference on hardware.
+In **Minimal** mapping the model is scheduled onto the fewest NPs required,
+keeping power consumption low. Switching to **AllNps** spreads the model across
+more NPs, which results in a slight increase in power during inference but a
+proportional reduction in latency.
+
+The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture for
+keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)
+benchmark suite. The task is to classify 1-second audio clips into 10 keyword classes plus
+silence and unknown (12 classes total). Audio input is represented as a **49×10 array of
+Mel-Frequency Cepstral Coefficients (MFCCs)** — a compact, perceptually-motivated spectral
+feature representation that is standard in TinyML audio workloads.
+
+<img src="docs/ref_benchmark_results_layers.png" alt="Per-layer latency breakdown" width="700">
+
+## Requirements
+
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README.
+
+## Dataset
+
+The dataset is the Google Speech Commands set, trimmed to the 10-keyword subset used in
+MLPerf Tiny KWS (yes, no, up, down, left, right, on, off, stop, go) plus silence and unknown.
+
+The dataset is loaded via TensorFlow Datasets ([`speech_commands`](https://www.tensorflow.org/datasets/catalog/speech_commands)). It is split as:
+- **Train**: 85 % of the full dataset (85,511 samples)
+- **Validation**: next 10 % (10,102 samples)
+- **Test** (held out): final 5 % (4,890 samples)
+
+| class       | train count | train %   | val count | val %   | test count | test %   |
+| -------     | ----------- | --------- | --------- | ------- | ---------- | -------- |
+| Down        | 3134        | 3.67      | 377       | 3.73    | 406        | 8.3      |
+| Go          | 3106        | 3.63      | 372       | 3.68    | 402        | 8.22     |
+| Left        | 3037        | 3.55      | 352       | 3.48    | 412        | 8.43     |
+| No          | 3130        | 3.66      | 406       | 4.02    | 405        | 8.28     |
+| Off         | 2970        | 3.47      | 373       | 3.69    | 402        | 8.22     |
+| On          | 3086        | 3.61      | 363       | 3.59    | 396        | 8.1      |
+| Right       | 3019        | 3.53      | 363       | 3.59    | 396        | 8.1      |
+| Stop        | 3111        | 3.64      | 350       | 3.46    | 411        | 8.4      |
+| Up          | 2948        | 3.45      | 350       | 3.46    | 425        | 8.69     |
+| Yes         | 3228        | 3.77      | 397       | 3.93    | 419        | 8.57     |
+| Silence     | 668         | 0.78      | 121       | 1.2     | 408        | 8.34     |
+| Unknown     | 54074       | 63.24     | 6278      | 62.15   | 408        | 8.34     |
+| **Total**   | 85511       | -         | 10102     | -       | 4890       | -        |
+
+**Google Speech Commands dataset - class distribution**
+
+This table shows that the train and validation sets are highly dominated by the `Unknown` class. This distribution is by design, to reflect real operating conditions of a KWS application.
+However, the classes in the test set are equally distrubuted so that the standard accuracy metric reflects the performance of the evaluated model transparently.
+From the original dataset paper, [`Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition`](https://arxiv.org/abs/1804.03209):
+
+> Un-like image classification tasks like ImageNet, it’s not obvious how to weight all of the different categories.
+For example, I want a model to indicate when no speech is present, and separately to indicate when it thinks a word has been spoken that’s not one it recognizes.
+These “open world” categories need to be weighted according to their expected occurrence in a real application to produce a realistic metric that
+reflects the perceived quality of the results in a product.
+
+`compute_mfcc_range` defined in `speech_commands_data_loader.py` scans the training split to determine the global min/max of the MFCC
+features. This range is used to rescale inputs into the [0, 255] uint8 range that the Akida hardware expects, then normalization from that range is embedded in the model itself.
+
+<img src="docs/dataset_mosaic.png" alt="mosaic of one MFCC feature-map per class in the Speech Commands dataset" width="700">
+
+*One randomly-selected MFCC feature-map for each class in the Speech Commands dataset.*
+
+Original dataset licensed under  the Creative Commons BY 4.0 license (public domain):
+> P, WARDEN (2018), *"Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition"*,
+> Google Brain, V1, doi: 10.48550/arXiv.1804.03209
+
+## Dataset setup
+
+The speech_commands dataset is downloaded automatically via TensorFlow Datasets
+on the first training or evaluation run. The dataset will be stored at the
+path you provide with `--data` (default: `./data/sc10`).
+
+To pre-download the dataset without running training:
+
+```bash
+python -c "import tensorflow_datasets as tfds; tfds.load('speech_commands', data_dir='./data/sc10')"
+```
+
+If you want to store the dataset on a dedicated data drive, pass the path
+explicitly to each script (see `--data` / `-d` in the individual scripts).
+Alternatively, create a symbolic link from the default path (one-off step):
+
+```bash
+mkdir /path/to/your/data/sc10
+ln -s /path/to/your/data/sc10 ./data/sc10
+```
+
+This way the scripts work out of the box without any extra arguments.
+
+## Pipeline
+
+Training follows a three-stage quantization pipeline, followed
+by conversion to Akida format:
+
+| Stage | Description |
+|---|---|
+| Full-precision | Float32 training from scratch, 30 epochs |
+| Post-training quantization | `cnn2snn quantize` reduces to 4-bit weights and activations (8-bit input) |
+| Quantization-aware tuning | 25 epochs fine-tuning of the quantized model to recover accuracy and push sparsity further |
+| Conversion to Akida | Automated conversion to Akida model format |
+
+## Reference Models
+
+Pretrained models are made available here, within the `pretrained_models/`
+folder. However, those are handled using the `git-lfs` package (git large
+file storage). For those to be downloaded with the repo, you will need to
+set up `git-lfs`. For further instructions, see the
+[Trained models](../../../README.md#trained-models) section of the top-level README.
+
+The pretrained models were obtained using `configs/training_cfg.yml`. The full training (running `speech_commands_train.sh`) took around ~20min on BrainChip's [Akida Cloud Platform](https://developer.brainchip.com/ach/) using a Intel(R) Core(TM) Ultra 7 265K CPU and no GPU.
+
+Reproducibility is ensured by fixing the seed at every step of the training pipeline and enabling operator determinism via `tf.config.experimental.enable_op_determinism`, which guarantees the same results when running the same experiment on the same hardware.  
+
+## Usage
+
+### Notebook
+
+Two notebooks are provided that walk through a) preparation of a trained Akida-compatible model and
+b) evaluation and benchmarking of that model on Akida.
+
+[speech_commands_notebook_training.ipynb](speech_commands_notebook_training.ipynb) walks through the 
+complete training pipeline end-to-end. It is written to expose and explain the Akida-specific
+aspects of the workflow: how the model is constructed for Akida compatibility,
+what the quantization constraints mean in practice, and what the conversion
+step does. Start here if you want to understand *why* the pipeline is structured
+the way it is.
+
+**Remark:** when running the training notebook on the same machine with the same training configuration file, it has been verified that the float model matches the corresponding model under the `pretrained_models` folder.
+However, this does not apply for the QAT model. The reason for this is that the order of operations changes between `speech_commands_train.sh` and the training notebook.
+One would eventually be able to get the exact same resulting model by restarting the notebook before the QAT phase, loading the dataset, skipping float training and running directly the QAT phase (i.e. what `speech_commands_train.sh` does for the QAT phase).
+Running the notebook twice end-to-end with the same seed on the same hardware does yield the exact same models.
+
+[speech_commands_notebook_benchmark.ipynb](speech_commands_notebook_benchmark.ipynb) walks through 
+evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking
+of model latency and power.
+
+### Script
+
+For straightforward reproduction of the training and evaluation results, run
+the full pipeline in one shot:
+
+```bash
+bash speech_commands_train.sh [DATADIR] [TRAINING CONFIG] [MODELS OUTPUT FOLDER] [BENCHMARKING (ON | OFF)]
+```
+
+The optional `DATADIR` argument overrides the default dataset location
+(`./data/sc10`).
+
+## Contributing and Maintenance
+
+This README is autogenerated from `docs/README.md.template`
+so that the accuracy and hardware benchmark values are written directly
+by the code (via the `metrics.json` file, also in the docs folder).
+
+When the associated model or training pipeline is modified to improve
+performance, you should rerun the evaluations of the float, quantized
+and Akida model versions, plus the hardware benchmark, including the
+`--save-metrics` argument, and then regenerate the README from the template
+using `update_readme.py`:
+
+```bash
+python speech_commands_eval.py -l models/speech_commands.h5 --save-metrics
+python speech_commands_eval.py -l models/speech_commands_qat.h5 --save-metrics
+python speech_commands_eval.py -l models/speech_commands_qat.fbz --save-metrics
+python speech_commands_benchmark.py -l models/speech_commands_qat.fbz --save-metrics
+python update_readme.py
+```
+Then commit the changed files (template, metrics and updated README).
+
+Likewise, if you want to edit the contents of this README, you should
+not edit it directly, but instead edit `docs/README.md.template` and
+then regenerate the README using
+``` bash
+python update_readme.py
+```

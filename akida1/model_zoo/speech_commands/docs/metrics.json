@@ -1,0 +1,23 @@
+{
+    "float_acc": "95.45%",
+    "qat_acc": "92.70%",
+    "akida_acc": "92.75%",
+    "sparsity": "73.29%",
+    "params": "22,668",
+    "minimal_cycles": "127906",
+    "minimal_latency_ms": "0.320",
+    "minimal_total_P": "139.3",
+    "minimal_total_E": "0.048",
+    "minimal_dyn_P": "20.6",
+    "minimal_dyn_E": "0.007",
+    "allnps_cycles": "44034",
+    "allnps_latency_ms": "0.110",
+    "allnps_total_P": "189.3",
+    "allnps_total_E": "0.025",
+    "allnps_dyn_P": "69.4",
+    "allnps_dyn_E": "0.009",
+    "minimal_nps": "6",
+    "minimal_passes": "1",
+    "allnps_nps": "31",
+    "allnps_passes": "1"
+}
