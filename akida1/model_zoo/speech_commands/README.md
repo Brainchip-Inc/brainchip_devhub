@@ -54,22 +54,22 @@ The accuracy metrics reported above come from running evaluation on the validati
       <td>Minimal</td>
       <td align="center">6</td>
       <td align="center">1</td>
-      <td align="center">127906</td>
-      <td align="center">0.320</td>
-      <td align="center">139.3</td>
-      <td align="center">0.048</td>
-      <td align="center">20.6</td>
+      <td align="center">128814</td>
+      <td align="center">0.322</td>
+      <td align="center">131.9</td>
+      <td align="center">0.046</td>
+      <td align="center">20.0</td>
       <td align="center">0.007</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">31</td>
       <td align="center">1</td>
-      <td align="center">44034</td>
-      <td align="center">0.110</td>
-      <td align="center">189.3</td>
+      <td align="center">44210</td>
+      <td align="center">0.111</td>
+      <td align="center">177.7</td>
       <td align="center">0.025</td>
-      <td align="center">69.4</td>
+      <td align="center">64.3</td>
       <td align="center">0.009</td>
     </tr>
   </tbody>
