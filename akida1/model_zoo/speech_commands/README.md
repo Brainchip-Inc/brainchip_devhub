@@ -1,6 +1,10 @@
 <img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+  
+<img src="docs/beemotion_logo.svg" alt="BeEmotion.ai" width="200"/>
 
 # Speech Commands Keyword Spotting (KWS)
+
+This example was developed by our partners at [BeEmotion.ai](https://www.beemotion.ai/) in collaboration with our team.
 
 ## Model Card
 
