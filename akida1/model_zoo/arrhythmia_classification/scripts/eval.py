@@ -198,8 +198,8 @@ def save_splits(splits_dir, X_test, y_test):
 
 def load_splits(splits_dir):
     print(f"\nLoading pre-processed splits from: {splits_dir}")
-    X_test  = np.load(os.path.join(splits_dir, "ds2_X_test.npy"))
-    y_test  = np.load(os.path.join(splits_dir, "ds2_y_test.npy"))
+    X_test  = np.load(os.path.join(splits_dir, "X_test.npy"))
+    y_test  = np.load(os.path.join(splits_dir, "y_test.npy"))
 
     print(f"  ds2_X_test  : {X_test.shape}")
     print(f"  ds2_y_test  : {y_test.shape}")
