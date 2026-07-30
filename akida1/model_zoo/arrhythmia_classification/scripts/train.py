@@ -11,6 +11,8 @@ from model import build_akida_model, prepare_qat_model, apply_activity_regulariz
 from data import ECGDatasetBuilder,ECGDatasetLoader
 from sklearn.metrics import classification_report, confusion_matrix
 from cnn2snn import quantize, convert, load_quantized_model
+import random
+
 
 TRAIN_RECORDS = [
     '101', '106', '108', '109', '112', '114', '115', '116',
@@ -50,7 +52,15 @@ def main():
     args = parser.parse_args()
     input_shape = (36, 32, 1)
     num_classes = 3
-    L1L2_reg_value = 5e-7
+    L1L2_reg_value = 2e-5
+
+    SEED = 67004546
+    # Apply it everywhere
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.keras.utils.set_random_seed(SEED)
+    print(f"Training Seed = {SEED}")
+
 
     os.makedirs(args.data_dir, exist_ok=True)
     # 1. Initialize the dataset builder
