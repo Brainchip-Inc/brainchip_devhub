@@ -6,14 +6,14 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.5
 #   kernelspec:
 #     display_name: ak2191
 #     language: python
 #     name: python3
 # ---
 
-# %% [markdown]
+# %% [markdown] id="83fe7c98"
 # # PlantVillage Disease Classification
 #
 # <p align="right">
@@ -23,10 +23,11 @@
 # This notebook walks through the complete pipeline to train, quantize, convert, and
 # benchmark an AkidaNet model on the **PlantVillage** dataset for Akida 1 hardware.
 #
-# PlantVillage contains 54,303 images of healthy and diseased plant leaves across
+# PlantVillage contains 54,306 images of healthy and diseased plant leaves across
 # 38 categories (14 crop species × multiple disease types plus healthy variants).
 # The task is a 38-class image classification problem: given a 224×224 RGB image of
-# a leaf, identify the crop species and disease (or healthy state).
+# a leaf, identify the crop species and disease (or healthy state). The pipeline loads
+# 54,305 of these images (a few files are not recognised as valid images and are skipped).
 #
 # The pipeline follows the standard Akida workflow:
 # 1. Train a float model
@@ -35,7 +36,17 @@
 # 4. Conversion to Akida `.fbz` format
 # 5. Hardware evaluation and benchmarking
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="cBpfzYVbH0pa" outputId="7ec9c880-1035-4004-a30a-174a0bd34cfc"
+# Colab-only setup. Local users: ignore this cell — it does nothing for you.
+import sys, os
+
+if 'google.colab' in sys.modules:
+    if not os.path.exists('colab_setup.py'):
+        # !wget -q https://raw.githubusercontent.com/Brainchip-Inc/brainchip_devhub/main/akida1/model_zoo/plant_village/colab_setup.py
+    import colab_setup; colab_setup.setup()
+
+
+# %% id="2990a3e3"
 import os
 import numpy as np
 import tensorflow as tf
@@ -58,24 +69,24 @@ SEED = 42
 # bilinear resize, etc.) deterministic. Has a small throughput cost.
 tf.config.experimental.enable_op_determinism()
 
-# %% [markdown]
+# %% [markdown] id="0fc44136"
 # ## Dataset
 #
-# The **PlantVillage** dataset is loaded via TensorFlow Datasets (`plant_village`).
-# On the first run, TFDS will automatically download and prepare the dataset to
-# `DATA_PATH`. Subsequent runs read from the local cache.
+# The **PlantVillage** dataset is loaded from the authors' official GitHub repository
+# ([spMohanty/PlantVillage-Dataset](https://github.com/spMohanty/PlantVillage-Dataset)).
+# On the first run, the images are downloaded and extracted to `DATA_PATH`
+# automatically; subsequent runs read from the local copy.
 #
 # The dataset is split 80/10/10 (train/val/test). Images are resized from variable
 # original sizes to **224 × 224 RGB** and delivered as uint8 pixel values (0–255).
 # Training applies random horizontal flip, brightness jitter, and contrast jitter
 # for regularisation.
 #
-# To pre-download without training, run:
-# ```bash
-# python -c "import tensorflow_datasets as tfds; tfds.load('plant_village', data_dir='./data/plant_village')"
-# ```
+# The download and extraction are handled inside `get_data()` on first call, so
+# there is no separate pre-download step required.
+#
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="4f941071" outputId="ca62b756-74ea-4c23-ff29-375427dda394"
 from plant_village_data import get_data
 
 INPUT_SHAPE = (224, 224, 3)
@@ -84,7 +95,7 @@ BATCH_SIZE = 32
 train_ds, val_ds, test_ds = get_data(DATA_PATH, input_shape=INPUT_SHAPE, batch_size=BATCH_SIZE, seed=SEED)
 print('Datasets ready.')
 
-# %% [markdown]
+# %% [markdown] id="72e45ea6"
 # ## Model
 #
 # The model is based on **AkidaNet** (`akida_models.akidanet_imagenet`) with:
@@ -99,13 +110,13 @@ print('Datasets ready.')
 # that map efficiently to Akida Neural Processors (NPs), including depthwise
 # separable convolutions and ReLU activations.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="eee611de" outputId="58b54bfa-dd94-4fcb-d9b0-a12f1c001359"
 from plant_village_model import build_plant_village_model
 
 model = build_plant_village_model(seed=SEED)
 model.summary()
 
-# %% [markdown]
+# %% [markdown] id="4dcc13f8"
 # ## Float Training
 #
 # The model is trained in full float32 precision for 10 epochs using the Adam
@@ -116,9 +127,9 @@ model.summary()
 # and decaying to approximately `1e-5` by the final epoch.
 #
 # Set `RUN_FLOAT_TRAINING = True` above to train from scratch. Otherwise, the
-# cell below downloads a pre-trained float model directly from BrainChip servers.
+# cell below loads a pre-trained float model from the `pretrained_models/` folder.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/", "height": 384} id="e10c708f" outputId="5c3a884e-e0e9-4b05-e2fc-5fcbd7aa2961"
 from plant_village_train import train_plant_village
 
 if RUN_FLOAT_TRAINING:
@@ -136,11 +147,11 @@ else:
     model = load_quantized_model(float_model_path)
     model.compile(metrics=['accuracy'])
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="cb1849a2" outputId="a921a0d6-7cd1-4452-b7c1-9d9fa3b441d5"
 _, float_acc = model.evaluate(test_ds, verbose=1)
 print(f'Float accuracy: {float_acc:.4f}')
 
-# %% [markdown]
+# %% [markdown] id="75b10e92"
 # ## Quantization
 #
 # Post-training quantization (PTQ) via `cnn2snn.quantize` converts the model
@@ -152,7 +163,7 @@ print(f'Float accuracy: {float_acc:.4f}')
 # 4-bit quantization must be used to be compatible with Akida 1 hardware. Note though that
 # the first layer (both its inputs and weights) can be 8-bit.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="e1c1042a" outputId="ba73619b-155d-46ae-aef3-283637c2a066"
 import cnn2snn
 
 quantized_model = cnn2snn.quantize(
@@ -162,21 +173,21 @@ quantized_model = cnn2snn.quantize(
     activ_quantization=4)
 print('Model quantized to i8/w4/a4.')
 
-# %% [markdown]
+# %% [markdown] id="7c2bda60"
 # Quantizing a model after training like this is referred to as Post-Training
 # Quantization (PTQ). It can slightly reduce accuracy (especially at 4-bits as
-# here) because the model was trained with continuous weights but is now 
+# here) because the model was trained with continuous weights but is now
 # evaluated with discrete values.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="bf5fe299" outputId="71e10ad4-7cbd-4b52-a65b-f465d553ef69"
 quantized_model.compile(metrics=['accuracy'])
 _, ptq_acc = quantized_model.evaluate(test_ds, verbose=1)
 print(f'PTQ accuracy: {ptq_acc:.4f}')
 
-# %% [markdown]
+# %% [markdown] id="93943fd3"
 # ## Quantization-Aware Training (QAT)
 #
-# We can run Quantization Aware Training (QAT) to recover most of the drop in 
+# We can run Quantization Aware Training (QAT) to recover most of the drop in
 # accuracy. QAT fine-tunes the quantized model for a few epochs (here, 2) at a
 # reduced learning rate (`1e-4`). Note that, although it can sound intimidating,
 # QAT with BrainChip's quantization tools is no more complex than simply sending
@@ -184,9 +195,9 @@ print(f'PTQ accuracy: {ptq_acc:.4f}')
 # prepare the float model in the first place.
 #
 # Set `RUN_QAT_TRAINING = True` above to run QAT locally. Otherwise, the cell
-# below downloads a pre-trained QAT model from BrainChip servers.
+# below loads a pre-trained QAT model from the `pretrained_models/` folder.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="f79ad823" outputId="68c83923-9cbc-4ede-9765-7f17112d2cc2"
 if RUN_QAT_TRAINING:
     # We refetch the dataset, only to ensure reproducibility against the non-notebook pipeline.
     # This resets the shuffle seed on the training data
@@ -204,11 +215,11 @@ else:
     quantized_model = load_quantized_model(qat_model_path)
     quantized_model.compile(metrics=['accuracy'])
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="b36bc778" outputId="5845d9ab-cecc-448d-e541-0defdf5ca02e"
 _, qat_acc = quantized_model.evaluate(test_ds, verbose=1)
 print(f'QAT accuracy: {qat_acc:.4f}')
 
-# %% [markdown]
+# %% [markdown] id="74f0f887"
 # ## Conversion to Akida Format
 #
 # `cnn2snn.convert` compiles the quantized Keras model into an Akida `.fbz`
@@ -216,7 +227,7 @@ print(f'QAT accuracy: {qat_acc:.4f}')
 # The converter verifies hardware compatibility and maps each layer to its
 # corresponding Akida primitive.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="ec70dc83" outputId="7c792ae5-3443-433e-f0a0-342862adc6e7"
 akida_model = cnn2snn.convert(quantized_model)
 
 akida_model_path = os.path.join(MODELS_DIR, 'akidanet_plant_village_qat.fbz')
@@ -225,61 +236,31 @@ print(f'Akida model saved to {akida_model_path}')
 akida_model.summary()
 
 
-# %% [markdown]
+# %% [markdown] id="39ac59e5"
 # ## Evaluation of Akida Model
 #
-# We now run evaluation through the Akida model, to check that accuracy is 
-# comparable to that obtained from the quantized tf_keras model. If an Akida 1
-# hardware device is connected, it will be used for inference; if not, the
-# code will fall back to using the software backend: this delivers a
+# We now run evaluation through the Akida model, to check that accuracy is
+# comparable to that obtained from the quantized tf_keras model. Here, we deliberately
+# use the software backend (the default, since we do not check for and map to
+# a connected hardware device): this delivers a
 # bit-accurate simulation of the results that will be obtained when running
-# the model on hardware. Let's run that check before going any further
+# the model on hardware.
 #
-# ### Check for a connected Akida hardware device
-#
-# We can use the `akida.devices()` function to detect connected hardware devices.
-# That returns a list - if it's empty, there were no hardware devices. Otherwise, 
-# typically we'd only have a single Akida device connected on a given machine, 
-# and we can just select the first (and only) device returned.
+# In the accompanying [plant_village_notebook_benchmark.ipynb](plant_village_notebook_benchmark.ipynb)
+# the same evaluation is run using the hardware backend (if, of course, a hardware Akida
+# device is connected), allowing you to confirm that the results are identical.
 
-# %%
-import akida
-devices = akida.devices()
-if len(devices)>0:
-    # Hardware is available
-    device = devices[0]
-else:
-    # Hardware is not available
-    device = None
-
-# %% [markdown]
-# In the present case, we want to be a bit more careful and ensure that the
-# device is the right version for the model we want to test (here, Akida IP
-# version 1). We'll import a local function to do that - check out the details 
-# if interested
-
-# %%
-from brainchip_utils.hardware_utils import get_akida_device
-
-# Load the Akida model
-akida_model = akida.Model(akida_model_path)
-# Look for a matching hardware device
-device = get_akida_device(target_version = akida_model.ip_version)
-if device is not None:
-    akida_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
-
-
-# %% [markdown]
+# %% [markdown] id="434fb68e"
 # ### Run Evaluation on Akida
 #
 # The Akida runtime cannot consume `tf.data.Dataset` objects directly, rather
 # it expects a 4D numpy array (n, h, w, c) in uint8 format. So we
-# iterate over validation batches manually.
+# iterate over test batches manually.
 #
-# The model output tensor has shape `(B, 1, 1, C)` which is squeezed to 
+# The model output tensor has shape `(B, 1, 1, C)` which is squeezed to
 # `(B, C)` before taking the class argmax.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="30845549" outputId="b285a918-1993-492f-8648-500d4332f3a2"
 from tqdm import tqdm
 
 labels_all = []
@@ -288,7 +269,7 @@ for batch, label_batch in tqdm(test_ds, desc="Evaluating on Akida"):
     if not isinstance(batch, np.ndarray):
         batch = batch.numpy()
 
-    logits_batch = akida_model.predict(batch, batch_size=1)
+    logits_batch = akida_model.predict(batch, batch_size=BATCH_SIZE)
 
     logits_batch = logits_batch.squeeze(axis=(1, 2))
     labels_all.append(label_batch)
@@ -301,15 +282,15 @@ preds = np.argmax(logits_all, axis=1)
 akida_acc = float(np.mean(preds == np.array(labels_all)))
 print(f'Akida accuracy: {akida_acc:.4f}')
 
-# %% [markdown]
+# %% [markdown] id="7139d125"
 # ### Activation Sparsity
 #
 # Akida hardware skips computation for zero-valued activations, so activation
 # sparsity directly reduces both energy consumption and inference latency.
-# Below we measure per-layer sparsity on a 1024-sample calibration batch drawn
+# Below we measure per-layer sparsity on a 100-sample calibration batch drawn
 # from the training set.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="34950d3d" outputId="ad4236e7-5e19-4224-f16a-2feaab0f6373"
 from akida_models.sparsity import compute_sparsity
 from brainchip_utils.plot_utils import pretty_print_sparsity
 from plant_village_data import get_samples
@@ -320,143 +301,13 @@ samples = get_samples(DATA_PATH, input_shape=INPUT_SHAPE, num_samples=NUM_SAMPLE
 sparsity_dict = compute_sparsity(akida_model, samples=samples)
 pretty_print_sparsity(sparsity_dict)
 
-# %% [markdown]
-# ## Hardware Benchmark
-#
-# **These cells require a physical AKD1500 device to be connected.** If `device is
-# None` (reported in the evaluation section above), skip ahead to the Summary.
-#
-# Akida is an event-driven architecture: computations scale with the number of
-# non-zero activations, not with tensor size. That means benchmark results are
-# *input-dependent* — random or synthetic data would give artificially fast or
-# slow timings. The `samples` array loaded above (real images from the validation
-# split) is therefore the correct input to use here.
-
-# %% [markdown]
-# ### Simple Benchmark
-#
-# The simplest way to time an Akida model is to call `forward` in a loop and
-# read back two clocks after each inference:
-#
-# - **System clock** (`time.perf_counter_ns`) — wall time including Python and
-#   USB/PCIe transfer overhead.
-# - **On-chip clock** (`akida_model.metrics['inference_clk']`) — raw clock cycles
-#   counted by the AKD1500 itself. Dividing by the 400 MHz core frequency gives
-#   the pure compute time.
-#
-# The two numbers should agree closely; a large divergence would indicate a
-# transfer or driver bottleneck.
-
-# %%
-import time
-
-CLOCK_FREQUENCY = 400e6  # 400 MHz for AKD1500
-
-if device is not None:
-    akida_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
-
-    inf_clks = []
-    inf_times = []
-    for i in range(len(samples)):
-        start_t = time.perf_counter_ns()
-        akida_model.forward(samples[i:i+1])
-        inf_times.append(time.perf_counter_ns() - start_t)
-        inf_clks.append(akida_model.metrics['inference_clk'])
-
-    mean_inf_clk = np.mean(inf_clks) / CLOCK_FREQUENCY * 1e3  # cycles → ms
-    mean_inf_time = np.mean(inf_times) * 1e-6                  # ns → ms
-    print(f'Mean inference time (system clock):      {mean_inf_time:.3f} ms')
-    print(f'Mean on-chip time (chip clock cycles):   {mean_inf_clk:.3f} ms')
-
-# %% [markdown]
-# ### Full Model Benchmark
-#
-# The loop above is clear, but it misses two things: power consumption and a
-# comparison between mapping modes. `full_model_benchmark` from
-# [brainchip_utils/hardware_utils.py](../../../brainchip_utils/hardware_utils.py)
-# runs the same timed loop while also coordinating optional INA219 power
-# measurement in a separate process. It sweeps both `MapMode.Minimal` (fewest
-# NPs, lowest power) and `MapMode.AllNps` (all NPs, maximum parallelism) so the
-# trade-off is visible. The multiprocessing and power-meter wiring are
-# non-trivial and not of interest to most users — consult the source if needed.
-
-# %%
-from brainchip_utils.hardware_utils import full_model_benchmark, get_mapping_stats
-from brainchip_utils.plot_utils import plot_full_model_results
-
-if device is not None:
-    map_modes = ['Minimal', 'AllNps']
-    POWER_REPEATS = 10
-    full_results = {}
-    for mm in map_modes:
-        map_mode = getattr(akida.MapMode, mm)
-        print(f'Running full-model benchmark (MapMode={mm}, {POWER_REPEATS} repeat(s))...')
-        full_results[mm] = full_model_benchmark(
-            akida_model, device, samples, map_mode=map_mode, repeats=POWER_REPEATS)
-
-        akida_model.map(device, mode=map_mode)
-        num_nps, num_passes, num_sequences = get_mapping_stats(akida_model)
-        full_results[mm]['num_nps'] = num_nps
-        full_results[mm]['num_passes'] = num_passes
-        print(f'  Mapping: {num_nps} NP(s), {num_passes} pass(es), {num_sequences} sequence(s)')
-        if num_sequences > 1:
-            print('WARNING: model not completely mapped to hardware')
-
-# %% [markdown]
-# The plot below shows one column per map mode: a power trace (if a power meter
-# was connected) and the hardware mapping layout.
-
-# %%
-if device is not None:
-    plot_full_model_results(full_results, akida_model, device,
-                            model_name='akidanet_plant_village',
-                            savepath='benchmark_results_full.png')
-
-# %% [markdown]
-# ### Per-Layer Benchmark
-#
-# Full-model timing tells us the total cost but not where time is spent.
-# `per_layer_benchmark` from
-# [brainchip_utils/hardware_utils.py](../../../brainchip_utils/hardware_utils.py)
-# reconstructs latency layer by layer by running cumulative sub-models and
-# differencing the results.
-#
-# Because Akida processes events (non-zero activations), a layer's cost is
-# proportional to its *input* sparsity: a layer receiving 90% sparse inputs has
-# far fewer events to process than one receiving 10% sparse inputs. The per-layer
-# timing and the sparsity values computed above are therefore naturally correlated —
-# low-sparsity layers are typically the latency bottlenecks.
-
-# %%
-from brainchip_utils.hardware_utils import per_layer_benchmark
-from brainchip_utils.plot_utils import plot_per_layer_results
-
-if device is not None:
-    # Map without hw_only so akida_model.sequences is populated for the plot
-    akida_model.map(device, mode=akida.MapMode.Minimal)
-
-    print(f'Running per-layer benchmark ({len(samples)} samples)...')
-    per_layer_results = per_layer_benchmark(akida_model, device, samples)
-
-# %% [markdown]
-# The plot stacks three panels: per-layer latency, input sparsity per layer, and
-# the hardware mapping. The inverse relationship between sparsity and latency is
-# the direct signature of the event-driven compute model: dense activations
-# generate more events, and more events mean more work for the hardware.
-
-# %%
-if device is not None:
-    plot_per_layer_results(per_layer_results, akida_model, sparsity_dict,
-                           model_name='akidanet_plant_village',
-                           savepath='benchmark_results_layers.png')
-
-# %% [markdown]
+# %% [markdown] id="6255ca47"
 # ## Summary
 #
-# The table below compares validation accuracy across the three model variants.
+# The table below compares test accuracy across the three model variants.
 # The goal is that QAT and Akida accuracy remain close to the float baseline.
 
-# %%
+# %% colab={"base_uri": "https://localhost:8080/"} id="88ab56dc" outputId="db49cb35-3174-4221-b4f3-2dc7a2c1fdd4"
 print('PlantVillage results')
 print('=' * 40)
 print(f'  Float accuracy:     {float_acc * 100:.2f}%')
