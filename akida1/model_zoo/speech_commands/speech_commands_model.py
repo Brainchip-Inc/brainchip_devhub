@@ -20,6 +20,7 @@ def build_ds_cnn(
     num_classes=12,
     num_sep_conv_blocks=4,
     classifier_head="dense",
+    seed=111
 ):
     """Build Akida 1.0-compatible DS-CNN for keyword spotting.
 
@@ -30,6 +31,8 @@ def build_ds_cnn(
     GAP block that is always present and always last (default 4 = today's
     3 plain blocks + 1 GAP block).
     """
+    set_random_seed(seed)
+
     regularizer = regularizers.L2(weight_decay)
 
     inputs = Input(shape=input_shape)
@@ -83,8 +86,6 @@ if __name__ == "__main__":
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
-    
-    set_random_seed(cfg['seed'])
 
     model = build_ds_cnn(
         filters=cfg["filters"],
@@ -93,6 +94,7 @@ if __name__ == "__main__":
         weight_decay=cfg["weight_decay"],
         num_sep_conv_blocks=cfg.get("num_sep_conv_blocks", 4),
         classifier_head=cfg.get("classifier_head", "dense"),
+        seed=cfg['seed']
     )
     model.summary()
     model.save(args.savepath, include_optimizer=False) # dropout and weight_decay are correctly restored when loading back the model
