@@ -18,7 +18,6 @@ import tensorflow as tf
 from tf_keras.losses import SparseCategoricalCrossentropy
 from tf_keras.optimizers import Adam
 from tf_keras.optimizers.schedules import CosineDecay
-from tf_keras import regularizers
 from tf_keras.layers import ReLU
 from tf_keras.utils import set_random_seed
 import yaml
@@ -28,7 +27,6 @@ from cnn2snn.quantization_layers import QuantizedReLU
 
 from speech_commands_data_loader import compute_mfcc_range, get_datasets
 from regularizers_custom import HoyerSquare
-from speech_commands_model import build_ds_cnn
 
 # Must be called before any TF ops to make GPU ops (conv backward passes,
 # bilinear resize, etc.) deterministic. Has a small throughput cost.
@@ -51,23 +49,27 @@ def _lr_schedule(peak_lr, total_steps, warmup_fraction=0.1, initial_learning_rat
             warmup_steps=int(warmup_fraction * total_steps),
         )
 
-def train_speech_commands_float(model, train_ds, val_ds, config):
+def train_speech_commands(model, train_ds, val_ds, 
+                          epochs,
+                          peak_lr,
+                          warmup_fraction,
+                          act_reg_strength,
+                          seed=111):
+    set_random_seed(seed)
+    
     # ---------------------------------------------------------------------------
     # Model
     # ---------------------------------------------------------------------------
-    print('Adding Activity Regularization to ReLU layers')
-    reg_type = config.get("activity_reg_type", "l1l2")
-    if reg_type == "hoyer":
-        act_reg = HoyerSquare(config["activity_reg_hoyer_strength"])
-    else:
-        act_reg = regularizers.L1L2(config["activity_reg_l1"], config["activity_reg_l2"])
-    for layer in model.layers:
-        if isinstance(layer, ReLU) or "re_lu" in layer.name.lower():
-            layer.activity_regularizer = act_reg
+    if act_reg_strength>0:
+        act_reg = HoyerSquare(act_reg_strength)
+        print('Adding Activity Regularization (Hoyer-Square) to ReLU layers')
+        for layer in model.layers:
+            if isinstance(layer, (ReLU, QuantizedReLU)) or "re_lu" in layer.name.lower():
+                layer.activity_regularizer = act_reg
     
-    steps = config["epochs_float"] * _steps_per_epoch(train_ds) 
-    schedule = _lr_schedule(config["lr_float"], steps,
-                            warmup_fraction=config.get("warmup_fraction", 0.1))
+    steps = epochs * _steps_per_epoch(train_ds) 
+    schedule = _lr_schedule(peak_lr, steps,
+                            warmup_fraction=warmup_fraction)
     model.compile(optimizer=Adam(learning_rate=schedule),
                   loss=SparseCategoricalCrossentropy(from_logits=True),
                   metrics=["accuracy"])
@@ -77,46 +79,11 @@ def train_speech_commands_float(model, train_ds, val_ds, config):
     # ---------------------------------------------------------------------------
     model.fit(
         train_ds,
-        epochs=config["epochs_float"],
+        epochs=epochs,
         validation_data=val_ds,
-        verbose=0,
+        verbose=1,
     )
 
-
-def train_speech_commands_qat(model, train_ds, val_ds, config):
-    # ---------------------------------------------------------------------------
-    # Model
-    # ---------------------------------------------------------------------------
-    print('Adding Activity Regularization to QuantizedReLU layers')
-    reg_type = config.get("activity_reg_type", "l1l2")
-    if reg_type == "hoyer":
-        qat_act_reg = HoyerSquare(config["activity_reg_hoyer_strength_qat"])
-    else:
-        qat_scale = float(config.get("qat_activity_reg_scale", 0.1))
-        qat_act_reg = regularizers.L1L2(
-            config["activity_reg_l1"] * qat_scale,
-            config["activity_reg_l2"] * qat_scale,
-        )
-    for layer in model.layers:
-        if isinstance(layer, QuantizedReLU):
-            layer.activity_regularizer = qat_act_reg
-    
-    steps = config["epochs_qat"] * _steps_per_epoch(train_ds) 
-    schedule = _lr_schedule(config["lr_qat"], steps,
-                            warmup_fraction=config.get("warmup_fraction", 0.1))
-    model.compile(optimizer=Adam(learning_rate=schedule),
-                  loss=SparseCategoricalCrossentropy(from_logits=True),
-                  metrics=["accuracy"])
-
-    # ---------------------------------------------------------------------------
-    # Training
-    # ---------------------------------------------------------------------------
-    model.fit(
-        train_ds,
-        epochs=config["epochs_qat"],
-        validation_data=val_ds,
-        verbose=0,
-    )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -130,8 +97,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--config", default="configs/training_cfg.yml",
                         help='Model training configuration file')
-    parser.add_argument('--float', action='store_true',
-                        help='Whether this is the float phase (true) or the QAT phase (false)')
+    parser.add_argument('--qat', action='store_true',
+                        help='Use qat rather than [default] float config settings')
     args = parser.parse_args()
 
     # ---------------------------------------------------------------------------
@@ -140,7 +107,6 @@ if __name__ == '__main__':
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
-    set_random_seed(cfg['seed'])
 
     # ---------------------------------------------------------------------------
     # Data loading
@@ -163,22 +129,33 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     model = load_quantized_model(args.loadmodel)
 
-    if args.float:
-        print('Float training')
-        train_speech_commands_float(
-            model=model,
-            train_ds=train_ds,
-            val_ds=val_ds,
-            config=cfg
-        )
+
+    # ---------------------------------------------------------------------------
+    # Training
+    # ---------------------------------------------------------------------------
+    warmup_fraction = cfg.get("warmup_fraction", 0.1)
+    if args.qat:
+        # Get QAT-specific training params
+        act_reg_strength = cfg["activity_reg_hoyer_strength_qat"]
+        epochs = cfg["epochs_qat"]
+        peak_lr = cfg["lr_qat"]
     else:
-        print('QAT')
-        train_speech_commands_qat(
-            model=model,
-            train_ds=train_ds,
-            val_ds=val_ds,
-            config=cfg
-        )
+        # Float training params
+        act_reg_strength = cfg["activity_reg_hoyer_strength"]
+        epochs = cfg["epochs_float"]
+        peak_lr = cfg["lr_float"]
+        
+
+    train_speech_commands(
+        model=model,
+        train_ds=train_ds,
+        val_ds=val_ds,
+        epochs=epochs,
+        peak_lr=peak_lr,
+        warmup_fraction=warmup_fraction,
+        act_reg_strength=act_reg_strength,
+        seed=cfg.get("seed")
+    )
 
     model.save(args.savemodel, include_optimizer=False)
     print(f'Model saved as {args.savemodel}.')
