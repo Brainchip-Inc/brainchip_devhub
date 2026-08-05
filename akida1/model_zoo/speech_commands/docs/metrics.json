@@ -1,7 +1,7 @@
 {
-    "float_acc": "95.45%",
-    "qat_acc": "92.70%",
-    "akida_acc": "92.75%",
+    "float_acc": "95.69%",
+    "qat_acc": "92.95%",
+    "akida_acc": "93.06%",
     "sparsity": "73.29%",
     "params": "22,668",
     "minimal_cycles": "128814",

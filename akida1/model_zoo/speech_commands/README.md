@@ -22,9 +22,9 @@ This example was developed by our partners at [BeEmotion.ai](https://www.beemoti
   </thead>
   <tbody>
     <tr>
-      <td align="center">95.45%</td>
-      <td align="center">92.70%</td>
-      <td align="center">92.75%</td>
+      <td align="center">95.69%</td>
+      <td align="center">92.95%</td>
+      <td align="center">93.06%</td>
       <td align="center">73.29%</td>
       <td align="center">22,668</td>
     </tr>
