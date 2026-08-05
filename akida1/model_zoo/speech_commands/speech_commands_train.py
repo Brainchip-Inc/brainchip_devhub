@@ -10,7 +10,6 @@ Example
         -s models/speech_commands.h5 \\
         -d /home/datasets/sc10/ \\
         --config configs/training_cfg.yml \\
-        --float
 """
 import argparse
 
@@ -127,6 +126,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     # Model
     # ---------------------------------------------------------------------------
+    set_random_seed(cfg.get("seed"))
     model = load_quantized_model(args.loadmodel)
 
 
