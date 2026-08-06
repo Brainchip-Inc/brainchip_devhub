@@ -12,14 +12,8 @@ dependencies = [
     "akida_models==1.14.0",
     "pyftdi",
     "ipykernel",
-    "opencv-python==5.0.0.93",
     "pywavelets",
-    "wfdb",
-    "numpy",
-    "scipy",
-    "joblib",
-    "cnn2snn==2.19.1",
-    "akida==2.19.2"
+    "wfdb"
 ]
 
 [tool.setuptools.packages.find]
