@@ -11,7 +11,9 @@ dependencies = [
     "tensorflow-metadata<1.21",
     "akida_models==1.14.0",
     "pyftdi",
-    "ipykernel"
+    "ipykernel",
+    "pywavelets",
+    "wfdb"
 ]
 
 [tool.setuptools.packages.find]
