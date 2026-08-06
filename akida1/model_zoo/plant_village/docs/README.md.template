@@ -160,20 +160,15 @@ set up `git-lfs`. For further instructions, see the
 
 ### Notebook
 
-Two notebooks are provided that walk through a) preparation of a trained Akida-compatible model and
-b) evaluation and benchmarking of that model on Akida.
+Two notebooks are provided that walk through a) preparation of a trained Akida-compatible model and b) evaluation and benchmarking of that model on Akida.
 
-[plant_village_notebook_training.ipynb](plant_village_notebook_training.ipynb) walks through the 
-complete training pipeline end-to-end. It is written to expose and explain the Akida-specific
-aspects of the workflow: how the model is constructed for Akida compatibility,
-what the quantization constraints mean in practice, and what the conversion
-step does. Start here if you want to understand *why* the pipeline is structured
-the way it is.
+[plant_village_notebook_training.ipynb](plant_village_notebook_training.ipynb) walks through the complete training pipeline end-to-end. It is written to expose and explain the Akida-specific aspects of the workflow: how the model is constructed for Akida compatibility, what the quantization constraints mean in practice, and what the conversion step does. Start here if you want to understand *why* the pipeline is structured the way it is.
 
-[plant_village_notebook_benchmark.ipynb](plant_village_notebook_benchmark.ipynb) walks through 
-evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking
-of model latency and power.
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida1/model_zoo/plant_village/plant_village_notebook_training.ipynb)
 
+[plant_village_notebook_benchmark.ipynb](plant_village_notebook_benchmark.ipynb) walks through evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking of model latency and power.
+
+> **Note:** the hardware benchmark section reads live power measurements from a physical AKD1500 device over I2C. It will not run in Colab — use it locally with a connected board.
 ### Script
 
 For straightforward reproduction of the training and evaluation results, run
