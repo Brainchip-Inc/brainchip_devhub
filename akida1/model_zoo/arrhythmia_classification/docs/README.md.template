@@ -1,0 +1,330 @@
+<img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+
+# Arrhythmia Classification (ECG)
+
+Beat-by-beat classification of ECG recordings into three clinically meaningful
+classes, running entirely on-chip. Each heartbeat is turned into a small
+time-frequency image by a wavelet transform, which lets an ordinary
+convolutional network do the work — and makes the activation sparsity that
+Akida exploits unusually high.
+
+## Model Card
+
+<table>
+  <thead>
+    <tr>
+      <th>Float acc.</th>
+      <th>QAT acc.</th>
+      <th>Akida acc.</th>
+      <th>Macro F1</th>
+      <th>Sparsity</th>
+      <th>Params</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">{float_acc}</td>
+      <td align="center">{qat_acc}</td>
+      <td align="center">{akida_acc}</td>
+      <td align="center">{akida_f1}</td>
+      <td align="center">{sparsity}</td>
+      <td align="center">{params}</td>
+    </tr>
+  </tbody>
+</table>
+
+Accuracy alone flatters any model on this dataset: 90% of the test beats are
+normal, so predicting "normal" unconditionally scores 0.90. The per-class
+breakdown for the deployed Akida model is the honest summary, and the
+supraventricular (S) row is the hard one — those beats are the least frequent
+and the most easily confused with normal rhythm.
+
+<table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>Precision</th>
+      <th>Recall</th>
+      <th>F1</th>
+      <th>Support</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>N — Normal</td>
+      <td align="center">{akida_n_precision}</td>
+      <td align="center">{akida_n_recall}</td>
+      <td align="center">{akida_n_f1}</td>
+      <td align="center">{akida_n_support}</td>
+    </tr>
+    <tr>
+      <td>S — Supraventricular</td>
+      <td align="center">{akida_s_precision}</td>
+      <td align="center">{akida_s_recall}</td>
+      <td align="center">{akida_s_f1}</td>
+      <td align="center">{akida_s_support}</td>
+    </tr>
+    <tr>
+      <td>V — Ventricular</td>
+      <td align="center">{akida_v_precision}</td>
+      <td align="center">{akida_v_recall}</td>
+      <td align="center">{akida_v_f1}</td>
+      <td align="center">{akida_v_support}</td>
+    </tr>
+  </tbody>
+</table>
+
+**AKD1500 hardware benchmark**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency (ms)</th>
+      <th>Total Power (mW)</th>
+      <th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th>
+      <th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">{minimal_nps}</td>
+      <td align="center">{minimal_passes}</td>
+      <td align="center">{minimal_cycles}</td>
+      <td align="center">{minimal_latency_ms}</td>
+      <td align="center">{minimal_total_P}</td>
+      <td align="center">{minimal_total_E}</td>
+      <td align="center">{minimal_dyn_P}</td>
+      <td align="center">{minimal_dyn_E}</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">{allnps_nps}</td>
+      <td align="center">{allnps_passes}</td>
+      <td align="center">{allnps_cycles}</td>
+      <td align="center">{allnps_latency_ms}</td>
+      <td align="center">{allnps_total_P}</td>
+      <td align="center">{allnps_total_E}</td>
+      <td align="center">{allnps_dyn_P}</td>
+      <td align="center">{allnps_dyn_E}</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+
+The plot above shows power measurements captured during inference on hardware.
+In **Minimal** mapping the model is scheduled onto the fewest NPs required,
+keeping power consumption low. Switching to **AllNps** spreads the model across
+more NPs (visible in the lower trace plots), which results in a slight increase
+in power during inference but a proportional reduction in latency.
+
+The model is a small custom depthwise-separable network: a dense 16-filter stem
+convolution, three separable convolution blocks of 32, 64 and 128 filters with
+stride-2 max pooling between them, then global average pooling and two dense
+layers. It maps to **6 Akida layers in a single pass**, with the whole network
+resident on-chip and no DMA traffic during inference.
+
+Two choices are worth calling out. First, the kernels are **5 × 5** throughout
+rather than the 3 × 3 usual in image models: the informative structure in a
+wavelet scalogram is spread across a broader time-frequency neighbourhood than
+an edge in a photograph. Second, input scaling is a `Rescaling` layer inside the
+model rather than a preprocessing step outside it, so the model consumes uint8
+directly and float training, quantized training and Akida inference all see
+identical values. `cnn2snn` folds that layer into the stem convolution at
+conversion time, so it costs nothing on hardware.
+
+Latency can also be profiled on a per-layer basis, making it possible to see
+which layers dominate processing time. This is determined by several factors:
+the volume of inputs to the layer and its number of filters, the type of layer
+and kernel size, and the number of NPs the layer is spread over. On Akida,
+input activation sparsity is another strong determinant — layers where input
+sparsity is particularly high take very little processing time.
+
+<img src="docs/ref_benchmark_results_layers.png" alt="Per-layer latency breakdown" width="700">
+
+Note that inference is cheap relative to preprocessing here. Generating the
+wavelet scalogram costs roughly **2 ms per beat** on a CPU, which is more than
+the model itself takes on hardware — in a real deployment the transform, not the
+network, is the thing to optimise.
+
+## Requirements
+
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README.
+
+## Dataset
+
+The [MIT-BIH Arrhythmia Database](https://physionet.org/content/mitdb/1.0.0/)
+is the long-standing benchmark for cardiac rhythm analysis: 48 half-hour
+two-lead ambulatory ECG recordings, sampled at 360 Hz, with around 110,000
+cardiologist-annotated heartbeats. This example uses the first lead only.
+
+Beat annotations are grouped into three classes following AAMI practice. Beat
+types outside these groups (paced, fusion and unclassifiable beats) are dropped
+rather than forced into a class:
+
+| Class | Included beat types |
+|---|---|
+| N — Normal | Normal sinus rhythm, left/right bundle branch block, atrial and nodal escape |
+| S — Supraventricular | Atrial premature, aberrated atrial premature, nodal premature, supraventricular premature |
+| V — Ventricular | Premature ventricular contraction, ventricular escape |
+
+Each beat becomes a **36 × 32 single-channel image**:
+
+1. A window of ±250 samples around the annotated R-peak is extracted and
+   resampled to a fixed length.
+2. A Morlet continuous wavelet transform over 64 scales produces a scalogram,
+   which is log-compressed, min-max normalised, and resized to 32 × 32.
+3. Four **RR-interval features** — the previous and next beat intervals, the
+   ratio to a local average, and that local average — are standardised and
+   appended as four extra rows.
+
+Those RR rows matter more than their size suggests. A supraventricular beat can
+look much like a normal one in isolation; what distinguishes it is arriving
+early relative to the surrounding rhythm. The scalogram carries the morphology,
+the RR rows carry the timing, and the network needs both.
+
+The split is **inter-patient**: 22 recordings for training and a disjoint 22 for
+testing, so no beat from a test patient is ever seen during training. This is
+substantially harder than a random beat-level split — and the only setting that
+says anything about how the model would behave on a new person. A stratified 20%
+of the *training* patients' beats is held back for monitoring during training;
+because it shares patients with the training set it reads optimistically, and
+the reported metrics all come from the test recordings.
+
+The classes are severely imbalanced, which drives the class weighting used in
+training:
+
+| Split | N | S | V | Total |
+|---|---:|---:|---:|---:|
+| Train (DS1, 80%) | 36,663 | 754 | 3,030 | 40,447 |
+| Hold-out (DS1, 20%) | 9,166 | 189 | 757 | 10,112 |
+| Test (DS2) | 44,224 | 1,837 | 3,219 | 49,280 |
+
+Reference: Moody & Mark, *The impact of the MIT-BIH Arrhythmia Database*,
+IEEE Eng in Med and Biol 20(3):45-50 (2001).
+
+## Dataset setup
+
+Nothing to do — the raw recordings (~100 MB) are downloaded from PhysioNet
+automatically the first time you run any script, and the preprocessed
+scalograms are cached alongside them:
+
+```text
+data/mitdb/                        raw WFDB recordings, downloaded on demand
+data/mitdb_scalograms_36x32.npz    preprocessed cache, built on first use
+```
+
+Building the cache runs the wavelet transform over all ~100,000 beats and takes
+about a minute with all cores busy. It happens once; later runs read the cache.
+
+If you already have the records, or want them on a dedicated data drive, pass
+the path with `-d` / `--data`, or link the default location to it (one-off step):
+
+```bash
+ln -s /path/to/your/data/mitdb ./data/mitdb
+```
+
+To fetch them by hand instead:
+
+```bash
+wget -r -np -nH --cut-dirs=3 https://physionet.org/files/mitdb/1.0.0/ -P ./data/mitdb
+```
+
+## Pipeline
+
+Training follows a three-stage quantization pipeline, followed
+by conversion to Akida format:
+
+| Stage | Description |
+|---|---|
+| Full-precision | Float32 training from scratch, up to 80 epochs |
+| Post-training quantization | `cnn2snn quantize` reduces to 4-bit weights and activations (8-bit input) |
+| Quantization-aware tuning | Up to 50 epochs fine-tuning of the quantized model to recover accuracy |
+| Conversion to Akida | Automated conversion to Akida model format |
+
+Both training stages reduce the learning rate on plateau and stop early once
+validation loss stops improving, so the epoch counts above are ceilings rather
+than exact durations. Unusually, quantization-aware tuning here uses the *same*
+learning rate as float training rather than a reduced one, and tends to improve
+on the float model rather than merely recovering from quantization.
+
+## Reference Models
+
+Pretrained models are made available here, within the `pretrained_models/`
+folder. However, those are handled using the `git-lfs` package (git large
+file storage). For those to be downloaded with the repo, you will need to
+set up `git-lfs`. For further instructions, see the
+[Trained models](../../../README.md#trained-models) section of the top-level README.
+
+## Usage
+
+### Notebook
+
+Two notebooks are provided that walk through a) preparation of a trained Akida-compatible model and
+b) evaluation and benchmarking of that model on Akida.
+
+[arrhythmia_notebook_training.ipynb](arrhythmia_notebook_training.ipynb) walks through the
+complete training pipeline end-to-end. It is written to expose and explain the Akida-specific
+aspects of the workflow: how an ECG signal becomes an image the network can
+consume, how the model is constructed for Akida compatibility, what the
+quantization constraints mean in practice, and what the conversion step does.
+Start here if you want to understand *why* the pipeline is structured the way it
+is.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida1/model_zoo/arrhythmia_classification/arrhythmia_notebook_training.ipynb)
+
+[arrhythmia_notebook_benchmark.ipynb](arrhythmia_notebook_benchmark.ipynb) walks through
+evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking
+of model latency and power.
+
+> **Note:** the hardware benchmark section reads live power measurements from a physical AKD1500
+> device over I2C. It will not run in Colab — use it locally with a connected board.
+
+### Script
+
+For straightforward reproduction of the training and evaluation results, run
+the full pipeline in one shot:
+
+```bash
+bash arrhythmia_train.sh [DATADIR]
+```
+
+The optional `DATADIR` argument overrides the default dataset location
+(`./data/mitdb`).
+
+That will take about 15 minutes to run if a modern GPU is available, plus a
+minute for the one-off dataset download and preprocessing.
+
+## Contributing and Maintenance
+
+This README is autogenerated generated from `docs/README.md.template`
+so that the accuracy and hardware benchmark values are written directly
+by the code (via the `metrics.json` file, also in the docs folder).
+
+When the associated model or training pipeline is modified to improve
+performance, you should rerun the evaluations of the float, quantized
+and Akida model versions, plus the hardware benchmark, including the
+`--save-metrics` argument, and then regenerate the README from the template
+using `update_readme.py`:
+```bash
+python arrhythmia_eval.py -l pretrained_models/arrhythmia_classification.h5 --save-metrics
+python arrhythmia_eval.py -l pretrained_models/arrhythmia_classification_qat.h5 --save-metrics
+python arrhythmia_eval.py -l pretrained_models/arrhythmia_classification_qat.fbz --save-metrics
+python arrhythmia_benchmark.py -l pretrained_models/arrhythmia_classification_qat.fbz --save-metrics
+python update_readme.py
+```
+Then commit the changed files (template, metrics and updated README).
+
+Likewise, if you want to edit the contents of this README, you should
+not edit it directly, but instead edit `docs/README.md.template` and
+then regenerate the README using
+``` bash
+python update_readme.py
+```
