@@ -60,7 +60,7 @@ class ECGDatasetBuilder:
     def beat_to_scalogram(self,beat):
         """Transforms raw time-series 1D vectors into scaled 2D Continuous Wavelet scalograms."""
         beat = beat.astype(np.float32)
-        scales = np.arange(1, 33)
+        scales = np.arange(1, 65)
         coef, _ = pywt.cwt(beat, scales, 'morl')
 
         img = np.abs(coef)

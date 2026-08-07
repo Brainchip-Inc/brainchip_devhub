@@ -45,14 +45,14 @@ def main():
     parser.add_argument("--run_dir", default="./akida_ecg_scalogram", help="Target output folder")
     parser.add_argument("--raw_data_dir", required=False, help="Path to raw MIT-BIH mitdb folder")
     parser.add_argument("--lr", type=float, default= 3e-3 ,help=f'Initial learning rate ')
-    parser.add_argument("--float_epochs", type=float, default= 80 ,help=f'Float training epochs ')
-    parser.add_argument("--qat_epochs", type=float, default= 50 ,help=f'QAT fine-tuning epochs ')
+    parser.add_argument("--float_epochs", type=int, default= 80 ,help=f'Float training epochs ')
+    parser.add_argument("--qat_epochs", type=int, default= 50 ,help=f'QAT fine-tuning epochs ')
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training (default: 64)")
 
     args = parser.parse_args()
     input_shape = (36, 32, 1)
     num_classes = 3
-    L1L2_reg_value = 2e-5
+    L1L2_reg_value = 2e-7
 
     SEED = 67004546
     # Apply it everywhere
