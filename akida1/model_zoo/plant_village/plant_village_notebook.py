@@ -74,7 +74,13 @@ tf.config.experimental.enable_op_determinism()
 # ```bash
 # python -c "import tensorflow_datasets as tfds; tfds.load('plant_village', data_dir='./data/plant_village')"
 # ```
+# %%
+import sys, os
 
+if 'google.colab' in sys.modules:
+    if not os.path.exists('colab_setup.py'):
+        !wget -q https://raw.githubusercontent.com/Brainchip-Inc/brainchip_devhub/main/akida1/model_zoo/plant_village/colab_setup.py
+    import colab_setup; colab_setup.setup()
 # %%
 from plant_village_data import get_data
 
