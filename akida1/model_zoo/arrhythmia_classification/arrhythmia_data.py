@@ -88,11 +88,11 @@ NUM_RR_FEATURES = 4          # rr_prev, rr_next, rr_local, rr_avg
 INPUT_SHAPE = (IMG_SIZE + NUM_RR_FEATURES, IMG_SIZE, 1)
 
 # RR features are standardised then squashed into [0, 1] so that they share the
-# scalogram's range and survive uint8 encoding. Clipping at 4 sigma touches a
-# negligible fraction of beats while keeping the useful range well resolved.
-RR_CLIP_SIGMA = 4.0
+# scalogram's range and survive uint8 encoding.
+RR_CLIP_SIGMA = 1.0
 
-CACHE_NAME = f'{PHYSIONET_DB}_scalograms_{INPUT_SHAPE[0]}x{INPUT_SHAPE[1]}.npz'
+CACHE_NAME = (f'{PHYSIONET_DB}_scalograms_{INPUT_SHAPE[0]}x{INPUT_SHAPE[1]}'
+              f'_rr{RR_CLIP_SIGMA:g}sigma.npz')
 
 
 # ---------------------------------------------------------------------------
