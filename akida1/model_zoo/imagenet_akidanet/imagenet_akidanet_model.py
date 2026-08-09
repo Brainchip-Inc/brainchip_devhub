@@ -6,9 +6,13 @@ Model selection and backbone loading for the AkidaNet/ImageNet example.
 This module does two jobs.
 
 **1. Resolve a model file from (alpha, resolution, variant).**
-The published filenames are irregular -- alpha 1.0 carries no suffix at all --
-so :func:`model_path` centralises the mapping instead of scattering string
-formatting through the eval and benchmark scripts.
+Files in ``pretrained_models/`` are named uniformly as
+``akidanet_imagenet_<RES>_alpha_<A>[_qat].<ext>``, so :func:`model_path` is a
+single f-string. Note this differs from the names published on
+data.brainchip.com, which omit the alpha entirely for 1.0 and write the others
+as integer percentages (``_alpha_50``); ``model_fetch.sh`` at the repository root
+performs the renaming. The uniform scheme is worth the small divergence: it
+sorts predictably and needs no lookup table.
 
 **2. Load an ImageNet-pretrained backbone for transfer learning.**
 :func:`load_akidanet_backbone` returns a headless AkidaNet with the ImageNet
@@ -40,15 +44,12 @@ VARIANTS = ("float", "qat", "akida")
 
 PRETRAINED_DIR = pathlib.Path(__file__).parent / 'pretrained_models'
 
-# Suffix applied to the model basename for each width multiplier. Alpha 1.0 is
-# the unadorned default and carries no suffix.
-_ALPHA_SUFFIX = {0.25: '_alpha_25', 0.5: '_alpha_50', 1.0: ''}
-
 # Filename ending for each variant of a given model.
 #   float -> full-precision Keras model (the transfer-learning backbone)
 #   qat   -> quantization-aware-trained Keras model, 8-bit input / 4-bit weights
 #            and activations (published upstream as `_iq8_wq4_aq4`)
-#   akida -> the same model converted to Akida format by `cnn2snn convert`
+#   akida -> the same model converted to Akida format by `cnn2snn convert`, which
+#            names its output after the model it converted -- hence `_qat.fbz`
 _VARIANT_SUFFIX = {'float': '.h5', 'qat': '_qat.h5', 'akida': '_qat.fbz'}
 
 
@@ -78,7 +79,9 @@ def model_path(alpha, resolution, variant='float', models_dir=None):
         raise ValueError(f'variant must be one of {VARIANTS}, received {variant}')
 
     directory = pathlib.Path(models_dir) if models_dir else PRETRAINED_DIR
-    name = f'akidanet_imagenet_{resolution}{_ALPHA_SUFFIX[alpha]}{_VARIANT_SUFFIX[variant]}'
+    # float() so an int alpha still renders with its decimal place: 1 -> '1.0'
+    name = (f'akidanet_imagenet_{resolution}_alpha_{float(alpha)}'
+            f'{_VARIANT_SUFFIX[variant]}')
     return directory / name
 
 
@@ -87,6 +90,12 @@ def metrics_prefix(alpha, resolution):
 
     Six models share one metrics file, so every key is namespaced by width and
     resolution, e.g. ``a50_224_float_t1``.
+
+    Note the alpha is scaled to an integer here, unlike in the filenames. These
+    keys are substituted into the README template with ``str.format_map``, which
+    reads a dot in a field name as attribute access -- ``{{a0.5_224_float_t1}}``
+    would be parsed as ``a0`` dot ``5_224_float_t1`` and fail. So the two
+    schemes differ deliberately.
     """
     _check(alpha, resolution)
     return f'a{int(alpha * 100)}_{resolution}_'

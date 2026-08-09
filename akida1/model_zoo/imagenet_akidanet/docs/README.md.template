@@ -586,14 +586,19 @@ real weights rather than text pointers, you will need `git-lfs` set up. See the
 [Trained models](../../../README.md#trained-models) section of the top-level README.
 
 ```
-akidanet_imagenet_<RES>[_alpha_<A>].h5          full-precision (transfer-learning backbone)
-akidanet_imagenet_<RES>[_alpha_<A>]_qat.h5      quantized, 8/4/4
-akidanet_imagenet_<RES>[_alpha_<A>]_qat.fbz     converted Akida model
+akidanet_imagenet_<RES>_alpha_<A>.h5          full-precision (transfer-learning backbone)
+akidanet_imagenet_<RES>_alpha_<A>_qat.h5      quantized, 8/4/4
+akidanet_imagenet_<RES>_alpha_<A>_qat.fbz     converted Akida model
 ```
 
-where `<RES>` is `160` or `224` and `<A>` is `25` or `50` — alpha 1.0 carries no
-suffix. Use `imagenet_akidanet_model.model_path()` rather than building these
-names by hand.
+where `<RES>` is `160` or `224` and `<A>` is `0.25`, `0.5` or `1.0`.
+
+These names are deliberately more regular than the ones published on
+data.brainchip.com, which omit the alpha entirely for 1.0 and write the others as
+integer percentages (`_alpha_50`). `model_fetch.sh` at the repository root
+downloads and renames them, so the mapping is reproducible. `model_path()` in
+`imagenet_akidanet_model.py` builds a name from an alpha and a resolution if you
+want it in code.
 
 ### Using these models as transfer-learning backbones
 
