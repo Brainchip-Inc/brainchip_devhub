@@ -54,7 +54,9 @@ around them. A five-minute smoke test prevents a day of building on a wrong assu
 <NAME>_eval.py            accuracy (+ activation sparsity) per variant
 <NAME>_benchmark.py       hardware latency/power benchmark
 <NAME>_eval.sh            driver (replaces <NAME>_train.sh)
-update_readme.py          copied verbatim from any sibling example
+update_readme.py          copied from any sibling example; extend it only to
+                          regenerate figures derived from metrics.json
+<NAME>_summary_plot.py    optional: cross-model summary figure, drawn from metrics
 colab_setup.py            adapted from vww/colab_setup.py
 docs/README.md.template   README source of truth
 docs/metrics.json         all template keys, measured or "TBD"
@@ -118,8 +120,20 @@ code snippets that contain no braces at all.
 
 - **One accuracy table**, with a spanning header row per group
   (`<tr><td colspan="N"><b>224 × 224 input</b></td></tr>`), primary configuration first.
-- **One hardware benchmark table per model** — a single combined table becomes unreadable
-  past two or three models.
+- **One hardware benchmark table per model**, one row per mapping mode — a single combined
+  table becomes unreadable past two or three models. With three modes and nine columns the
+  per-model table is already at the width a README can carry; resist adding a fourth axis.
+- **One cross-model summary figure**, above the per-model tables. Six tables of nine
+  columns do not show a reader the shape of the trade-off; one scatter of accuracy against
+  latency and against energy does. Derive it from `metrics.json` and regenerate it from
+  `update_readme.py`, not from the benchmark script — then it stays in step with the tables
+  without needing hardware, and a prose edit cannot leave a stale figure behind.
+  **Plot the models as points, not as joined curves.** A handful of widely spaced
+  configurations has nothing to interpolate between; a connecting line asserts a smooth
+  trade-off that was never measured, and the gap between two such lines invents a difference
+  between the series. Say what the measured points support and no more — with six models the
+  useful claim was that none is dominated and both cost measures rank them identically, which
+  needs no line at all.
 - Verify placeholders against metrics before generating:
   ```python
   import string; {f[1] for f in string.Formatter().parse(template) if f[1]}
@@ -168,6 +182,25 @@ Benchmark samples must be **real images** — Akida is event-driven, so latency 
 depend on activation sparsity, which depends on the input. Random noise gives wrong numbers.
 A handful of real images cycled is fine; say so in the README rather than implying more.
 
+Drive the mapping modes from one list (`map_modes = ['Minimal', 'AllNps', 'HwPr']`) and derive
+the metrics key segment as `mm.lower()`, so adding or removing a mode needs no other code
+change. Two things then follow:
+
+- **Guard the `None` return.** `full_model_benchmark()` catches a mapping failure and returns
+  `None`; the caller immediately does `full_results[mm]['num_nps'] = ...` and dies with a
+  `TypeError`. Skip the mode instead — a benchmark sweep is long and expensive, and one mode
+  that will not map onto a single hardware sequence should cost you that mode's row, not the
+  run. A skipped mode leaves its keys at `TBD` and drops its column from the plot, which
+  `plot_full_model_results()` already handles.
+- **Do not write `{prefix}sparsity` from this script.** It computes sparsity for the per-layer
+  plot, but persisting it means a benchmark run silently overwrites the eval script's
+  validation-set figure with one derived from the handful of benchmark samples. Compute here,
+  persist only in `_eval.py`.
+
+Seed every mode's keys in `metrics.json` as `"TBD"` **before** the first hardware run.
+`format_map` raises `KeyError` on a missing key, and the four power/energy keys are only
+written when the INA sensor is actually detected.
+
 ---
 
 ## Step 5 — Akida version differences (do not hard-bake v1)
@@ -189,9 +222,13 @@ Verified differences (checked against akida_models 1.14.0 / akida 2.19.2):
 | Published weights | `data.brainchip.com/models/AkidaV1/…`, `_iq8_wq4_aq4.h5` | `…/AkidaV2/…`, `_i8_w4_a4.h5` / `_i8_w8_a8.h5` |
 | Reference device | AKD1500, `CLOCK_FREQUENCY = 400e6` | AKD2500 — **verify the clock frequency** |
 
-`akida.MapMode` currently exposes `Minimal`, `AllNps`, `HwPr`. The benchmark scripts use
-`Minimal` and `AllNps`; confirm which are meaningful for the target device rather than
-assuming both apply.
+`akida.MapMode` currently exposes three strategies, and the canonical example measures all
+three: `Minimal` minimises the hardware resources used, `AllNps` maximises the NPs used at the
+*minimum* number of hardware passes, and `HwPr` maximises the NPs used while letting the pass
+count grow. On AKD1500, `HwPr` was the fastest *and* the lowest-energy mapping on all six
+ImageNet models, so measure it rather than assuming two modes bracket the range. Confirm which
+modes are meaningful for the target device rather than assuming all three apply — and note
+that some sibling training examples (`vww`, `plant_village`) still measure only two.
 
 **Write the architecture prose from the version you are targeting.** The AkidaNet
 description in `imagenet_akidanet` (fused separables, pre-ReLU pooling) is *v1-specific* and
@@ -252,6 +289,10 @@ Plus these, which catch the failures that actually happen:
 - [ ] Backbone loader weights match the `akida_models` pretrained helper where both exist
 - [ ] `--samples` smoke test gives sensible per-image predictions
 - [ ] Benchmark script exits cleanly with no device attached
+- [ ] Every mapping mode has its full key set seeded in `metrics.json`, so the README renders
+      before any hardware run
+- [ ] After the sweep, no mode was silently skipped (grep the run logs for `did not map`) and
+      no `_sparsity` value changed
 - [ ] Notebook cells that introspect layers were actually executed, not just written
 - [ ] Model files are LFS-tracked (`git check-attr filter -- <file>`)
 
@@ -268,3 +309,17 @@ Plus these, which catch the failures that actually happen:
   memory or from a description gets layer ordering wrong; a printed layer list does not.
 - **The `pretrained_models/` directory gets no `.gitignore`** — that is the one model
   directory whose contents are meant to be committed.
+- **Do not write the mapping-mode prose before you have the numbers.** Two claims that read as
+  obvious turned out to be wrong on AKD1500, and both had been written into the ImageNet
+  README before the hardware run:
+  - *"More NPs costs power, and you buy latency with it."* Power does rise, but **total energy
+    per inference falls**. Dynamic energy is near-constant across modes (within ~4%) because
+    the events the model generates are fixed by the model and the input; what the mapping
+    changes is elapsed time, and therefore how long the static floor (~111–114 mW on AKD1500)
+    is paid for. Finishing sooner wins on energy even at higher power.
+  - *"`AllNps` always spreads wider than `Minimal`."* For the two largest ImageNet models the
+    mapper returned an identical solution for both, so those rows agree to within noise. The
+    Minimal-vs-AllNps distinction only says something when the model is small relative to the
+    mesh.
+
+  Generate the tables first, read them, then write the paragraph that explains them.

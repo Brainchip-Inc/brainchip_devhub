@@ -3,7 +3,7 @@
 """
 Hardware benchmark for a published AkidaNet ImageNet model.
 
-Measures latency and power on a physical AKD1500 device, in both mapping modes,
+Measures latency and power on a physical AKD1500 device, in three mapping modes,
 then breaks the timing down per layer. Prints a summary, writes plots to
 ``docs/``, and can record the numbers into ``docs/metrics.json``.
 
@@ -119,15 +119,23 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # Full-model benchmark (latency + optional power)
     # -------------------------------------------------------------------------
-    map_modes = ['Minimal', 'AllNps']
+    # Minimal uses the fewest NPs; AllNps spreads the model over every NP in one
+    # hardware pass; HwPr also uses every NP but splits the work over more passes.
+    map_modes = ['Minimal', 'AllNps', 'HwPr']
     POWER_REPEATS = 10
     full_results = dict()
     for mm in map_modes:
         map_mode = getattr(akida.MapMode, mm)
         print(f'\nRunning full-model benchmark (MapMode={mm}, {POWER_REPEATS} repeat(s))...')
-        full_results[mm] = full_model_benchmark(ak_model, device, samples,
-                                                map_mode=map_mode,
-                                                repeats=POWER_REPEATS)
+        res = full_model_benchmark(ak_model, device, samples,
+                                   map_mode=map_mode,
+                                   repeats=POWER_REPEATS)
+        if res is None:
+            # Not every mode maps every model onto a single hardware sequence.
+            # Drop the mode rather than losing the whole run.
+            print(f'  MapMode={mm} did not map to hardware - skipping this mode.')
+            continue
+        full_results[mm] = res
         # Re-map without hw_only to populate ak_model.sequences for stats
         ak_model.map(device, mode=map_mode)
         num_nps, num_passes, num_sequences = get_mapping_stats(ak_model)
@@ -182,8 +190,9 @@ if __name__ == '__main__':
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
         prefix = metrics_prefix(args.alpha, args.resolution)
 
-        metrics[f'{prefix}sparsity'] = \
-            f'{np.mean(list(sparsity_dict.values())) * 100:.2f}%'
+        # Sparsity is deliberately not written here: imagenet_akidanet_eval.py
+        # owns that metric, and measures it on the evaluation data rather than
+        # on the handful of images this benchmark cycles through.
         for mm, res in full_results.items():
             mode = mm.lower()
             metrics[f'{prefix}{mode}_nps'] = str(res['num_nps'])
