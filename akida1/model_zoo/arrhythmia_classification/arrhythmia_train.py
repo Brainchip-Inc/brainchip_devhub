@@ -84,8 +84,8 @@ def train_arrhythmia(model, train_ds, val_ds, epochs, learning_rate,
 
     callbacks = [
         ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=3, verbose=1),
-        # EarlyStopping(monitor='val_loss', patience=8, verbose=1),
-        # RestoreBest(model, monitor='val_loss', mode='min'),
+        EarlyStopping(monitor='val_loss', patience=8, verbose=1),
+        RestoreBest(model, monitor='val_loss', mode='min'),
     ]
 
     # ---------------------------------------------------------------------------
