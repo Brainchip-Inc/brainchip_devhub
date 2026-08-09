@@ -1,0 +1,270 @@
+---
+description: Generate a brainchip_devhub model zoo example that evaluates and benchmarks existing pretrained models (no training stage)
+---
+
+# Model Zoo Evaluation Example Generator
+
+Generate a model zoo example that **evaluates and benchmarks already-trained models**,
+rather than training one. Use this when training is impractical to reproduce (ImageNet-scale
+datasets) and the point of the example is to publish reference numbers and reusable
+backbones.
+
+For examples that *do* train, use `/model-zoo-example` instead — that command is the
+training-pipeline generator and this one deliberately drops its `_train.py` / `_train.sh`
+steps.
+
+**Canonical reference: `akida1/model_zoo/imagenet_akidanet/`.** Read it before generating.
+It is the worked version of everything below, covering six models (3 widths × 2 resolutions)
+on ImageNet.
+
+## Usage
+
+```
+/model-zoo-eval-example <name> [--akida-version 1|2]
+```
+
+Parse from `$ARGUMENTS`: `NAME`, `AKIDA_VERSION` (default 1). Target directory is
+`akida<AKIDA_VERSION>/model_zoo/<NAME>/`. Note `akida2/` may not exist yet — create it if
+targeting v2.
+
+---
+
+## Step 1 — Establish the inputs before writing anything
+
+Ask or determine:
+
+1. **Which models.** The set of variants the example covers — width multipliers, input
+   resolutions, or architecture variants. Each combination becomes a row in the Model Card.
+2. **Where the model files are.** Usually already downloaded into `pretrained_models/`, or
+   fetchable from `https://data.brainchip.com/models/AkidaV<N>/<arch>/`.
+3. **The dataset**, and critically **whether it can be redistributed** (see Step 6).
+4. **The Akida version target**, which changes more than you would expect (Step 5).
+
+Then verify the models actually load and score sensibly *before* building the example
+around them. A five-minute smoke test prevents a day of building on a wrong assumption.
+
+---
+
+## Step 2 — File set
+
+```
+<NAME>_preprocessing.py   self-contained copy of the eval preprocessing
+<NAME>_data.py            dataset loader + small sample pack + label helpers
+<NAME>_model.py           model file resolution + backbone loader
+<NAME>_eval.py            accuracy (+ activation sparsity) per variant
+<NAME>_benchmark.py       hardware latency/power benchmark
+<NAME>_eval.sh            driver (replaces <NAME>_train.sh)
+update_readme.py          copied verbatim from any sibling example
+colab_setup.py            adapted from vww/colab_setup.py
+docs/README.md.template   README source of truth
+docs/metrics.json         all template keys, measured or "TBD"
+docs/sample_mosaic.png    dataset figure
+<NAME>_notebook_evaluation.ipynb
+<NAME>_notebook_benchmark.ipynb
+pretrained_models/        committed via Git LFS, no .gitignore
+data/.gitignore           the standard 88-byte ignore-all-but-self file
+README.md                 GENERATED - never hand-edit
+```
+
+**No `models/` directory and no `_train.py` / `_train.sh`** — there is no training stage, so
+there are no working artifacts. Say so explicitly in the README and point at a sibling
+training example (`plant_village` runs in ~20 minutes) for readers who want the full
+train → quantize → convert pipeline.
+
+---
+
+## Step 3 — Multi-model conventions
+
+This is the main structural difference from the single-model training examples.
+
+### Model selection
+
+Scripts select a model with `-a/--alpha` and `-i/--input-resolution` style arguments plus
+`--variant {float,qat,akida}`, **not** the sibling `-l/--loadmodel` path argument — the
+metrics key prefix must be derived from the model identity anyway.
+
+### Uniform filenames
+
+Normalise the published filenames into a regular scheme so that path construction is one
+f-string rather than a lookup table. Upstream naming is typically irregular (default variants
+omit their parameter, others use integer percentages). Write a `model_fetch.sh` at the repo
+root that downloads and renames, so the mapping stays reproducible:
+
+```
+<arch>_<dataset>_<RES>_alpha_<A>.h5          full precision
+<arch>_<dataset>_<RES>_alpha_<A>_qat.h5      quantized
+<arch>_<dataset>_<RES>_alpha_<A>_qat.fbz     converted to Akida
+```
+
+Keep `_qat.fbz` rather than `_akida.fbz` — the conversion tool names its output after its
+input, and fighting that creates more inconsistency than it removes.
+
+### Metrics keys
+
+Every model shares one `docs/metrics.json`, so namespace each key by model identity:
+`a50_224_float_t1`, `a100_160_akida_t5`, and so on. Derive the prefix in code
+(`metrics_prefix()`), never by hand.
+
+> **Critical gotcha:** `update_readme.py` uses `str.format_map`, which reads a **dot in a
+> field name as attribute access**. `{a0.5_224_float_t1}` parses as `a0` → attribute
+> `5_224_float_t1` and fails. Metrics keys must scale the alpha to an integer (`a50_`) even
+> when the *filenames* use decimals (`alpha_0.5`). The two schemes differ deliberately —
+> document this in `metrics_prefix()` so nobody later "fixes" it.
+
+Also: **every literal brace in the template must be doubled** (`{{`, `}}`). Prefer writing
+code snippets that contain no braces at all.
+
+### README tables
+
+- **One accuracy table**, with a spanning header row per group
+  (`<tr><td colspan="N"><b>224 × 224 input</b></td></tr>`), primary configuration first.
+- **One hardware benchmark table per model** — a single combined table becomes unreadable
+  past two or three models.
+- Verify placeholders against metrics before generating:
+  ```python
+  import string; {f[1] for f in string.Formatter().parse(template) if f[1]}
+  ```
+
+---
+
+## Step 4 — Script specifics
+
+### `<NAME>_preprocessing.py`
+
+A self-contained copy of the `akida_models` inference preprocessing — the example should
+document in one readable place what happens to an input before it reaches the model.
+
+**Then prove it is a faithful copy**: assert bit-equality against the `akida_models`
+implementation over real samples at every supported resolution. A silently drifting copy is
+the worst failure mode this file has.
+
+Call out in the docstring that normalisation lives **inside** the model (a `Rescaling` layer
+from `input_scaling`), so the pipeline delivers raw uint8 and must not normalise. This is the
+most common cause of a pretrained model scoring at chance.
+
+### `<NAME>_eval.py`
+
+- Report the metrics the dataset's field actually uses (for ImageNet: top-1 **and** top-5).
+- Keras path: `model.evaluate` with `['accuracy', SparseTopKCategoricalAccuracy(k=5)]`.
+- Akida path: manual batch loop; `predict` returns `(B, 1, 1, C)`, so `squeeze(axis=(1,2))`.
+- Support `-n/--num-samples` to cap, and a `--samples` mode running the small sample pack
+  with per-image predicted-vs-true output. Make `--save-metrics` **refuse** to record a
+  sample-pack run.
+- **Compute activation sparsity here, not in `_benchmark.py`.** It needs no hardware, and
+  gating it behind the benchmark script (which exits early without a device) leaves the
+  column empty for no reason. This is a deliberate deviation from the training-example
+  template.
+- Do **not** call `tf.config.experimental.enable_op_determinism()` — evaluation has no
+  shuffle or augmentation so it is already deterministic, and it materially slows large runs.
+
+### `<NAME>_benchmark.py`
+
+Structurally a copy of `plant_village_benchmark.py`. Keep the `brainchip_utils` imports and
+call sequence identical. Differences for a multi-model example: namespace the output plot
+filenames per model (`ref_benchmark_results_full_<tag>.png`), and default the samples to the
+small redistributable pack with `-d` opting into the full dataset.
+
+Benchmark samples must be **real images** — Akida is event-driven, so latency and power
+depend on activation sparsity, which depends on the input. Random noise gives wrong numbers.
+A handful of real images cycled is fine; say so in the README rather than implying more.
+
+---
+
+## Step 5 — Akida version differences (do not hard-bake v1)
+
+**The default `cnn2snn` context is v2.** Any v1 model construction or conversion must be
+wrapped in `with set_akida_version(AkidaVersion.v1):` or it silently builds the wrong
+architecture and fails to match the weights. Always set the context explicitly, whichever
+version you target.
+
+Verified differences (checked against akida_models 1.14.0 / akida 2.19.2):
+
+| | Akida 1 | Akida 2 |
+|---|---|---|
+| `get_params_by_version()` → | `(fused=True, post_relu_gap=False, 'ReLU6')` | `(fused=False, post_relu_gap=True, 'ReLU3.75')` |
+| Separable conv | fused single `SeparableConv2D` | separate `DepthwiseConv2D` + `Conv2D` |
+| Global avg pooling | **before** the neighbouring ReLU | **after** the ReLU |
+| Quantization tool | `cnn2snn quantize -i 8 -w 4 -a 4` | `quantizeml` (installed: 1.2.4) |
+| Default bit-width | 4 | 8 (`get_default_bitwidth()`) |
+| Published weights | `data.brainchip.com/models/AkidaV1/…`, `_iq8_wq4_aq4.h5` | `…/AkidaV2/…`, `_i8_w4_a4.h5` / `_i8_w8_a8.h5` |
+| Reference device | AKD1500, `CLOCK_FREQUENCY = 400e6` | AKD2500 — **verify the clock frequency** |
+
+`akida.MapMode` currently exposes `Minimal`, `AllNps`, `HwPr`. The benchmark scripts use
+`Minimal` and `AllNps`; confirm which are meaningful for the target device rather than
+assuming both apply.
+
+**Write the architecture prose from the version you are targeting.** The AkidaNet
+description in `imagenet_akidanet` (fused separables, pre-ReLU pooling) is *v1-specific* and
+becomes wrong if copied into a v2 example. Generate the layer listing from the actual loaded
+model and let it correct you — that is how the pooling/BN ordering error in the original
+example was caught.
+
+---
+
+## Step 6 — Dataset licensing
+
+Many benchmark datasets (ImageNet among them) permit research use but **prohibit
+redistribution**. Never commit their imagery to the repo.
+
+Order of preference:
+
+1. A redistributable sample pack already mirrored by BrainChip —
+   `https://data.brainchip.com/dataset-mirror/…`. The `imagenet_like` pack is 10 labelled
+   JPEGs, enough for benchmarking and a genuine end-to-end smoke test.
+2. A new BrainChip mirror, if you can upload one.
+3. Manual setup by the user, documented with a link to the authoritative instructions
+   (e.g. the TFDS catalog page) and the exact directory layout expected.
+
+State the licence position plainly in the README, and be explicit that a 10-image pack is a
+pipeline check and **not** an accuracy measurement. Never let a tiny-sample number reach the
+Model Card.
+
+---
+
+## Step 7 — Measure before committing to a long run
+
+Before launching a full-dataset sweep, time a single model to estimate the total. For the
+ImageNet example the Akida software backend was assumed to be prohibitively slow; measuring
+showed 2–17 minutes per model, so all six models × three variants ran on the full 50,000
+images with no subsetting.
+
+If a full run genuinely is infeasible, record the sample count in metrics
+(`{prefix}{variant}_n`) and footnote it in the README. **Never present a subset number as a
+full-dataset number.**
+
+---
+
+## Step 8 — Verification checklist
+
+```bash
+python -c "import ast, glob; [ast.parse(open(f).read()) for f in glob.glob('*.py')]"
+bash -n <NAME>_eval.sh
+python -c "import json, glob; [json.load(open(f)) for f in glob.glob('*.ipynb')]"
+python update_readme.py
+```
+
+Plus these, which catch the failures that actually happen:
+
+- [ ] Local preprocessing is **bit-identical** to `akida_models` at every resolution
+- [ ] Every model path resolves (loop all variant combinations)
+- [ ] Template placeholders exactly match metrics keys, both directions; rendered README
+      contains no unresolved `{`
+- [ ] Backbone loader weights match the `akida_models` pretrained helper where both exist
+- [ ] `--samples` smoke test gives sensible per-image predictions
+- [ ] Benchmark script exits cleanly with no device attached
+- [ ] Notebook cells that introspect layers were actually executed, not just written
+- [ ] Model files are LFS-tracked (`git check-attr filter -- <file>`)
+
+---
+
+## Gotchas worth carrying forward
+
+- **Model metadata can lie.** The ImageNet 224 checkpoints carry an internal Keras name
+  saying `160`, because they were produced by rescaling the 160 models. Read resolution from
+  `model.input_shape`, never `model.name`.
+- **Rename model files before the first commit.** Once they are in Git LFS, renaming means
+  history churn. Normalising names is free while the files are still untracked.
+- **Verify claims about the architecture against the loaded model.** Prose written from
+  memory or from a description gets layer ordering wrong; a printed layer list does not.
+- **The `pretrained_models/` directory gets no `.gitignore`** — that is the one model
+  directory whose contents are meant to be committed.
