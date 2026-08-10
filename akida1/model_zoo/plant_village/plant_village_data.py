@@ -5,7 +5,9 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tf_keras.utils import set_random_seed
+from tensorflow_datasets.datasets.plant_village import plant_village_dataset_builder
 
+plant_village_dataset_builder._URL = "https://data.brainchip.com/dataset-mirror/plantvillage/Plant_leaf_diseases_dataset_without_augmentation.zip"
 
 def get_data(data_path, input_shape, batch_size, dtype=tf.uint8, seed=42):
     """ Loads PlantVillage data via tensorflow_datasets.

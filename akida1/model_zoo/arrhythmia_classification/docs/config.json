@@ -1,0 +1,31 @@
+{
+    "epochs": 100,
+    "batch_size": 64,
+    "learning_rate": 0.003,
+    "window": 250,
+    "num_classes": 3,
+    "Factor": 0.3,
+    "class weights": {
+        "0": 1.0,
+        "1": 6.0,
+        "2": 3.0
+    },
+    "active_regularizer": 2e-05,
+    "train_distribution": [
+        [
+            "N",
+            "36663"
+        ],
+        [
+            "S",
+            "754"
+        ],
+        [
+            "V",
+            "3030"
+        ]
+    ],
+    "loss": "sparse_categorical_crossentropy",
+    "split_type": "patient-wise",
+    "augmentation": false
+}

@@ -13,6 +13,8 @@ dependencies = [
     "pyftdi",
     "ipykernel",
     "pyyaml"
+    "pywavelets",
+    "wfdb"
 ]
 
 [tool.setuptools.packages.find]

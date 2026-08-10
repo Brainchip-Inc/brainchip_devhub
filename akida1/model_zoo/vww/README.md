@@ -163,9 +163,14 @@ what the quantization constraints mean in practice, and what the conversion
 step does. Start here if you want to understand *why* the pipeline is structured
 the way it is.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida1/model_zoo/vww/vww_notebook_training.ipynb)
+
 [vww_notebook_benchmark.ipynb](vww_notebook_benchmark.ipynb) walks through 
 evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking
 of model latency and power.
+
+> **Note:** the hardware benchmark section reads live power measurements from a physical AKD1500
+> device over I2C. It will not run in Colab — use it locally with a connected board.
 
 ### Script
 
