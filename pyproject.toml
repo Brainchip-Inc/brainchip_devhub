@@ -12,7 +12,7 @@ dependencies = [
     "akida_models==1.14.0",
     "pyftdi",
     "ipykernel",
-    "pyyaml"
+    "pyyaml",
     "pywavelets",
     "wfdb"
 ]
