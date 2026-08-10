@@ -22,10 +22,10 @@ This example was developed by our partners at [BeEmotion.ai](https://www.beemoti
   </thead>
   <tbody>
     <tr>
-      <td align="center">95.45%</td>
-      <td align="center">92.70%</td>
-      <td align="center">92.75%</td>
-      <td align="center">73.29%</td>
+      <td align="center">95.69%</td>
+      <td align="center">92.95%</td>
+      <td align="center">93.06%</td>
+      <td align="center">73.19%</td>
       <td align="center">22,668</td>
     </tr>
   </tbody>
@@ -54,23 +54,23 @@ The accuracy metrics reported above come from running evaluation on the validati
       <td>Minimal</td>
       <td align="center">6</td>
       <td align="center">1</td>
-      <td align="center">127906</td>
-      <td align="center">0.320</td>
-      <td align="center">139.3</td>
+      <td align="center">134806</td>
+      <td align="center">0.337</td>
+      <td align="center">131.5</td>
       <td align="center">0.048</td>
-      <td align="center">20.6</td>
-      <td align="center">0.007</td>
+      <td align="center">20.7</td>
+      <td align="center">0.008</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">31</td>
       <td align="center">1</td>
-      <td align="center">44034</td>
-      <td align="center">0.110</td>
-      <td align="center">189.3</td>
-      <td align="center">0.025</td>
-      <td align="center">69.4</td>
-      <td align="center">0.009</td>
+      <td align="center">45638</td>
+      <td align="center">0.114</td>
+      <td align="center">178.8</td>
+      <td align="center">0.026</td>
+      <td align="center">66.6</td>
+      <td align="center">0.010</td>
     </tr>
   </tbody>
 </table>

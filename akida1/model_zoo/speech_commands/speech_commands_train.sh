@@ -19,7 +19,6 @@ python speech_commands_train.py \
     -s "$OUT_DIR"/speech_commands.h5  \
     -d "$DATADIR" \
     --config "$CONFIG" \
-    --float
 
 python speech_commands_eval.py \
     -d "$DATADIR" \
@@ -32,7 +31,8 @@ python speech_commands_train.py \
     -l "$OUT_DIR"/speech_commands_iq8_wq4_aq4.h5 \
     -s "$OUT_DIR"/speech_commands_qat.h5  \
     -d "$DATADIR" \
-    --config "$CONFIG"
+    --config "$CONFIG" \
+    --qat
 
 python speech_commands_eval.py \
     -d "$DATADIR" \
