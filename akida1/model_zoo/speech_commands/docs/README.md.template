@@ -206,6 +206,8 @@ what the quantization constraints mean in practice, and what the conversion
 step does. Start here if you want to understand *why* the pipeline is structured
 the way it is.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida1/model_zoo/speech_commands/speech_commands_notebook_training.ipynb)
+
 **Remark:** when running the training notebook on the same machine with the same training configuration file, it has been verified that the float model matches the corresponding model under the `pretrained_models` folder.
 However, this does not apply for the QAT model. The reason for this is that the order of operations changes between `speech_commands_train.sh` and the training notebook.
 One would eventually be able to get the exact same resulting model by restarting the notebook before the QAT phase, loading the dataset, skipping float training and running directly the QAT phase (i.e. what `speech_commands_train.sh` does for the QAT phase).
@@ -214,6 +216,8 @@ Running the notebook twice end-to-end with the same seed on the same hardware do
 [speech_commands_notebook_benchmark.ipynb](speech_commands_notebook_benchmark.ipynb) walks through 
 evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking
 of model latency and power.
+
+> **Note:** the hardware benchmark section reads live power measurements from a physical AKD1500 device over I2C. It will not run in Colab — use it locally with a connected board.
 
 ### Script
 
