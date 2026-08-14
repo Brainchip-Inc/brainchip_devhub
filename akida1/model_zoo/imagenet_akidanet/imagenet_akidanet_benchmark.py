@@ -171,7 +171,7 @@ if __name__ == '__main__':
     if args.save_metrics:
         perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + perlayer_savepath)
     plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
-                           model_name=str(loadmodel),
+                           model_name=f'akidanet_imagenet alpha={args.alpha} {args.resolution}px',
                            savepath=perlayer_savepath)
     print('\nPer-layer results plot saved to ' + str(perlayer_savepath))
 
