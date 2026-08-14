@@ -7,8 +7,8 @@ Selects one model by width multiplier and input resolution, and evaluates one of
 its three variants:
 
   float  full-precision Keras model
-  qat    quantization-aware-trained Keras model (8-bit input, 4-bit weights and
-         activations)
+  qat    quantized Keras model (8-bit input, 4-bit weights and activations) fine
+         tuned with quantization aware training (QAT)
   akida  the converted Akida model, run on hardware if a device is present and
          on the software backend otherwise
 

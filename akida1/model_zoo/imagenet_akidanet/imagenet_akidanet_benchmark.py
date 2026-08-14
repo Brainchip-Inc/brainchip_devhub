@@ -179,7 +179,7 @@ if __name__ == '__main__':
     if args.save_metrics:
         full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + full_savepath)
     plot_full_model_results(full_results, ak_model, device,
-                            model_name=str(loadmodel),
+                            model_name=f'akidanet_imagenet alpha={args.alpha} {args.resolution}px',
                             savepath=full_savepath)
     print('Full model results plot saved to ' + str(full_savepath))
 

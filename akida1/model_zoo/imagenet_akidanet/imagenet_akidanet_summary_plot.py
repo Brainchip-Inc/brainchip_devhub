@@ -5,11 +5,9 @@
 Two panels, one per cost measure -- latency and energy per inference -- both
 plotted against Akida top-1 accuracy, for all six models.
 
-Points only, deliberately. Three widely spaced widths per resolution is far too
-few to justify joining: a straight segment between two of them asserts a linear
-trade-off that was never measured, and reading the vertical gap between two such
-segments invents a difference between the resolutions that the data does not
-support.
+We deliberately use points here, not lines, as there are only three widely spaced
+widths per resolution which is far too few to justify joining and removes the risk
+of data overinterpretation.
 
 Hardware figures are taken from the ``HwPr`` mapping mode, which is the fastest
 and the lowest-energy of the three modes on every model here. Everything is read
@@ -31,11 +29,10 @@ import matplotlib.pyplot as plt
 # shows the one worth deploying.
 MAP_MODE = 'hwpr'
 
-# Series are the two input resolutions, in fixed order -- colour follows the
-# resolution, never its rank in the data. Marker shape repeats the distinction so
-# identity never rests on colour alone.
-# 'label_dy' pushes each series' point labels to opposite sides, which is what
-# keeps them apart where points of the two series land close together.
+# Series are the two input resolutions, in fixed order, identified by both colour 
+# and marker shape.
+# 'label_dy' pushes each series' point labels to opposite sides, to improve 
+# readability with close data points.
 SERIES = [
     {'resolution': 224, 'color': '#2a78d6', 'marker': 'o', 'label': '224 x 224 input',
      'label_dy': 11},
@@ -106,7 +103,7 @@ def plot_summary(metrics, savepath=None):
                             color=INK_MUTED, zorder=4)
 
         ax.set_xlabel(panel['xlabel'], fontsize=12, color=INK)
-        ax.set_title(panel['title'], fontsize=13, color=INK, loc='left', pad=10)
+        ax.set_title(panel['title'], fontsize=13, fontweight='bold', color=INK)#, loc='left', pad=10)
         ax.set_xlim(-0.04 * x_max, 1.06 * x_max)
         ax.set_ylim(37, 76)
         ax.grid(True, color=GRID, linewidth=0.8, zorder=0)

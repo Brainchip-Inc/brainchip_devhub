@@ -515,9 +515,11 @@ anything.
 
 ## The AkidaNet architecture
 
-AkidaNet is a variant of **MobileNet v1**, reshaped so that every operation maps
-cleanly onto Akida 1. It keeps MobileNet's core idea — depthwise-separable
-convolutions to cut parameter count and compute — and changes three things.
+AkidaNet is a variant of **MobileNet v1**, 
+[Howard et al, (2017)](https://arxiv.org/abs/1704.04861)
+reshaped so that every operation maps cleanly onto Akida 1. It keeps 
+MobileNet's core idea — depthwise-separable convolutions to cut parameter 
+count and compute — and changes three things.
 
 **1. The first four blocks use standard convolutions, not separable ones.**
 
@@ -707,13 +709,6 @@ akidanet_imagenet_<RES>_alpha_<A>_qat.fbz     converted Akida model
 ```
 
 where `<RES>` is `160` or `224` and `<A>` is `0.25`, `0.5` or `1.0`.
-
-These names are deliberately more regular than the ones published on
-data.brainchip.com, which omit the alpha entirely for 1.0 and write the others as
-integer percentages (`_alpha_50`). `model_fetch.sh` at the repository root
-downloads and renames them, so the mapping is reproducible. `model_path()` in
-`imagenet_akidanet_model.py` builds a name from an alpha and a resolution if you
-want it in code.
 
 ### Using these models as transfer-learning backbones
 

@@ -121,24 +121,22 @@ activations that are zero, and therefore the work the hardware skips.
 Three patterns in these numbers are worth knowing before you pick a model.
 
 **Conversion to Akida is free.** The Akida column tracks the QAT column to within
-about 0.2 points everywhere. Conversion changes the representation, not the
-computation, so this is the expected result — and a useful sanity check if you
-convert a model of your own and see a real drop.
+about 0.2 points everywhere. Conversion changes the representation, not the computation, so this is the expected result. It's also a useful sanity check: if you convert a model of your own and see a real drop, something has gone wrong.
 
 **Quantization gets more expensive as the model gets narrower.** Going from float
 to 4-bit costs roughly 2 points of top-1 at alpha 1.0, around 3 to 4 points at
 alpha 0.5, and 7 points or more at alpha 0.25. A wide model has redundant
 capacity to absorb the loss of precision; a narrow one does not, and every filter
 has to carry more of the representation. If you are choosing a width, note that
-the *quantized* accuracies are spread further apart than the float ones — alpha
+the *quantized* accuracies are spread further apart than the float ones: alpha
 0.25 looks more competitive before quantization than it is after it.
 
 Do not read these figures as the cost of quantization in general, though. The
 drop is strongly task dependent, and ImageNet-1k is about as hard a task as this
-scale of model can take on — 1000 classes, with fine distinctions between many of
+scale of model can take on: 1000 classes, with fine distinctions between many of
 them. On an easier task the same architectures lose almost nothing. Fine-tuned on
 [PlantVillage](../plant_village/README.md), alpha 0.5 goes from 99.61% float to
-99.43% on Akida — a drop of under 0.2 points. On
+99.43% on Akida, a drop of under 0.2 points. On
 [Visual Wake Words](../vww/README.md), even alpha 0.25 goes from 89.33% to
 88.42%, under a single point. What makes 4-bit weights bite here is having to
 separate 1000 classes; a 38-class or 2-class head has far more margin to spare.
@@ -159,7 +157,7 @@ onto the fewest Neural Processors it fits in, keeping power low. **AllNPs**
 spreads it across as many NPs as it can while keeping the number of hardware
 passes down, trading a modest power increase for a proportional latency
 reduction. **HwPr** also uses every NP available, but lets the mapper split the
-work over more passes instead of minimising them — the extra parallelism within
+work over more passes instead of minimising them: the extra parallelism within
 a pass can cut latency further.
 
 <!--
@@ -517,9 +515,11 @@ anything.
 
 ## The AkidaNet architecture
 
-AkidaNet is a variant of **MobileNet v1**, reshaped so that every operation maps
-cleanly onto Akida 1. It keeps MobileNet's core idea — depthwise-separable
-convolutions to cut parameter count and compute — and changes three things.
+AkidaNet is a variant of **MobileNet v1**, 
+[Howard et al, (2017)](https://arxiv.org/abs/1704.04861)
+reshaped so that every operation maps cleanly onto Akida 1. It keeps 
+MobileNet's core idea — depthwise-separable convolutions to cut parameter 
+count and compute — and changes three things.
 
 **1. The first four blocks use standard convolutions, not separable ones.**
 
@@ -550,7 +550,7 @@ You can confirm the ordering on any of these models by listing the layers around
 `separable_13/global_avg`.
 
 Points 2 and 3 are what `akida_models` selects automatically when the Akida v1
-context is active — see `get_params_by_version()`. This matters in practice:
+context is active (see `get_params_by_version()`). This matters in practice:
 the default context is **v2**, which builds the unfused, post-ReLU-pooling
 variant and will silently fail to match these weights. All model construction in
 this example is wrapped in `with set_akida_version(AkidaVersion.v1):`.
@@ -611,7 +611,7 @@ section of the top-level README.
 **ImageNet-1k** (ILSVRC 2012) is the standard large-scale image classification
 benchmark: 1000 object categories, 1,281,167 training images and 50,000
 validation images. Accuracy in this example is measured on the validation split
-at its full size — no subsampling.
+at its full size without subsampling.
 
 Images are preprocessed with the conventional ImageNet validation recipe: an
 aspect-preserving resize so the shorter side becomes `round(size * 1.143)`
@@ -627,8 +627,8 @@ mirror. It needs no setup and is not subject to ImageNet's redistribution terms.
 
 <img src="docs/sample_mosaic.png" alt="The 10 images of the ImageNet-like sample pack with their labels" width="700">
 
-*The 10-image sample pack. Enough to verify a pipeline and to drive an
-activity-realistic hardware benchmark; nowhere near enough to measure accuracy.*
+*The 10-image sample pack is enough to verify the pipeline and drive an
+activity-realistic hardware benchmark but nowhere near enough to measure accuracy.*
 
 > ImageNet is distributed under its own terms, which permit non-commercial
 > research and educational use and do **not** permit redistribution. No ImageNet
@@ -678,7 +678,7 @@ ln -s /path/to/imagenet ./data/imagenet_tfds
 ```
 
 If you only want to run the hardware benchmark or a quick smoke test, you can
-skip all of this — both work from the 10-image sample pack.
+skip all of this as both work from the 10-image sample pack.
 
 ## Pipeline
 
@@ -709,13 +709,6 @@ akidanet_imagenet_<RES>_alpha_<A>_qat.fbz     converted Akida model
 ```
 
 where `<RES>` is `160` or `224` and `<A>` is `0.25`, `0.5` or `1.0`.
-
-These names are deliberately more regular than the ones published on
-data.brainchip.com, which omit the alpha entirely for 1.0 and write the others as
-integer percentages (`_alpha_50`). `model_fetch.sh` at the repository root
-downloads and renames them, so the mapping is reproducible. `model_path()` in
-`imagenet_akidanet_model.py` builds a name from an alpha and a resolution if you
-want it in code.
 
 ### Using these models as transfer-learning backbones
 

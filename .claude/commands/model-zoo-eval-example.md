@@ -217,18 +217,19 @@ Verified differences (checked against akida_models 1.14.0 / akida 2.19.2):
 | `get_params_by_version()` → | `(fused=True, post_relu_gap=False, 'ReLU6')` | `(fused=False, post_relu_gap=True, 'ReLU3.75')` |
 | Separable conv | fused single `SeparableConv2D` | separate `DepthwiseConv2D` + `Conv2D` |
 | Global avg pooling | **before** the neighbouring ReLU | **after** the ReLU |
-| Quantization tool | `cnn2snn quantize -i 8 -w 4 -a 4` | `quantizeml` (installed: 1.2.4) |
+| Quantization tool | `cnn2snn quantize -i 8 -w 4 -a 4` | `quantizeml` |
 | Default bit-width | 4 | 8 (`get_default_bitwidth()`) |
 | Published weights | `data.brainchip.com/models/AkidaV1/…`, `_iq8_wq4_aq4.h5` | `…/AkidaV2/…`, `_i8_w4_a4.h5` / `_i8_w8_a8.h5` |
 | Reference device | AKD1500, `CLOCK_FREQUENCY = 400e6` | AKD2500 — **verify the clock frequency** |
 
 `akida.MapMode` currently exposes three strategies, and the canonical example measures all
-three: `Minimal` minimises the hardware resources used, `AllNps` maximises the NPs used at the
-*minimum* number of hardware passes, and `HwPr` maximises the NPs used while letting the pass
-count grow. On AKD1500, `HwPr` was the fastest *and* the lowest-energy mapping on all six
-ImageNet models, so measure it rather than assuming two modes bracket the range. Confirm which
-modes are meaningful for the target device rather than assuming all three apply — and note
-that some sibling training examples (`vww`, `plant_village`) still measure only two.
+three: `Minimal` minimises the hardware resources used, `AllNps` maximises the NPs used while
+keeping the *minimum* number of hardware passes, and `HwPr` maximises the NPs used while 
+letting the pass count grow. On AKD1500, `HwPr` was the fastest *and* the lowest-energy 
+mapping on all six ImageNet models, so measure it rather than assuming two modes bracket 
+the range. Confirm which modes are meaningful for the target device rather than assuming 
+all three apply — and note that some sibling training examples (`vww`, `plant_village`) 
+still measure only two.
 
 **Write the architecture prose from the version you are targeting.** The AkidaNet
 description in `imagenet_akidanet` (fused separables, pre-ReLU pooling) is *v1-specific* and
