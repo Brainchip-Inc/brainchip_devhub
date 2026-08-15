@@ -9,7 +9,7 @@ import tensorflow as tf
 from datetime import datetime
 from model import build_akida_model, prepare_qat_model, apply_activity_regularizer
 from data import ECGDatasetBuilder,ECGDatasetLoader
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from cnn2snn import quantize, convert, load_quantized_model
 import random
 
@@ -34,25 +34,36 @@ def evaluate_and_report(model, X_test, y_test, run_dir, filename_suffix=""):
     report = classification_report(y_test, preds, target_names=["N", "S", "V"])
     print(f"\n--- Classification Report {filename_suffix} ---")
     print(report)
-    
+
     report_path = os.path.join(run_dir, f"classification_report{filename_suffix}.txt")
     with open(report_path, "w") as f:
         f.write(report)
 
+    accuracy = accuracy_score(y_test, preds)
+    print(f"Test accuracy: {accuracy:.4f}")
+    return accuracy
+
 def main():
     parser = argparse.ArgumentParser(description="Akida Model Zoo - ECG Training Pipeline")
     parser.add_argument("--data_dir", required=True, help="Path to preprocessed .npy arrays")
-    parser.add_argument("--run_dir", default="./akida_ecg_scalogram", help="Target output folder")
+    parser.add_argument("--run_dir", default=None, help="Target output folder")
     parser.add_argument("--raw_data_dir", required=False, help="Path to raw MIT-BIH mitdb folder")
     parser.add_argument("--lr", type=float, default= 3e-3 ,help=f'Initial learning rate ')
-    parser.add_argument("--float_epochs", type=float, default= 80 ,help=f'Float training epochs ')
-    parser.add_argument("--qat_epochs", type=float, default= 50 ,help=f'QAT fine-tuning epochs ')
+    parser.add_argument("--float_epochs", type=int, default= 80 ,help=f'Float training epochs ')
+    parser.add_argument("--qat_epochs", type=int, default= 50 ,help=f'QAT fine-tuning epochs ')
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training (default: 64)")
+    parser.add_argument("-reg", "--regularization", type=float, default=None,
+                        help="Activity regularization strength applied to ReLU layers "
+                             "(default: None, i.e. no activity regularization -- the true "
+                             "baseline; this project previously always applied 2e-5 L1L2)")
+    parser.add_argument("--reg-type", choices=["l1l2", "hoyer_square", "hoyer_square_norm"],
+                        default="l1l2",
+                        help="Type of activity regularizer to use with -reg")
 
     args = parser.parse_args()
     input_shape = (36, 32, 1)
     num_classes = 3
-    L1L2_reg_value = 2e-5
+    WEIGHT_L2_REG = 2e-5  # fixed kernel (pointwise conv) weight-decay strength, not swept
 
     SEED = 67004546
     # Apply it everywhere
@@ -76,17 +87,18 @@ def main():
     class_weights = {0: 1.0, 1: 6.0, 2: 3.0}
 
     # 4. setup_run_directory
-    if args.run_dir:
+    if args.run_dir is None:
         """Creates a unique path for saving training outputs and configurations."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         args.run_dir = f"akida_ecg_scalogram/3class_arrhythmia_classification_{timestamp}"
-        os.makedirs(args.run_dir, exist_ok=True)
-        print(f"Created active Run Directory: {args.run_dir}")
-        
+    os.makedirs(args.run_dir, exist_ok=True)
+    print(f"Using Run Directory: {args.run_dir}")
+
     # a. FP32 Stage
     print("\n--- Phase 1: Training FP32 Baseline Model ---")
-    model = build_akida_model(input_shape,num_classes,L1L2_reg_value)
-    apply_activity_regularizer(model,L1L2_reg_value)
+    model = build_akida_model(input_shape,num_classes,WEIGHT_L2_REG)
+    if args.regularization is not None:
+        apply_activity_regularizer(model, args.regularization, args.reg_type)
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(args.lr),
@@ -117,12 +129,16 @@ def main():
     # Evaluate FP32 Baseline
     fp32_path = os.path.join(args.run_dir, "arrhythmia_classification_fp32_model.h5")
     best_fp32 = tf.keras.models.load_model(fp32_path)
-    evaluate_and_report(best_fp32, X_test, y_test, args.run_dir, filename_suffix="")
+    float_accuracy = evaluate_and_report(best_fp32, X_test, y_test, args.run_dir, filename_suffix="")
 
     # b. QAT Stage
     print("\n--- Phase 2: Starting Quantization Aware Training (QAT) ---")
     best_fp32.input_names = [tensor.name.split(":")[0] for tensor in best_fp32.inputs]
     q_model = prepare_qat_model(best_fp32)
+    if args.regularization is not None:
+        # Re-apply so sparsity survives quantization -- quantize() rebuilds ReLU
+        # layers as QuantizedReLU, which don't inherit the float model's regularizer.
+        apply_activity_regularizer(q_model, args.regularization, args.reg_type)
     q_model.compile(
         optimizer=tf.keras.optimizers.Adam(args.lr),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -151,7 +167,10 @@ def main():
     print("\n--- Phase 2: Evaluating QAT Model ---")
     qat_path = os.path.join(args.run_dir, "arrhythmia_classification_qat_model.h5")
     best_qat = load_quantized_model(qat_path)
-    evaluate_and_report(best_qat, X_test, y_test, args.run_dir, filename_suffix="_quant")
+    qat_accuracy = evaluate_and_report(best_qat, X_test, y_test, args.run_dir, filename_suffix="_quant")
+
+    with open(os.path.join(args.run_dir, "accuracies.json"), "w") as f:
+        json.dump({"float_accuracy": float(float_accuracy), "qat_accuracy": float(qat_accuracy)}, f, indent=4)
 
     print(f"[SUCCESS] Training cycles terminated. Outputs exported to {args.run_dir}")
 

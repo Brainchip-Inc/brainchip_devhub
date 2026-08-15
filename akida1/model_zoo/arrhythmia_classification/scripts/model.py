@@ -4,6 +4,9 @@ from tf_keras import layers, models, regularizers
 from tf_keras.layers import ReLU
 
 from cnn2snn import quantize
+from cnn2snn.quantization_layers import QuantizedReLU
+
+from regularizers_custom import HoyerSquare, L1L2Activity
 
 def ds_block(x, filters, regularizer, name):
     """Standard Depthwise Separable Layer with targeted pointwise penalty constraints."""
@@ -54,13 +57,24 @@ def build_akida_model(input_shape, num_classes,L1L2_reg_value):
     outputs = layers.Dense(num_classes, activation="linear")(x)
     return models.Model(inputs, outputs, name="Akida_ECG_Sparsity_Net")
 
-def apply_activity_regularizer(model, reg_val):
-    """Injects L1L2 Activity Penalties dynamically into the model's ReLU layers."""
-    regularizer = regularizers.L1L2(l1=reg_val, l2=reg_val)
+def apply_activity_regularizer(model, reg_val, reg_type="l1l2"):
+    """Injects an activity-regularization penalty dynamically into the model's ReLU layers.
+
+    reg_type selects the penalty: 'l1l2' (pre-existing default, keras L1L2), 'hoyer_square'
+    (raw Hoyer-Square, see regularizers_custom.py) or 'hoyer_square_norm' (Hoyer-Square
+    normalized by tensor element count -- see ../vww and ../plant_village SPARSITY_EXPERIMENT.md
+    for why the normalized variant matters).
+    """
+    if reg_type == "hoyer_square_norm":
+        regularizer = HoyerSquare(reg_val, normalize=True)
+    elif reg_type == "hoyer_square":
+        regularizer = HoyerSquare(reg_val)
+    else:
+        regularizer = L1L2Activity(reg_val)
     for layer in model.layers:
-        if isinstance(layer, ReLU):
+        if isinstance(layer, (ReLU, QuantizedReLU)) or "re_lu" in layer.name.lower():
             layer.activity_regularizer = regularizer
-    print(f"Applied Activity Regularization (L1: {reg_val}, L2: {reg_val}) across network ReLU nodes.")
+    print(f"Applied {reg_type} Activity Regularization (strength={reg_val}) across network ReLU nodes.")
 
 
 def prepare_qat_model(float_model_path):
