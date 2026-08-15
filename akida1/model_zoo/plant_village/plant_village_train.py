@@ -28,6 +28,41 @@ from plant_village_data import get_data
 tf.config.experimental.enable_op_determinism()
 
 
+class HoyerSquare(regularizers.Regularizer):
+    """Hoyer-Square activity regularizer: factor * (sum|x|)^2 / sum(x^2).
+
+    Scale-invariant sparsity-inducing penalty (Yang, Wen & Li, "DeepHoyer",
+    ICLR 2020). Unlike L1/L2, minimizing this ratio pushes activations toward a
+    sparse (few large, rest ~zero) configuration rather than uniformly shrinking
+    every value -- a large-but-sparse activation and a small-but-dense one can
+    have the same L1 norm, but the sparse one has a lower Hoyer-Square value.
+
+    Raw form is unbounded: for a tensor of N elements the ratio ranges up to N
+    itself (dense/uniform case), so the same `factor` exerts more pressure on
+    layers with more elements. With `normalize=True`, divides by N so the
+    penalty is bounded in (0, 1] regardless of tensor size -- see the VWW
+    sparsity experiment (SPARSITY_EXPERIMENT.md in ../vww/) for why this
+    matters in practice.
+    """
+
+    def __init__(self, factor, normalize=False):
+        self.factor = float(factor)
+        self.normalize = bool(normalize)
+
+    def __call__(self, x):
+        l1 = tf.reduce_sum(tf.abs(x))
+        l2_sq = tf.reduce_sum(tf.square(x))
+        # eps avoids 0/0 on an all-zero activation (e.g. early in training)
+        hoyer_sq = tf.square(l1) / (l2_sq + 1e-12)
+        if self.normalize:
+            n = tf.cast(tf.size(x), tf.float32)
+            hoyer_sq = hoyer_sq / n
+        return self.factor * hoyer_sq
+
+    def get_config(self):
+        return {'factor': float(self.factor), 'normalize': self.normalize}
+
+
 def get_custom_scheduler(initial_lr: float, n_epochs: int):
     """
     Exponential LR scheduler matching the source training schedule:
@@ -41,14 +76,20 @@ def get_custom_scheduler(initial_lr: float, n_epochs: int):
     return LearningRateScheduler(lr_schedule)
 
 
-def train_plant_village(model, train_ds, val_ds, epochs, learning_rate, regularization=None, seed=42):
+def train_plant_village(model, train_ds, val_ds, epochs, learning_rate, regularization=None,
+                         reg_type='l1l2', seed=42):
     set_random_seed(seed)
     # ---------------------------------------------------------------------------
     # Model
     # ---------------------------------------------------------------------------
     if regularization is not None:
-        print('Adding Activity Regularization to ReLU layers')
-        regularizer = regularizers.L1L2(regularization, regularization)
+        print(f'Adding {reg_type} Activity Regularization to ReLU layers')
+        if reg_type == 'hoyer_square':
+            regularizer = HoyerSquare(regularization)
+        elif reg_type == 'hoyer_square_norm':
+            regularizer = HoyerSquare(regularization, normalize=True)
+        else:
+            regularizer = regularizers.L1L2(regularization, regularization)
         for layer in model.layers:
             if isinstance(layer, ReLU):
                 layer.activity_regularizer = regularizer
@@ -90,6 +131,9 @@ if __name__ == '__main__':
                         help='Initial learning rate')
     parser.add_argument('-reg', '--regularization', type=float, default=None,
                         help='Activity Regularization to increase sparsity')
+    parser.add_argument('--reg-type', choices=['l1l2', 'hoyer_square', 'hoyer_square_norm'],
+                        default='l1l2',
+                        help='Type of activity regularizer to use with -reg')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')
     args = parser.parse_args()
@@ -111,6 +155,7 @@ if __name__ == '__main__':
                         epochs=args.epochs,
                         learning_rate=args.learning_rate,
                         regularization=args.regularization,
+                        reg_type=args.reg_type,
                         seed=args.seed)
 
     model.save(args.savemodel, include_optimizer=False)
