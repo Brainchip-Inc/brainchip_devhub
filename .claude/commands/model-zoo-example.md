@@ -5,7 +5,14 @@ description: Generate a complete brainchip_devhub model zoo example from an akid
 # Model Zoo Example Generator
 
 Generate a self-contained model zoo example in `brainchip_devhub`, adapted from the source
-scripts in `akida_models`. The new example follows the VWW example structure exactly.
+scripts in `akida_models`. The new example follows the VWW reference example for the target
+Akida version:
+- **Akida 1** → `akida1/model_zoo/vww/` is the canonical reference.
+- **Akida 2** → `akida2/model_zoo/vww/` is the canonical reference. Akida 2 differs from
+  Akida 1 in several substantial ways (quantization tool, multi-variant model set, benchmark
+  clock, README table shape). Those deltas are collected in the dedicated
+  **"Akida 2 targets"** section below; when `AKIDA_VERSION == 2`, that section overrides the
+  Akida-1-oriented instructions in Step 3 wherever they conflict.
 
 ## Usage
 
@@ -22,8 +29,16 @@ Parse these from `$ARGUMENTS` now. Set:
 - `SOURCE_DIR` = `akida_models/scripts/<NAME>/`
 - `TARGET_DIR` = `brainchip_devhub/akida<AKIDA_VERSION>/model_zoo/<NAME>/`
 
-Working directories are `/mnt/compute/dmclelland/code/brainchip_devhub/` (primary) and
-`/mnt/compute/dmclelland/code/akida_models/` (additional).
+Resolve the two repo locations before doing anything else, in this order:
+1. Environment variables `BRAINCHIP_DEVHUB` and `AKIDA_MODELS`, if set.
+2. Paths passed as `--devhub <path>` / `--akida-models <path>` in `$ARGUMENTS`.
+3. Sibling directories of the current working directory (e.g. if invoked inside a
+   `brainchip_devhub` checkout, look for `../akida_models`).
+4. Search upward from the current directory for folders named `brainchip_devhub` and
+   `akida_models`.
+
+If neither repo can be found, stop and ask for the paths rather than guessing. Do not
+hardcode any absolute user path.
 
 ---
 
@@ -69,17 +84,24 @@ Read every `.py` and `.sh` file under `SOURCE_DIR`. For each file, identify:
 
 ## Step 2 — Read the canonical VWW reference
 
-Read these files from the VWW example (they are the pattern every target file must follow):
+Read the VWW reference files for the target Akida version — they are the pattern every
+generated file must follow. Let `REF = akida<AKIDA_VERSION>/model_zoo/vww/`.
 
-- `akida1/model_zoo/vww/vww_model.py`
-- `akida1/model_zoo/vww/vww_data.py`
-- `akida1/model_zoo/vww/vww_train.py`
-- `akida1/model_zoo/vww/vww_eval.py`
-- `akida1/model_zoo/vww/vww_benchmark.py`
-- `akida1/model_zoo/vww/vww_train.sh`
-- `akida1/model_zoo/vww/update_readme.py`
-- `akida1/model_zoo/vww/docs/README.md.template`
-- `akida1/model_zoo/vww/docs/metrics.json`
+- `REF/vww_model.py`
+- `REF/vww_data.py`
+- `REF/vww_train.py`   *(present for Akida 1; for Akida 2 confirm whether it exists —
+  the v2 reference may reuse the v1 training loop; see the Akida 2 section)*
+- `REF/vww_eval.py`
+- `REF/vww_benchmark.py`
+- `REF/vww_train.sh`
+- `REF/update_readme.py`
+- `REF/docs/README.md.template`
+- `REF/docs/metrics.json`
+
+For **Akida 2**, read the `akida2/model_zoo/vww/` versions specifically — do not assume they
+match the Akida 1 files. The differences are the whole point of the Akida 2 section below.
+Also read the top-level `pyproject.toml` so you know which packages are already available
+(`quantizeml`, `cnn2snn`, `akida_models`, etc.) versus needing a note.
 
 ---
 
@@ -101,86 +123,136 @@ Follow `vww_model.py` exactly. Key rules:
   (derive `short_model_name` from the architecture, e.g. `akidanet`, `dscnn`).
 - Always include `--seed` and call `set_random_seed(args.seed)`.
 
-For **Akida 2** targets, change `AkidaVersion.v1` → `AkidaVersion.v2` and add a comment:
-```python
-# TODO: Akida2 — verify architecture compatibility with v2 constraints
-```
+For **Akida 2** targets, the model-construction pattern differs from the transfer-learning
+recipe below — see the **"Akida 2 targets"** section (it builds directly from
+`akidanet_imagenet(include_top=True)` rather than grafting a head onto a pretrained
+backbone). Follow the v2 reference `akida2/model_zoo/vww/vww_model.py` and that section
+instead of the transfer-learning block here.
 
-**Transfer learning models**: if Step 1 found that the source uses transfer learning,
-generate `<NAME>_model.py` with the following structure instead of a plain factory call:
+**Transfer learning models (Akida 1)**: if Step 1 found that the source uses transfer learning,
+generate `<NAME>_model.py` following the real `plant_village_model.py` / `vww_model.py`
+pattern (they use the `_pretrained` factory helper, not a manual `fetch_file` +
+`load_weights`):
 
-- Create the base model with `include_top=False, pooling='avg'` and
-  `input_scaling=(255, 0)` (required for Akida 1 uint8 inputs)
-- Load pretrained weights: `fetch_file(url, fname=..., cache_subdir='models')` then
-  `base_model.load_weights(pretrained_weights, by_name=True)`
-- Add the custom top layers from the source (e.g. `dense_block`, `Dropout`, `Activation`,
-  `Reshape`) — copy the layer structure and names exactly from Step 1
-- For Akida 1, obtain the relu activation via `get_params_by_version()` using the v1
-  argument (not the v2 value from the source)
-- Build with `tf_keras.Model(base_model.input, x, name='<name>')`
-- Wrap the full construction in `with set_akida_version(AkidaVersion.v1):`
+- Create the pretrained base model in one call:
+  `akidanet_imagenet_pretrained(alpha=<ALPHA>, quantized=False)` — this fetches the
+  ImageNet-pretrained backbone weights internally (no separate `fetch_file`/`load_weights`).
+- Tap the backbone at the appropriate feature layer:
+  `x = base_model.get_layer('separable_13/relu').output` (plant_village), then add the
+  source's custom head (e.g. `dense_block(units=..., add_batchnorm=True,
+  relu_activation='ReLU6.0')`, `Dropout(...)`, a final `dense_block(units=classes,
+  add_batchnorm=False, relu_activation=False)`). Copy the head layer structure and names
+  from Step 1.
+- **Input rescaling is conditional on resolution:**
+  - If the source changes the input resolution from the backbone's native size (VWW: 96×96),
+    apply `rescale(model, (H, W))` from `akida_models.imagenet.imagenet_train` after building.
+  - If the source keeps the backbone's native resolution (plant_village: 224×224), do **not**
+    call `rescale()` — the `akidanet_imagenet_pretrained` model already handles input scaling
+    (uint8 → /255) internally, so the preprocessing pipeline must deliver raw uint8.
+- Build with `tf_keras.Model(base_model.input, x, name='<name>')`.
+- Wrap the construction in `with set_akida_version(AkidaVersion.v1):`.
 - Default save path: `./models/<short_model_name>_<NAME>.h5` (no `_untrained` suffix —
-  the backbone is already pretrained; this file is the fine-tuning starting point)
-- Add imports for `tf_keras`, `fetch_file`, `dense_block`, `get_params_by_version`, and
-  any layer types used in the top (e.g. `Activation`, `Dropout`, `Reshape`)
+  the backbone is already pretrained; this file is the fine-tuning starting point).
+- Add imports for `tf_keras.Model`, `akidanet_imagenet_pretrained`, `dense_block`, and any
+  layer types used in the head (e.g. `Dropout`).
+
+(For **Akida 2** the model is built differently — from `akidanet_imagenet(include_top=True)`
+with no pretrained-backbone graft; see the Akida 2 section.)
 
 ### 3b. `<NAME>_data.py`
 
-Follow `vww_data.py` exactly. Key rules:
-- Expose exactly two public functions: `get_data(data_path, input_shape, batch_size,
-  dtype=tf.uint8)` returning `(train_dataset, val_dataset)` and `get_samples(data_path,
-  input_shape, num_samples=1024)` returning a `np.ndarray` of uint8.
-- Adapt the internals to load the dataset discovered in Step 1:
-  - If the dataset has `train/` + `val/` subdirectories: use `ImageDataGenerator` +
-    `flow_from_directory`, exactly as in `vww_data.py`. Use `class_mode='sparse'`.
-  - If the dataset is a `.npz` file (e.g. KWS): load with `np.load`, split into train/val,
-    wrap in `tf.data.Dataset.from_tensor_slices`.
-  - Preserve augmentation from the source where it applies (spatial augmentation for images;
-    no augmentation for spectrograms/1D signals unless the source does it).
-- The `get_samples()` function always returns uint8 numpy arrays — apply the same scaling
-  logic the source uses for calibration samples.
+Follow the reference `vww_data.py` / `plant_village_data.py` structure. Key rules:
+- Expose exactly two public functions: `get_data(...)` and `get_samples(data_path,
+  input_shape, num_samples=1024)`. `get_samples` **always** returns a `np.ndarray` of
+  `dtype=uint8` (required by the benchmark utilities), regardless of dataset type.
+- `get_data`'s **signature and return arity follow the dataset**, not a fixed shape:
+  - VWW (directory) → `get_data(data_path, input_shape, batch_size, seed=42)` returning
+    `(train_dataset, val_dataset)` — **two** datasets.
+  - plant_village (TFDS) → `get_data(data_path, input_shape, batch_size, dtype=tf.uint8,
+    seed=42)` returning `(train_dataset, val_dataset, test_dataset)` — **three** datasets.
+  Match whichever the source/dataset naturally provides, and make sure `<NAME>_train.py` /
+  `<NAME>_eval.py` unpack the matching number of values. Both reference examples take a
+  `seed=` parameter and call `set_random_seed(seed)` — include it.
+- Adapt the internals to the dataset **type** discovered in Step 1. The two real cases are:
+  - **Directory dataset** (has `train/` + `val/` subdirs, e.g. VWW): use `ImageDataGenerator`
+    + `flow_from_directory` with `class_mode='sparse'`, exactly as in `vww_data.py`.
+  - **TFDS dataset** (loaded via `tensorflow_datasets`, e.g. plant_village): use
+    `tfds.load(name, split=[...], as_supervised=True, data_dir=data_path)`. Follow
+    `plant_village_data.py`:
+    - Split strings define the train/val/test partition (e.g.
+      `['train[:80%]', 'train[80%:90%]', 'train[90%:]']`).
+    - Map a `resize_and_cast(image, label)` that resizes to `input_shape` and casts to the
+      requested `dtype` (uint8 by default).
+    - Apply augmentation only to the train split (see below); call
+      `tfds.disable_progress_bar()` to keep output clean.
+    - If the source overrides the dataset download URL to a BrainChip mirror (plant_village
+      sets `..._dataset_builder._URL = "https://data.brainchip.com/dataset-mirror/..."`),
+      replicate that override — it's how the dataset is fetched without the upstream source.
+  - (No `.npz` branch — neither reference example uses one. If a genuinely different source
+    format appears, adapt from the closest reference rather than assuming npz.)
+- Preserve augmentation from the source where it applies (spatial augmentation for images;
+  none for spectrograms/1D signals unless the source does it). In the TFDS case, augment only
+  the training dataset, cast back to the model's input dtype afterward.
+- `get_samples()` mechanics also follow the dataset type: directory examples glob/sample
+  image files; TFDS examples do `tfds.load(split=...).take(num_samples)`, resize, and stack.
+  Both return uint8 arrays.
 - Default `data_path` should be `./data/<dataset_dir_name>`.
 
 ### 3c. `<NAME>_train.py`
 
-Follow `vww_train.py` exactly. Key rules:
+Follow the reference `<NAME>_train.py` structure (`vww_train.py` or
+`plant_village_train.py`). Key rules:
 - The training function is named `train_<NAME>(model, train_ds, val_ds, epochs,
-  learning_rate, regularization=None)`.
+  learning_rate, regularization=None, seed=42)`.
 - Use `SparseCategoricalCrossentropy(from_logits=True)` for sparse integer labels (the
   standard case). Use `CategoricalCrossentropy` only if source uses one-hot labels.
-- Apply the same step-decay LR scheduler from VWW (epochs 0-19: `lr`, 20-39: `lr*0.5`,
-  40+: `lr*0.25`) unless the source uses a substantially different schedule, in which case
-  adapt it but keep it inside `get_custom_scheduler()`.
-- Always include `RestoreBest` from `akida_models.training`.
-- CLI: `-l`, `-s`, `-d`, `-b`, `-e`, `-lr`, `-reg`, `--seed` with the same defaults as VWW
-  except adapt epochs and LR defaults to match the source.
+- Optimizer is `Adam` (legacy: `tf_keras.optimizers.legacy.Adam`) in both references.
+- **LR schedule: match the source — do not mandate one.** The two reference examples
+  deliberately use *different* schedules, so there is no single "correct" one to copy:
+  - VWW: `CosineDecay` (from `tf_keras.optimizers.schedules`) with ~10% warmup.
+  - plant_village: exponential decay to ~1% of the initial LR over `n_epochs`, implemented
+    in a `get_custom_scheduler()` helper wrapping a `LearningRateScheduler` callback.
+  Pick whichever fits the source's intent and wrap it in a scheduler callback. Do NOT invent
+  a step-decay schedule (that was an older, inaccurate instruction).
+- **Do not add a `RestoreBest` callback.** Neither reference uses it in the training loop.
+  Note that `plant_village_train.py` *imports* `RestoreBest` but never uses it — that is a
+  dead import; do not propagate it, and do not add the callback.
+- The optional activity-regularization path (the `-reg` flag adding `L1L2` on `ReLU`
+  layers to increase sparsity) is real — carry it over as in the reference.
+- Some references call `tf.config.experimental.enable_op_determinism()` at import time for
+  reproducibility (plant_village does; it has a small throughput cost). Carry it over if the
+  source/reference does.
+- CLI: `-l`, `-s`, `-d`, `-b`, `-e`, `-lr`, `-reg`, `--seed` with the same defaults as the
+  reference except adapt epochs and LR defaults to match the source.
+- Unpack `get_data(...)` with the arity the data module provides (2 or 3 values — see 3b).
+- For **Akida 2**, `<NAME>_train.py` is also used for the QAT fine-tuning of the 4-bit
+  variant (see the Akida 2 section); the training loop itself is version-agnostic.
 
 ### 3d. `<NAME>_eval.py`
 
-Copy `vww_eval.py` and make the following substitutions only:
+Copy the reference `vww_eval.py` and make the following substitutions only:
 - Replace all occurrences of `vww_data` → `<NAME>_data`.
 - Replace the default `--data` path to match the dataset for this example.
-- In the `--save-metrics` block, keep the same logic for inferring which key to write
-  (`float_acc`, `qat_acc`, `akida_acc`, `params`) — this logic is generic and needs no
-  change.
 - The `evaluate_akida_model` function is identical; copy verbatim.
+- **Akida 1** `--save-metrics`: keep the reference's filename-based key inference
+  (`float_acc`, `qat_acc`, `akida_acc`, `params`).
+- **Akida 2** `--save-metrics`: the key scheme is variant-keyed, not the single-QAT scheme —
+  copy it from `akida2/model_zoo/vww/vww_eval.py` verbatim (see the Akida 2 section for why:
+  three quantized variants each need their own keys).
 
 ### 3e. `<NAME>_benchmark.py`
 
-Copy `vww_benchmark.py` and make the following substitutions only:
+Copy the reference `vww_benchmark.py` and make the following substitutions only:
 - Replace `from vww_data import get_samples` → `from <NAME>_data import get_samples`.
 - Replace the default `--data` path to match the dataset for this example.
 - All `brainchip_utils` imports, benchmark calls, and plotting calls are identical; do not
   change them.
-- For **Akida 2** targets, replace the clock frequency constant with:
-  ```python
-  CLOCK_FREQUENCY = 400e6  # TODO: Akida2 — confirm clock frequency for AKD2500
-  ```
-  and add a comment above the mapping block:
-  ```python
-  # TODO: Akida2 — confirm available MapMode values for v2
-  map_modes = ['Minimal', 'AllNps']
-  ```
+- **Akida 1**: the reference hardcodes `CLOCK_FREQUENCY = 400e6` (AKD1500) inline and
+  measures latency + power. Keep as-is.
+- **Akida 2**: the benchmark differs materially (25 MHz FPGA clock, a projected-latency
+  computation, latency-only with the power path removed, and variant-keyed `--save-metrics`).
+  Follow `akida2/model_zoo/vww/vww_benchmark.py` and the Akida 2 section — do not just swap
+  the clock constant.
 
 ### 3f. `<NAME>_train.sh`
 
@@ -259,9 +331,11 @@ Write a full README template for the new example. Follow the VWW template struct
    `{allnps_dyn_E}`. Include the two `<img>` lines for `ref_benchmark_results_full.png`
    and `ref_benchmark_results_layers.png`.
 
-   For **Akida 2**: same table structure with the same keys but change the header text
-   to "AKD2500 hardware benchmark". Add a comment in the template source:
-   `<!-- TODO: Akida2 — update once reference hardware benchmark is available -->`
+   For **Akida 2**: the model card and benchmark table have a **different shape** — a
+   rows-per-variant model card (one row per quantized variant) and a latency-only benchmark
+   table with measured + projected latency columns and no power columns. Do not reuse the
+   Akida 1 table. Follow `akida2/model_zoo/vww/docs/README.md.template` and the Akida 2
+   section for the exact structure and key scheme.
 
    Then write a short description of the model architecture (name, key hyperparameters).
 
@@ -275,13 +349,12 @@ Write a full README template for the new example. Follow the VWW template struct
    source scripts, include it with the wget + extract commands. If not known, write
    `<!-- TODO: add dataset download instructions -->`.
 
-8. **`## Usage`** — three subsections:
-   - `### Notebook` — one paragraph linking `<NAME>_notebook.ipynb` and describing what
-     it covers.
-   - `### Script` — copy the VWW structure (the `bash <NAME>_train.sh [DATADIR]` intro,
-     then the nine numbered steps), adapting filenames, epochs, and LR values.
-   - Include the pretrained model shortcut as step "5b" if a BrainChip pretrained model
-     URL is known from the source; otherwise omit.
+8. **`## Usage`** — two subsections:
+   - `### Notebook` — link the two notebooks (`<NAME>_notebook_training.ipynb` and
+     `<NAME>_notebook_benchmark.ipynb`) with a short description of each, matching the
+     reference template's wording. (Colab badges are intentionally omitted for now.)
+   - `### Script` — copy the reference structure (the `bash <NAME>_train.sh [DATADIR]`
+     intro), adapting filenames, epochs, and LR values.
 
 9. **`## Contributing and Maintenance`** — copy verbatim from VWW, substituting `<NAME>`
    for `vww` and the model file paths accordingly.
@@ -317,7 +390,15 @@ Write a JSON file with every placeholder key from the template set to `"TBD"`:
 ```
 
 **Important:** every `{key}` in the template must appear in this JSON or `update_readme.py`
-will crash. Audit the template you just wrote and add any extra keys you introduced.
+will crash. Audit the template you just wrote and add any extra keys you introduced. The
+reliable way to do this: extract all `{...}` placeholders from the template with a regex and
+emit exactly that set, each set to `"TBD"`. Verify by running `update_readme.py` — it must
+render with no `KeyError`.
+
+The **Akida 2** key set is different and larger (variant-prefixed keys like `w8a8_*`,
+`w4a8_ptq_*`, `w4a8_qat_*`, plus projected-latency keys, and no power keys). Take it from
+`akida2/model_zoo/vww/docs/metrics.json` and keep it in exact correspondence with both the
+v2 template and the variant-keyed `--save-metrics` blocks in the v2 eval/benchmark scripts.
 
 ### 3j. `README.md`
 
@@ -325,11 +406,25 @@ Generate the initial README by running `update_readme.py` inline (read the templ
 format it with the metrics dict). The result will have "TBD" everywhere metrics should be —
 that is correct and expected until training runs are complete.
 
-### 3k. `<NAME>_notebook.ipynb`
+### 3k. Notebooks
 
-Write the notebook as a valid `.ipynb` JSON file. Use `nbformat` version 4.5. Follow the
-VWW notebook cell structure (read `akida1/model_zoo/vww/vww_notebook.ipynb` for the exact
-cell text and markdown content if needed, but it is large — focus on the structure).
+The reference examples ship **two** notebooks plus a Jupytext mirror, not a single
+`<NAME>_notebook.ipynb`:
+- `<NAME>_notebook_training.ipynb` — the training→quantization→conversion→eval walkthrough.
+- `<NAME>_notebook_benchmark.ipynb` — accuracy-on-Akida + hardware benchmark (requires a
+  device; never runs in Colab).
+- `<NAME>_notebook.py` — a Jupytext `py:percent` mirror paired with the notebooks (the
+  notebook metadata declares `jupytext: formats: ipynb,py:percent`). Regenerate it from the
+  notebook with `jupytext` rather than hand-writing it.
+
+> **Deferred:** notebook generation is intentionally out of scope for the current version of
+> this skill while the non-notebook pipeline is being validated. When implementing it, use
+> the cell-structure guidance below as a starting point, but the **Akida 2** notebooks must
+> reflect the multi-variant pipeline (three quantized models, `quantizeml` quantization, no
+> QAT for 8-bit, FPGA benchmark) rather than the single-model Akida 1 flow — mirror
+> `akida2/model_zoo/vww/` once its notebooks exist.
+
+Cell-structure reference (Akida 1 single-model flow; use `nbformat` 4.5):
 
 Cell sequence (each as a separate element in `"cells"`):
 
@@ -488,9 +583,152 @@ The top-level structure:
 
 ### 3l. Directory stubs
 
-Create these empty placeholder files:
-- `models/.gitkeep`
-- `data/.gitkeep`
+Create `models/` and `data/` each containing a `.gitignore` that ignores everything except
+itself (copy verbatim from the reference example — it is not a `.gitkeep`):
+```
+# Git to Ignore everything in this directory
+*
+# Except this .gitignore file
+!.gitignore
+```
+
+---
+
+## Akida 2 targets
+
+When `AKIDA_VERSION == 2`, the canonical reference is `akida2/model_zoo/vww/`. Read those
+files directly and mirror them. This section records how Akida 2 differs from the Akida 1
+instructions above; where they conflict, this section wins. Everything not mentioned here
+(data loading, eval's `evaluate_akida_model`, the DATA_ARG forwarding, the metrics→README
+mechanism, the `get_samples` uint8 invariant) is the same as Akida 1.
+
+> **Prerequisite:** this section assumes `akida2/model_zoo/vww/` exists in the repo as the
+> reference example (the same role `akida1/model_zoo/vww/` plays for v1). If that directory
+> is not present in the checkout, the v2 reference has not landed yet — stop and confirm with
+> the user rather than generating a v2 example against a missing reference. The instructions
+> below capture the v2 pattern in enough detail to review, but the committed reference is the
+> source of truth.
+
+Status note: as of this writing, Akida 2 reference hardware is an **FPGA at 25 MHz**;
+AKD2500 production silicon does not exist yet. So the software pipeline is fully real, but
+the hardware benchmark is FPGA-based and **latency-only** (the power path is still under
+development). Do not fabricate power numbers or a production clock.
+
+### A2.1 Model (`<NAME>_model.py`)
+
+Akida 2 models are built **directly from the `akida_models` factory with `include_top=True`**,
+not by grafting a custom head onto a pretrained backbone (that is the Akida 1 transfer-learning
+pattern). Concretely, the VWW v2 reference is:
+```python
+from akida_models.imagenet import akidanet_imagenet
+from cnn2snn import set_akida_version, AkidaVersion
+from tf_keras.utils import set_random_seed
+
+def build_<NAME>_model(seed=42):
+    set_random_seed(seed)
+    with set_akida_version(AkidaVersion.v2):
+        model = akidanet_imagenet(
+            input_shape=(<H>, <W>, <C>),
+            alpha=<ALPHA>,
+            classes=<NUM_CLASSES>,
+            include_top=True,
+            input_scaling=(255, 0),   # uint8 in; on-graph /255. The factory default
+                                      # is (128, -1) and would be WRONG -- pass explicitly.
+        )
+    return model
+```
+Notes:
+- `akidanet_imagenet` (and the other `akida_models` factories) are version-aware: under
+  `set_akida_version(AkidaVersion.v2)` they select v2-compatible layer/activation variants
+  automatically. Swapping the context manager is the whole version switch — there is no
+  per-layer "verify v2 compatibility" work for standard factory models.
+- `include_top=True` appends the factory's own `global_avg → dropout(1e-3) → classifier`
+  (Dense) head. Do not hand-build a head or tap an intermediate layer.
+- Verify the built model against any reference artifact you have (the VWW v2 model was
+  confirmed layer-for-layer against the real `akidanet_vww.h5`). If the source example is a
+  different architecture, use its corresponding factory but keep the same
+  `include_top=True` + explicit `input_scaling` approach.
+- Save path default: `./models/<short_model_name>_<NAME>_untrained.h5` (from-scratch, so the
+  `_untrained` suffix applies — v2 does not fine-tune a pretrained backbone).
+
+### A2.2 Quantization tool and variants
+
+Akida 2 uses **`quantizeml`**, not `cnn2snn quantize`. The default bit-widths are 8/8/8
+(`quantizeml.layers.QuantizationParams` defaults: `activation_bits=8, weight_bits=8,
+input_weight_bits=8`). Standard Akida 2 practice for this class of model produces **three
+quantized variants**:
+
+| Variant | quantize command | QAT? |
+|---|---|---|
+| 8-bit | `quantizeml quantize -m <float>.h5 -i 8 -w 8 -a 8 -s <name>_i8_w8_a8.h5` | No — 8-bit PTQ is accurate enough |
+| 4-bit weights (PTQ) | `quantizeml quantize -m <float>.h5 -i 8 -w 4 -a 8 -s <name>_i8_w4_a8.h5` | No |
+| 4-bit weights (QAT) | fine-tune the 4-bit PTQ model with `<NAME>_train.py` | Yes |
+
+- Activations stay 8-bit in every variant; only weight bit-width drops to 4 for the 4-bit
+  variants.
+- `quantizeml quantize` calibrates during quantization; with no `-sa samples.npz` it uses
+  random calibration samples (`-ns` default 1024). Whether to pass explicit calibration
+  samples is a per-example choice — default to the no-samples path and flag it.
+- `quantizeml` has **no `convert` subcommand**. Conversion to `.fbz` is still
+  `cnn2snn convert -m <model>.h5` for every variant — `cnn2snn.convert` accepts
+  quantizeml-quantized models. Output filename is `<input_stem>.fbz`.
+
+### A2.3 Pipeline (`<NAME>_train.sh`)
+
+Structure (see `akida2/model_zoo/vww/vww_train.sh`): build untrained → float-train from
+scratch → eval → then, for each of the three variants: `quantizeml quantize` → eval `.h5` →
+`cnn2snn convert` → eval `.fbz` → `<NAME>_benchmark.py`. The 4-bit-QAT variant additionally
+runs `<NAME>_train.py` on the 4-bit PTQ `.h5` to produce `<name>_i8_w4_a8_qat.h5` before its
+convert/eval/benchmark.
+
+Model naming (Akida 2):
+- Float: `<short>_<NAME>_untrained.h5` → `<short>_<NAME>.h5`
+- 8-bit: `<short>_<NAME>_i8_w8_a8.h5` → `<short>_<NAME>_i8_w8_a8.fbz`
+- 4-bit PTQ: `<short>_<NAME>_i8_w4_a8.h5` → `<short>_<NAME>_i8_w4_a8.fbz`
+- 4-bit QAT: `<short>_<NAME>_i8_w4_a8_qat.h5` → `<short>_<NAME>_i8_w4_a8_qat.fbz`
+
+Float-training and QAT epoch/LR values are provisional (a weights file cannot reveal
+training duration) — mark them as confirm-on-first-run. Since v2 trains from scratch, expect
+more float epochs than a v1 fine-tuning example.
+
+### A2.4 Benchmark (`<NAME>_benchmark.py`)
+
+- `MEASURED_CLOCK = 25e6` (FPGA), replacing the AKD1500 `400e6`.
+- Add a **projected latency** at a higher target clock: cycle count is clock-independent, so
+  `projected_ms = mean_inf_clk / PROJECTED_CLOCK * 1000`. `PROJECTED_CLOCK` is a **provisional
+  placeholder** (the reference uses 100 MHz with a `# TODO: confirm target clock`) — do not
+  present it as final.
+- **Latency-only**: do not request or surface power measurement (the FPGA power path is WIP).
+  Drop the power columns/keys entirely.
+- `--save-metrics` writes **variant-keyed** metrics (prefix inferred from the `.fbz`
+  filename): `<variant>_sparsity`, and per map-mode `<variant>_<mode>_{nps,passes,cycles,
+  latency_ms,projected_ms}`, where `<variant>` ∈ {`w8a8`, `w4a8_ptq`, `w4a8_qat`}. Watch the
+  ordering trap: test for `i8_w4_a8_qat` (contains `qat`) before the plain `i8_w4_a8` case.
+
+### A2.5 README template + metrics
+
+- **Model card** is rows-per-variant: one row per quantized variant with columns
+  `Variant | Weights/Acts | QAT | Quantized acc. | Akida acc. | Sparsity`. The two non-QAT
+  variants show `-` in the QAT column. Float accuracy + params are stated once above the
+  table (shared across variants).
+- **Benchmark table** covers all three variants × {Minimal, AllNps} = 6 rows, latency-only,
+  with `Latency @ 25 MHz` and `Projected @ <N> MHz (provisional)` columns. No power columns.
+- `metrics.json` keys are variant-prefixed and must be in exact bijection with both the
+  template placeholders and the eval/benchmark `--save-metrics` writes. (For reference, the
+  VWW v2 example happens to have 41 such keys, but the count is example-specific — never
+  hardcode it; always derive the set from the template you actually wrote.) Verify by
+  regex-extracting template placeholders and comparing to the union of script-written keys —
+  the sets must be equal.
+- `--save-metrics` in `<NAME>_eval.py` writes `float_acc`/`params` for the float model and
+  `<variant>_quant_acc` (from `.h5`) / `<variant>_akida_acc` (from `.fbz`) per variant, using
+  the same filename-based variant inference (with the same `_qat`-before-`i8_w4_a8` ordering
+  trap).
+
+### A2.6 Directory + not-yet-existing paths
+
+`TARGET_DIR` for v2 is `akida2/model_zoo/<NAME>/`. The `akida2/` tree may be new; create it.
+Colab support (badge, `colab_setup.py`, notebook setup cell) is intentionally **out of scope
+for now** — do not add it to v2 examples yet.
 
 ---
 
@@ -505,9 +743,12 @@ After creating all files, print a summary listing:
    cd TARGET_DIR
    python -c "import ast; [ast.parse(open(f).read()) for f in ['<NAME>_model.py','<NAME>_data.py','<NAME>_train.py','<NAME>_eval.py','<NAME>_benchmark.py']]"
    bash -n <NAME>_train.sh
-   python -c "import json; json.load(open('<NAME>_notebook.ipynb'))"
-   python update_readme.py
+   python update_readme.py   # must render with no KeyError
    ```
+   For **Akida 2**, additionally confirm the `--save-metrics` key set matches the template
+   exactly (extract `{...}` placeholders from the template and compare against the union of
+   keys the eval + benchmark scripts write — the two sets must be equal, no extras on either
+   side).
 
 ---
 
@@ -523,3 +764,16 @@ After creating all files, print a summary listing:
 - The shell script `DATA_ARG` forwarding pattern must be preserved verbatim.
 - `get_samples()` must always return `np.ndarray` of `dtype=uint8` — this is required by
   `per_layer_benchmark` and `full_model_benchmark`.
+- `AkidaVersion` has exactly two members, `v1` and `v2`. `akida_models` factories are
+  version-aware inside a `set_akida_version(...)` context — swapping the context manager is
+  the version switch; there is no per-layer v2 compatibility work for standard factory models.
+- Akida 1 quantization is `cnn2snn quantize` (fixed `i8/w4/a4`, QAT required). Akida 2
+  quantization is `quantizeml quantize` (default `i8/w8/a8`, no QAT needed at 8-bit).
+  **Both** convert to `.fbz` with the same `cnn2snn convert` — there is no `quantizeml
+  convert`, and no version flag on convert.
+- Do not fabricate Akida 2 hardware numbers: AKD2500 production silicon does not exist yet;
+  the reference platform is a 25 MHz FPGA and benchmarking is latency-only (no power) with a
+  clearly-provisional projected clock. The software pipeline (train → quantize → convert →
+  software-backend eval → sparsity) is fully real for Akida 2 regardless.
+- For Akida 2, the metrics.json / template / `--save-metrics` key sets must be in exact
+  three-way bijection (variant-prefixed keys). Verify programmatically, not by eye.
