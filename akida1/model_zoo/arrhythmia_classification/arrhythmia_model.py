@@ -112,7 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--savepath',
                         default='./models/arrhythmia_classification_untrained.h5',
                         help='Save model with the specified path + name')
-    parser.add_argument('--seed', type=int, default=42,
+    parser.add_argument('--seed', type=int, default=7,
                         help='Random seed for reproducibility')
     args = parser.parse_args()
 

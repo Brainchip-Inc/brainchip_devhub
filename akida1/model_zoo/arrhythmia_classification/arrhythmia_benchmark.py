@@ -34,6 +34,13 @@ if __name__ == '__main__':
                         help='MIT-BIH record directory')
     parser.add_argument('--save-metrics', action='store_true',
                         help='Write benchmark values to metrics.json')
+    parser.add_argument('--naive-split', action='store_true',
+                        help='Record the results under naive_-prefixed metrics '
+                             'keys, for a model trained on the naive split. The '
+                             'benchmark samples are real beats either way, so '
+                             'this affects the metrics keys only')
+    parser.add_argument('--seed', type=int, default=7,
+                        help='Random seed for the benchmark sample draw')
     args = parser.parse_args()
 
     NUM_SAMPLES = 1000
@@ -62,7 +69,8 @@ if __name__ == '__main__':
     # and that activity is dependent on the input.
     # That makes it imperative to use real inputs when benchmarking Akida,
     # rather than synthetic random samples.
-    samples = get_samples(args.data, imsize, num_samples=NUM_SAMPLES)
+    samples = get_samples(args.data, imsize, num_samples=NUM_SAMPLES,
+                          seed=args.seed)
 
     # -------------------------------------------------------------------------
     # Benchmarks
@@ -135,9 +143,12 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # Map without hw_only so ak_model.sequences is available for plot_mapping
     ak_model.map(device, mode=akida.MapMode.Minimal)
+    # Reference figures are per-model, so a naive-split run gets its own rather
+    # than overwriting the deployed model's.
+    ref_prefix = 'ref_naive_' if args.naive_split else 'ref_'
     perlayer_savepath = 'benchmark_results_layers.png'
     if args.save_metrics:
-        perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_'+perlayer_savepath)
+        perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / (ref_prefix+perlayer_savepath)
     plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
                            model_name=args.loadmodel,
                            savepath=perlayer_savepath)
@@ -145,7 +156,7 @@ if __name__ == '__main__':
 
     full_savepath = 'benchmark_results_full.png'
     if args.save_metrics:
-        full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_'+full_savepath)
+        full_savepath = pathlib.Path(__file__).parent / 'docs' / (ref_prefix+full_savepath)
     plot_full_model_results(full_results, ak_model, device,
                             model_name=args.loadmodel,
                             savepath=full_savepath)
@@ -159,9 +170,12 @@ if __name__ == '__main__':
         # pipeline is updated and a new trained model integrated.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
-        metrics['sparsity'] = f'{np.mean(list(sparsity_dict.values())) * 100:.2f}%'
+        # A naive-split model is a different model with different hardware
+        # behaviour, so its results go into their own keys rather than
+        # overwriting the deployed model's.
+        split_prefix = 'naive_' if args.naive_split else ''
         for mm, res in full_results.items():
-            prefix = mm.lower()
+            prefix = f'{split_prefix}{mm.lower()}'
             metrics[f'{prefix}_nps'] = str(res['num_nps'])
             metrics[f'{prefix}_passes'] = str(res['num_passes'])
             metrics[f'{prefix}_cycles'] = f'{res["mean_inf_clk"]:.0f}'

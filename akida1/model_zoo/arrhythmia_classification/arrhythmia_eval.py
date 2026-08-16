@@ -11,6 +11,15 @@ normal - a model that predicted "normal" for everything would score 0.90. The
 per-class report is printed alongside it, and the supraventricular (S) row is
 the one that separates a useful model from a lazy one.
 
+--naive-split evaluates a model trained with the same flag on the patient-blind
+60/20/20 split instead. Both splits can be saved to metrics.json; the naive
+figures are stored under 'naive_'-prefixed keys, and the README reports them
+side by side with the inter-patient ones.
+
+For Akida models the mean activation sparsity is measured here too, on the
+software backend, so the README accuracy table can be regenerated without a
+hardware device.
+
 Example
 -------
     python arrhythmia_eval.py -d ./data/mitdb -l models/arrhythmia_classification.h5
@@ -26,13 +35,20 @@ from tqdm import tqdm
 
 import akida
 
+from akida_models.sparsity import compute_sparsity
 from cnn2snn import load_quantized_model
 from sklearn.metrics import classification_report, confusion_matrix
 
-from arrhythmia_data import TARGET_NAMES, get_data, get_test_data
+from arrhythmia_data import (TARGET_NAMES, get_data, get_naive_data, get_samples,
+                             get_test_data)
 from brainchip_utils.hardware_utils import get_akida_device
 
 tf.config.experimental.enable_op_determinism()
+
+# Beats used to measure activation sparsity. Matches the benchmark script's
+# sample count, and the draw is the same for either split, so the sparsity of
+# two models is always compared over identical inputs.
+NUM_SPARSITY_SAMPLES = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -88,9 +104,25 @@ if __name__ == '__main__':
     parser.add_argument('--split', choices=['test', 'val'], default='test',
                         help='Evaluate on the inter-patient test records '
                              '(default) or the training hold-out')
+    parser.add_argument('--naive-split', action='store_true',
+                        help='Evaluate on the naive patient-blind 60/20/20 '
+                             'split, for models trained with the same flag. The '
+                             'partitions are drawn from --seed, which must '
+                             'therefore match the seed the model was trained '
+                             'with')
     parser.add_argument('--save-metrics', action='store_true',
-                        help='Write accuracy (and param count for .h5) to metrics.json')
+                        help='Write accuracy (and param count for .h5) to '
+                             'metrics.json. Naive-split results are stored '
+                             'under naive_-prefixed keys')
+    parser.add_argument('--seed', type=int, default=7,
+                        help='Seed the pipeline was run with. Under '
+                             '--naive-split it selects the partitions, so it '
+                             'must match the training seed')
     args = parser.parse_args()
+
+    # Titles the printed report so a naive run can never be mistaken for an
+    # inter-patient one.
+    split_label = f'naive-{args.split}' if args.naive_split else args.split
 
     # ---------------------------------------------------------------------------
     # Model
@@ -110,10 +142,22 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     # Data loading
     # ---------------------------------------------------------------------------
-    if args.split == 'test':
+    if args.naive_split:
+        # Same seed, same three partitions as the training run drew. A seed that
+        # does not match the training run scores the model on its own training
+        # beats, so say out loud which one is in use.
+        print(f'Naive split partitions drawn from seed {args.seed}; this must '
+              f'be the seed the model was trained with.')
+        _, naive_val_ds, naive_test_ds = get_naive_data(args.data, imsize,
+                                                        batch_size=64,
+                                                        seed=args.seed)
+        dataset = naive_test_ds if args.split == 'test' else naive_val_ds
+    elif args.split == 'test':
         dataset = get_test_data(args.data, imsize, batch_size=64)
     else:
-        _, dataset = get_data(args.data, imsize, batch_size=64)
+        # The hold-out is drawn from the split seed, so pass the seed the model
+        # was trained with to evaluate on the same beats it held out.
+        _, dataset = get_data(args.data, imsize, batch_size=64, seed=args.seed)
 
     # ---------------------------------------------------------------------------
     # Evaluation
@@ -124,11 +168,11 @@ if __name__ == '__main__':
         preds, labels = predict_keras_model(model, dataset)
 
     accuracy = float(np.mean(np.equal(preds, labels)))
-    print(f'\n{args.split.capitalize()} accuracy: {accuracy:.4f}')
+    print(f'\n{split_label.capitalize()} accuracy: {accuracy:.4f}')
 
     report = classification_report(labels, preds, target_names=list(TARGET_NAMES),
                                    digits=4, zero_division=0)
-    print(f'\n--- Per-class report ({args.split}) ---')
+    print(f'\n--- Per-class report ({split_label}) ---')
     print(report)
     print('Confusion matrix (rows = true, columns = predicted):')
     print(f'      {"  ".join(f"{n:>7}" for n in TARGET_NAMES)}')
@@ -139,6 +183,18 @@ if __name__ == '__main__':
                                    output_dict=True, zero_division=0)
     macro_f1 = scores['macro avg']['f1-score']
     print(f'\nMacro F1: {macro_f1:.4f}')
+
+    # ---------------------------------------------------------------------------
+    # Activation sparsity
+    # ---------------------------------------------------------------------------
+    sparsity = None
+    if isakida:
+        samples = get_samples(args.data, imsize,
+                              num_samples=NUM_SPARSITY_SAMPLES, seed=args.seed)
+        sparsity_dict = compute_sparsity(model, samples=samples)
+        sparsity = float(np.mean(list(sparsity_dict.values())))
+        print(f'Mean activation sparsity over {NUM_SPARSITY_SAMPLES} beats: '
+              f'{sparsity * 100:.2f}%')
 
     # ---------------------------------------------------------------------------
     # Persist metrics
@@ -152,22 +208,26 @@ if __name__ == '__main__':
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
         acc_str = f'{accuracy * 100:.2f}%'
         f1_str = f'{macro_f1:.3f}'
+        # The README reports both splits side by side, so the naive figures go
+        # into their own keys rather than overwriting the inter-patient ones.
+        prefix = 'naive_' if args.naive_split else ''
         if isakida:
-            metrics['akida_acc'] = acc_str
-            metrics['akida_f1'] = f1_str
+            metrics[f'{prefix}akida_acc'] = acc_str
+            metrics[f'{prefix}akida_f1'] = f1_str
+            metrics[f'{prefix}sparsity'] = f'{sparsity * 100:.2f}%'
             # The per-class table is only reported for the deployed Akida model.
             for name in TARGET_NAMES:
-                key = name.lower()
-                metrics[f'akida_{key}_precision'] = f'{scores[name]["precision"]:.3f}'
-                metrics[f'akida_{key}_recall'] = f'{scores[name]["recall"]:.3f}'
-                metrics[f'akida_{key}_f1'] = f'{scores[name]["f1-score"]:.3f}'
-                metrics[f'akida_{key}_support'] = f'{int(scores[name]["support"]):,}'
+                key = f'{prefix}akida_{name.lower()}'
+                metrics[f'{key}_precision'] = f'{scores[name]["precision"]:.3f}'
+                metrics[f'{key}_recall'] = f'{scores[name]["recall"]:.3f}'
+                metrics[f'{key}_f1'] = f'{scores[name]["f1-score"]:.3f}'
+                metrics[f'{key}_support'] = f'{int(scores[name]["support"]):,}'
         elif 'qat' in pathlib.Path(args.loadmodel).stem:
-            metrics['qat_acc'] = acc_str
-            metrics['qat_f1'] = f1_str
+            metrics[f'{prefix}qat_acc'] = acc_str
+            metrics[f'{prefix}qat_f1'] = f1_str
         else:
-            metrics['float_acc'] = acc_str
-            metrics['float_f1'] = f1_str
-            metrics['params'] = f'{model.count_params():,}'
+            metrics[f'{prefix}float_acc'] = acc_str
+            metrics[f'{prefix}float_f1'] = f1_str
+            metrics[f'{prefix}params'] = f'{model.count_params():,}'
         metrics_path.write_text(json.dumps(metrics, indent=4) + '\n')
         print(f'Metrics saved to {metrics_path}')

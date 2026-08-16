@@ -32,7 +32,7 @@ from tf_keras.utils import set_random_seed
 from akida_models.training import RestoreBest
 from cnn2snn import load_quantized_model
 
-from arrhythmia_data import get_data
+from arrhythmia_data import get_data, get_naive_data
 
 # Must be called before any TF ops to make GPU ops (conv backward passes,
 # bilinear resize, etc.) deterministic. Has a small throughput cost.
@@ -116,7 +116,12 @@ if __name__ == '__main__':
                         help='Activity Regularization to increase sparsity')
     parser.add_argument('--no-class-weights', action='store_true',
                         help='Train without per-class loss weighting')
-    parser.add_argument('--seed', type=int, default=67004546,
+    parser.add_argument('--naive-split', action='store_true',
+                        help='Train on the naive patient-blind 60/20/20 split '
+                             'instead of the inter-patient one. Evaluate '
+                             'such a model with the same flag and the same '
+                             '--seed')
+    parser.add_argument('--seed', type=int, default=7,
                         help='Random seed for reproducibility')
     args = parser.parse_args()
 
@@ -128,8 +133,14 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     # Data loading
     # ---------------------------------------------------------------------------
-    train_ds, val_ds = get_data(args.data, model.input_shape[1:],
-                                args.batch_size, seed=args.seed)
+    if args.naive_split:
+        # The naive test partition is not used here, but is drawn from the same
+        # seed so that arrhythmia_eval.py can reproduce it exactly.
+        train_ds, val_ds, _ = get_naive_data(args.data, model.input_shape[1:],
+                                             args.batch_size, seed=args.seed)
+    else:
+        train_ds, val_ds = get_data(args.data, model.input_shape[1:],
+                                    args.batch_size, seed=args.seed)
 
     # ---------------------------------------------------------------------------
     # Training

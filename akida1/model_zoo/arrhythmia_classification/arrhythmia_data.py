@@ -16,17 +16,38 @@ for training, the disjoint DS2 record list for the reported test metrics. This
 is deliberately harder, and more clinically honest, than a random beat-level
 split: no beat from a test patient is ever seen during training.
 
+get_naive_data() offers the random beat-level split as an opt-in comparison:
+all the beats pooled and divided 60/20/20 without regard to which patient they
+came from. It exists to make the cost of that shortcut measurable rather than
+merely asserted - the same model trained the same way scores far higher on it,
+because it has seen the test patients' other beats. It is never the default.
+
 Everything is lazy and cached. The first call downloads the ~100 MB of raw
 records if they are absent, runs the wavelet transform over all ~90k beats
 (around a minute with all cores busy), and writes a single .npz cache next to
 the record directory. Later calls just read the cache.
 
+The cache holds the DS1 beats as one pool, not pre-split: the stratified
+train/hold-out split is drawn in get_data() from the seed it is given, so
+re-running the pipeline with a different seed varies the split without
+re-running the (much more expensive, and entirely deterministic) wavelet
+preprocessing. Every seed shares the one cache file.
+
 Usage:
     from arrhythmia_data import get_data, get_test_data, get_samples
 
-    train_ds, val_ds = get_data('./data/mitdb', (36, 32, 1), batch_size=64)
+    train_ds, val_ds = get_data('./data/mitdb', (36, 32, 1), batch_size=64,
+                                seed=42)
     test_ds = get_test_data('./data/mitdb', (36, 32, 1))
     samples = get_samples('./data/mitdb', (36, 32, 1), num_samples=1024)
+
+    # The naive alternative:
+    from arrhythmia_data import get_naive_data
+    train_ds, val_ds, test_ds = get_naive_data('./data/mitdb', (36, 32, 1),
+                                               batch_size=64, seed=42)
+
+Rebuild the cache from scratch (after changing any preprocessing constant):
+    python arrhythmia_data.py --rebuild
 """
 
 import os
@@ -91,8 +112,18 @@ INPUT_SHAPE = (IMG_SIZE + NUM_RR_FEATURES, IMG_SIZE, 1)
 # scalogram's range and survive uint8 encoding.
 RR_CLIP_SIGMA = 1.0
 
+# Fraction of the DS1 beats held out for monitoring during training.
+VAL_SPLIT = 0.2
+
+# Proportions of the naive (patient-blind) split, used only by get_naive_data.
+# Training takes the 0.6 remainder.
+NAIVE_VAL_SPLIT = 0.2
+NAIVE_TEST_SPLIT = 0.2
+
+# The 'ds1pool' marker denotes a cache holding the DS1 beats unsplit; the
+# train/hold-out split is drawn per seed at load time.
 CACHE_NAME = (f'{PHYSIONET_DB}_scalograms_{INPUT_SHAPE[0]}x{INPUT_SHAPE[1]}'
-              f'_rr{RR_CLIP_SIGMA:g}sigma.npz')
+              f'_rr{RR_CLIP_SIGMA:g}sigma_ds1pool.npz')
 
 
 # ---------------------------------------------------------------------------
@@ -257,16 +288,12 @@ def _build_cache(data_path, cache_path):
     x_test = _to_uint8(_add_rr_rows(
         test_scalograms, _normalise_rr(test_rr, rr_mean, rr_std)))
 
-    # Stratified hold-out from the training patients, used only for monitoring
-    # during training. The reported metrics come from the DS2 test records.
-    train_idx, val_idx = train_test_split(
-        np.arange(len(y_train)), test_size=0.2, stratify=y_train,
-        random_state=42)
-
+    # The DS1 beats are stored as one pool. Splitting them into train and
+    # hold-out is cheap and seed-dependent, so get_data() does it at load time
+    # rather than baking one split into the cache.
     np.savez_compressed(
         cache_path,
-        x_train=x_train[train_idx], y_train=y_train[train_idx],
-        x_val=x_train[val_idx], y_val=y_train[val_idx],
+        x_train=x_train, y_train=y_train,
         x_test=x_test, y_test=y_test,
         rr_mean=rr_mean, rr_std=rr_std)
 
@@ -280,6 +307,52 @@ def _load_cache(data_path):
         _ensure_records(data_path)
         _build_cache(data_path, cache_path)
     return np.load(cache_path)
+
+
+def _split_train_val(y, seed):
+    """Stratified train/hold-out split of the DS1 beats.
+
+    The hold-out is used only for monitoring during training; the reported
+    metrics come from the DS2 test records. Stratifying keeps the S and V
+    proportions of the pool in both halves, which matters because S is 2% of
+    the beats.
+
+    Args:
+        y (np.ndarray): DS1 labels.
+        seed (int): seed for the split. Varying it varies which beats are held
+            out, one of the levels of run-to-run variability in this pipeline.
+
+    Returns:
+        np.ndarray, np.ndarray: training indices, hold-out indices.
+    """
+    return train_test_split(np.arange(len(y)), test_size=VAL_SPLIT, stratify=y,
+                            random_state=seed)
+
+
+def _split_naive(y, seed):
+    """Stratified 60/20/20 split of the pooled beats, ignoring the patients.
+
+    Drawn in two stages: 60% off the top, then the remaining 40% halved. Both
+    stages are stratified and both take their randomness from `seed` alone, so
+    the three partitions are a pure function of the seed and can be reproduced
+    in a separate process - which is what lets a model trained here be evaluated
+    on the matching test partition later.
+
+    Args:
+        y (np.ndarray): labels of the pooled DS1 + DS2 beats.
+        seed (int): seed for both stages of the split.
+
+    Returns:
+        np.ndarray, np.ndarray, np.ndarray: training, validation and test
+        indices, disjoint and covering the whole pool.
+    """
+    holdout = NAIVE_VAL_SPLIT + NAIVE_TEST_SPLIT
+    train_idx, rest_idx = train_test_split(
+        np.arange(len(y)), test_size=holdout, stratify=y, random_state=seed)
+    val_idx, test_idx = train_test_split(
+        rest_idx, test_size=NAIVE_TEST_SPLIT / holdout, stratify=y[rest_idx],
+        random_state=seed)
+    return train_idx, val_idx, test_idx
 
 
 def _describe(name, x, y):
@@ -320,16 +393,17 @@ def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE, batch_size=64
     """Load the training data and the monitoring hold-out.
 
     Both splits come from the DS1 training patients: an 80/20 stratified split
-    of their beats. The hold-out is for tracking training only - because it
-    shares patients with the training set it reports optimistically. Use
-    get_test_data() for the numbers worth quoting.
+    of their beats, drawn from `seed`. The hold-out is for tracking training
+    only - because it shares patients with the training set it reports
+    optimistically. Use get_test_data() for the numbers worth quoting.
 
     Args:
         data_path (str): path to the MIT-BIH record directory. Records are
             downloaded here if absent.
         input_shape (tuple): model input shape; must be INPUT_SHAPE.
         batch_size (int): the batch size.
-        seed (int): shuffle seed.
+        seed (int): seed for both the train/hold-out split and the shuffle
+            order. The cached preprocessing is shared across seeds.
 
     Returns:
         tf.data.Dataset, tf.data.Dataset: training dataset, hold-out dataset.
@@ -338,8 +412,12 @@ def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE, batch_size=64
     _check_input_shape(input_shape)
     cache = _load_cache(data_path)
 
-    x_train, y_train = cache['x_train'], cache['y_train']
-    x_val, y_val = cache['x_val'], cache['y_val']
+    x_ds1, y_ds1 = cache['x_train'], cache['y_train']
+    train_idx, val_idx = _split_train_val(y_ds1, seed)
+    x_train, y_train = x_ds1[train_idx], y_ds1[train_idx]
+    x_val, y_val = x_ds1[val_idx], y_ds1[val_idx]
+
+    print(f'DS1 split with seed {seed}')
     _describe('Train (DS1 patients, 80%)', x_train, y_train)
     _describe('Hold-out (DS1 patients, 20%)', x_val, y_val)
 
@@ -371,17 +449,80 @@ def get_test_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
     return _as_dataset(x_test, y_test, batch_size)
 
 
+def get_naive_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
+                   batch_size=64, seed=42):
+    """Load a naive, patient-blind 60/20/20 split of all the beats.
+
+    Every beat from all 44 records is pooled and split at random, stratified by
+    class. Beats from any one patient therefore land in all three partitions:
+    the model is tested on new beats from people it has already learned, not on
+    new people. This is the shortcut a great deal of published arrhythmia work
+    takes, and it inflates the reported numbers substantially - most of all for
+    the supraventricular class, whose morphology is highly patient-specific.
+
+    It is provided for comparison against get_data() / get_test_data().
+
+    The partitioning is a pure function of `seed`, so training and evaluation
+    must be given the *same* seed. Evaluating with a different seed silently
+    scores the model on beats it was trained on.
+
+    One caveat on the preprocessing: the cached RR features were standardised
+    with statistics fit on DS1 (see _build_cache), and the raw values are not
+    retained, so under this split those statistics are a fixed preprocessing
+    constant rather than one re-fit on the training partition. The effect is
+    negligible next to the patient leakage this split is here to demonstrate.
+
+    Args:
+        data_path (str): path to the MIT-BIH record directory. Records are
+            downloaded here if absent.
+        input_shape (tuple): model input shape; must be INPUT_SHAPE.
+        batch_size (int): the batch size.
+        seed (int): seed for the three-way split and the shuffle order. The
+            cached preprocessing is shared with the inter-patient path, so
+            switching split modes never rebuilds the cache.
+
+    Returns:
+        tf.data.Dataset, tf.data.Dataset, tf.data.Dataset: training, validation
+        and test datasets. All yield (uint8 images, int labels).
+    """
+    _check_input_shape(input_shape)
+    cache = _load_cache(data_path)
+
+    # The cache stores DS1 and DS2 separately; the whole point here is to ignore
+    # that boundary.
+    x_all = np.concatenate([cache['x_train'], cache['x_test']])
+    y_all = np.concatenate([cache['y_train'], cache['y_test']])
+
+    train_idx, val_idx, test_idx = _split_naive(y_all, seed)
+
+    print(f'Naive patient-blind split with seed {seed} - for comparison only, '
+          f'these beats share patients across all three partitions')
+    _describe('Train (naive, 60%)', x_all[train_idx], y_all[train_idx])
+    _describe('Validation (naive, 20%)', x_all[val_idx], y_all[val_idx])
+    _describe('Test (naive, 20%)', x_all[test_idx], y_all[test_idx])
+
+    return (_as_dataset(x_all[train_idx], y_all[train_idx], batch_size,
+                        shuffle=True, seed=seed),
+            _as_dataset(x_all[val_idx], y_all[val_idx], batch_size),
+            _as_dataset(x_all[test_idx], y_all[test_idx], batch_size))
+
+
 def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
-                num_samples=1024):
-    """Load a shuffled block of training beats as a plain numpy array.
+                num_samples=1024, seed=42):
+    """Load a shuffled block of DS1 beats as a plain numpy array.
 
     Used for activation-sparsity measurement and hardware benchmarking, both of
-    which need uint8 numpy input rather than a dataset.
+    which need uint8 numpy input rather than a dataset. The train/hold-out
+    split is irrelevant here - what matters is that the beats are real, since
+    Akida timings depend on input activity - so the draw is over the whole DS1
+    pool.
 
     Args:
         data_path (str): path to the MIT-BIH record directory.
         input_shape (tuple): model input shape; must be INPUT_SHAPE.
         num_samples (int): number of samples to return. Defaults to 1024.
+        seed (int): seed for the sample draw. Akida timings and sparsity depend
+            on the input activity, so varying this varies the measurement.
 
     Returns:
         np.ndarray: shape (num_samples,) + INPUT_SHAPE, dtype uint8.
@@ -389,12 +530,12 @@ def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
     _check_input_shape(input_shape)
     cache = _load_cache(data_path)
 
-    x_train = cache['x_train']
+    x_ds1 = cache['x_train']
     # Take a class-representative spread rather than the first N beats, which
     # would come from only the first few patients.
-    rng = np.random.default_rng(42)
-    idx = rng.permutation(len(x_train))[:num_samples]
-    return x_train[idx].astype(np.uint8)
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(len(x_ds1))[:num_samples]
+    return x_ds1[idx].astype(np.uint8)
 
 
 if __name__ == '__main__':
@@ -404,11 +545,31 @@ if __name__ == '__main__':
         description='Build the MIT-BIH scalogram cache and report its contents')
     parser.add_argument('-d', '--data', default=DEFAULT_DATA_PATH,
                         help='MIT-BIH record directory')
+    parser.add_argument('--seed', type=int, default=7,
+                        help='Seed for the DS1 train/hold-out split, the '
+                             'shuffle order and the benchmark sample draw')
+    parser.add_argument('--rebuild', action='store_true',
+                        help='Discard the .npz cache and preprocess the records '
+                             'again. Only needed after changing a preprocessing '
+                             'constant - the cache does not depend on the seed')
+    parser.add_argument('--naive-split', action='store_true',
+                        help='Report the naive patient-blind 60/20/20 split '
+                             'instead of the inter-patient one. Both share the '
+                             'same cache')
     args = parser.parse_args()
 
-    train_ds, val_ds = get_data(args.data)
-    test_ds = get_test_data(args.data)
-    samples = get_samples(args.data)
+    if args.rebuild:
+        cache_path = _cache_path(args.data)
+        if os.path.exists(cache_path):
+            os.remove(cache_path)
+            print(f'Removed {cache_path}')
+
+    if args.naive_split:
+        train_ds, val_ds, test_ds = get_naive_data(args.data, seed=args.seed)
+    else:
+        train_ds, val_ds = get_data(args.data, seed=args.seed)
+        test_ds = get_test_data(args.data)
+    samples = get_samples(args.data, seed=args.seed)
 
     print(f'\nBatches: train {len(train_ds)}, hold-out {len(val_ds)}, '
           f'test {len(test_ds)}')
