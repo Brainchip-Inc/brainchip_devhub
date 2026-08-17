@@ -47,7 +47,7 @@ activations that are zero, and therefore the work the hardware skips.
   <tbody>
     <tr><td colspan="9"><b>224 &times; 224 input</b></td></tr>
     <tr>
-      <td align="center">1.0</td>
+      <td align="center"><a href="#bench-a100-224">1.0</a></td>
       <td align="center">{a100_224_float_t1}</td>
       <td align="center">{a100_224_float_t5}</td>
       <td align="center">{a100_224_qat_t1}</td>
@@ -58,7 +58,7 @@ activations that are zero, and therefore the work the hardware skips.
       <td align="center">{a100_224_params}</td>
     </tr>
     <tr>
-      <td align="center">0.5</td>
+      <td align="center"><a href="#bench-a50-224">0.5</a></td>
       <td align="center">{a50_224_float_t1}</td>
       <td align="center">{a50_224_float_t5}</td>
       <td align="center">{a50_224_qat_t1}</td>
@@ -69,7 +69,7 @@ activations that are zero, and therefore the work the hardware skips.
       <td align="center">{a50_224_params}</td>
     </tr>
     <tr>
-      <td align="center">0.25</td>
+      <td align="center"><a href="#bench-a25-224">0.25</a></td>
       <td align="center">{a25_224_float_t1}</td>
       <td align="center">{a25_224_float_t5}</td>
       <td align="center">{a25_224_qat_t1}</td>
@@ -81,7 +81,7 @@ activations that are zero, and therefore the work the hardware skips.
     </tr>
     <tr><td colspan="9"><b>160 &times; 160 input</b></td></tr>
     <tr>
-      <td align="center">1.0</td>
+      <td align="center"><a href="#bench-a100-160">1.0</a></td>
       <td align="center">{a100_160_float_t1}</td>
       <td align="center">{a100_160_float_t5}</td>
       <td align="center">{a100_160_qat_t1}</td>
@@ -92,7 +92,7 @@ activations that are zero, and therefore the work the hardware skips.
       <td align="center">{a100_160_params}</td>
     </tr>
     <tr>
-      <td align="center">0.5</td>
+      <td align="center"><a href="#bench-a50-160">0.5</a></td>
       <td align="center">{a50_160_float_t1}</td>
       <td align="center">{a50_160_float_t5}</td>
       <td align="center">{a50_160_qat_t1}</td>
@@ -103,7 +103,7 @@ activations that are zero, and therefore the work the hardware skips.
       <td align="center">{a50_160_params}</td>
     </tr>
     <tr>
-      <td align="center">0.25</td>
+      <td align="center"><a href="#bench-a25-160">0.25</a></td>
       <td align="center">{a25_160_float_t1}</td>
       <td align="center">{a25_160_float_t5}</td>
       <td align="center">{a25_160_qat_t1}</td>
@@ -185,7 +185,12 @@ mapping — the fastest and lowest-energy of the three modes on every model here
 
 <br><br>
 
-**alpha = 1.0, 224 &times; 224**
+*Each model below is collapsed &mdash; click one to open its mapping table and power plot, or click an **Alpha** value in the Model Card above to jump straight to it.*
+
+<details id="bench-a100-224">
+<summary><b>alpha = 1.0 &middot; 224 &times; 224</b> </summary>
+
+<br>
 
 <table>
   <thead>
@@ -234,9 +239,14 @@ mapping — the fastest and lowest-energy of the three modes on every model here
 
 <img src="docs/ref_benchmark_results_full_a100_224.png" alt="Power measurements during inference, alpha=1.0 224x224" width="1050">
 
+</details>
+
 <br><br>
 
-**alpha = 0.5, 224 &times; 224**
+<details id="bench-a50-224">
+<summary><b>alpha = 0.5 &middot; 224 &times; 224</b> </summary>
+
+<br>
 
 <table>
   <thead>
@@ -285,9 +295,14 @@ mapping — the fastest and lowest-energy of the three modes on every model here
 
 <img src="docs/ref_benchmark_results_full_a50_224.png" alt="Power measurements during inference, alpha=0.5 224x224" width="1050">
 
+</details>
+
 <br><br>
 
-**alpha = 0.25, 224 &times; 224**
+<details id="bench-a25-224">
+<summary><b>alpha = 0.25 &middot; 224 &times; 224</b> </summary>
+
+<br>
 
 <table>
   <thead>
@@ -336,9 +351,14 @@ mapping — the fastest and lowest-energy of the three modes on every model here
 
 <img src="docs/ref_benchmark_results_full_a25_224.png" alt="Power measurements during inference, alpha=0.25 224x224" width="1050">
 
+</details>
+
 <br><br>
 
-**alpha = 1.0, 160 &times; 160**
+<details id="bench-a100-160">
+<summary><b>alpha = 1.0 &middot; 160 &times; 160</b> </summary>
+
+<br>
 
 <table>
   <thead>
@@ -387,9 +407,14 @@ mapping — the fastest and lowest-energy of the three modes on every model here
 
 <img src="docs/ref_benchmark_results_full_a100_160.png" alt="Power measurements during inference, alpha=1.0 160x160" width="1050">
 
+</details>
+
 <br><br>
 
-**alpha = 0.5, 160 &times; 160**
+<details id="bench-a50-160">
+<summary><b>alpha = 0.5 &middot; 160 &times; 160</b> </summary>
+
+<br>
 
 <table>
   <thead>
@@ -438,9 +463,14 @@ mapping — the fastest and lowest-energy of the three modes on every model here
 
 <img src="docs/ref_benchmark_results_full_a50_160.png" alt="Power measurements during inference, alpha=0.5 160x160" width="1050">
 
+</details>
+
 <br><br>
 
-**alpha = 0.25, 160 &times; 160**
+<details id="bench-a25-160">
+<summary><b>alpha = 0.25 &middot; 160 &times; 160</b> </summary>
+
+<br>
 
 <table>
   <thead>
@@ -488,6 +518,8 @@ mapping — the fastest and lowest-energy of the three modes on every model here
 </table>
 
 <img src="docs/ref_benchmark_results_full_a25_160.png" alt="Power measurements during inference, alpha=0.25 160x160" width="1050">
+
+</details>
 
 <br><br>
 
