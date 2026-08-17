@@ -43,7 +43,7 @@ if __name__ == '__main__':
                         help='Random seed for the benchmark sample draw')
     args = parser.parse_args()
 
-    NUM_SAMPLES = 1000
+    NUM_SAMPLES = 3000
 
 
     # -------------------------------------------------------------------------

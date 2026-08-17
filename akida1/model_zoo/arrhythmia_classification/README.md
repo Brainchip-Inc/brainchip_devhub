@@ -68,25 +68,25 @@ See the [Dataset limits](#dataset-limits) for a full discussion.
   <tbody>
     <tr>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">7</td>
+      <td align="center">1</td>
+      <td align="center">976262</td>
+      <td align="center">2.441</td>
+      <td align="center">150.3</td>
+      <td align="center">0.372</td>
+      <td align="center">38.5</td>
+      <td align="center">0.095</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">31</td>
+      <td align="center">1</td>
+      <td align="center">249873</td>
+      <td align="center">0.625</td>
+      <td align="center">282.1</td>
+      <td align="center">0.185</td>
+      <td align="center">166.6</td>
+      <td align="center">0.109</td>
     </tr>
   </tbody>
 </table>
