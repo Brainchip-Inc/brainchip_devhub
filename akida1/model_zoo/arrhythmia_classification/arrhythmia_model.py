@@ -70,38 +70,39 @@ def build_arrhythmia_model(seed=42, pointwise_l2=POINTWISE_L2):
     set_random_seed(seed)
     regularizer = regularizers.L2(pointwise_l2)
 
-    with set_akida_version(AkidaVersion.v1):
-        inputs = Input(shape=INPUT_SHAPE, name='input')
+    inputs = Input(shape=INPUT_SHAPE, name='input')
 
-        # uint8 [0, 255] -> [0, 1]. Folded into stem_conv by cnn2snn.
-        x = Rescaling(1. / 255, 0., name='rescaling')(inputs)
+    # uint8 [0, 255] -> [0, 1]. Folded into stem_conv by cnn2snn.
+    x = Rescaling(1. / 255, 0., name='rescaling')(inputs)
 
-        # Stem: a dense convolution, so the first layer sees the raw scalogram.
-        x = Conv2D(16, (5, 5), padding='same', use_bias=False,
-                   name='stem_conv')(x)
-        x = BatchNormalization(name='stem_bn')(x)
-        x = ReLU(max_value=6, name='stem_relu6')(x)
+    # Stem: a dense convolution, so the first layer sees the raw scalogram.
+    x = Conv2D(16, (5, 5), padding='same', use_bias=False,
+                name='stem_conv')(x)
+    x = BatchNormalization(name='stem_bn')(x)
+    x = ReLU(max_value=6, name='stem_relu6')(x)
 
-        # Feature blocks, halving the spatial resolution between each.
-        x = _ds_block(x, 32, regularizer, 'block1')
-        x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same',
-                         name='block1_pool')(x)
+    # Feature blocks, halving the spatial resolution between each.
+    x = _ds_block(x, 32, regularizer, 'block1')
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same',
+                        name='block1_pool')(x)
 
-        x = _ds_block(x, 64, regularizer, 'block2')
-        x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same',
-                         name='block2_pool')(x)
+    x = _ds_block(x, 64, regularizer, 'block2')
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same',
+                        name='block2_pool')(x)
 
-        x = _final_ds_block(x, 128, regularizer, 'block3')
+    x = _final_ds_block(x, 128, regularizer, 'block3')
 
-        # Classification head.
-        x = GlobalAveragePooling2D(name='global_avg_pool')(x)
-        x = ReLU(max_value=6, name='head_relu6')(x)
-        x = Dense(64, activation='linear', name='dense')(x)
-        x = ReLU(max_value=6, name='dense_relu6')(x)
-        outputs = Dense(NUM_CLASSES, activation='linear',
-                        name='predictions')(x)
+    # Classification head.
+    # Note that for Akida 1 the GAP must be located **before**
+    # the neighbouring ReLU
+    x = GlobalAveragePooling2D(name='global_avg_pool')(x)
+    x = ReLU(max_value=6, name='head_relu6')(x)
+    x = Dense(64, activation='linear', name='dense')(x)
+    x = ReLU(max_value=6, name='dense_relu6')(x)
+    outputs = Dense(NUM_CLASSES, activation='linear',
+                    name='predictions')(x)
 
-        model = Model(inputs, outputs, name='arrhythmia_classification')
+    model = Model(inputs, outputs, name='arrhythmia_classification')
 
     return model
 
