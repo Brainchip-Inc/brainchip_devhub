@@ -1,0 +1,867 @@
+<img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+
+# AkidaNet on ImageNet
+
+Reference AkidaNet models trained on ImageNet-1k, across three width multipliers
+and two input resolutions. This example serves two purposes:
+
+1. **Evaluation and benchmarking** of the published models — full-precision,
+   quantized, and converted-to-Akida — on the ImageNet validation set and on
+   AKD1500 hardware.
+2. **A source of pretrained backbones.** These weights are the starting point for
+   the transfer-learning examples elsewhere in this zoo. They are committed here
+   so that fine-tuning on a new task is a two-line change rather than a training
+   run you cannot afford.
+
+Unlike the other model zoo entries, there is **no training stage**. Training
+AkidaNet on ImageNet takes days on a multi-GPU machine, which is the opposite of
+a reproducible example. If you want to see the full train → quantize → convert
+pipeline end to end, use [plant_village](../plant_village) — it runs in about 20
+minutes and the pipeline is identical in shape.
+
+## Model Card
+
+ImageNet-1k top-1 and top-5 accuracy, measured over the full 50,000-image
+validation set. **Akida** is the converted model; **QAT** is the
+quantization-aware-trained Keras model it was converted from (8-bit input, 4-bit
+weights and activations); **Float** is the full-precision starting point.
+Sparsity is the mean activation sparsity of the Akida model — the fraction of
+activations that are zero, and therefore the work the hardware skips.
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2">Alpha</th>
+      <th colspan="2">Float</th>
+      <th colspan="2">QAT</th>
+      <th colspan="2">Akida</th>
+      <th rowspan="2">Sparsity</th>
+      <th rowspan="2">Params</th>
+    </tr>
+    <tr>
+      <th>top-1</th><th>top-5</th>
+      <th>top-1</th><th>top-5</th>
+      <th>top-1</th><th>top-5</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="9"><b>224 &times; 224 input</b></td></tr>
+    <tr>
+      <td align="center">1.0</td>
+      <td align="center">72.06%</td>
+      <td align="center">90.40%</td>
+      <td align="center">70.09%</td>
+      <td align="center">89.25%</td>
+      <td align="center">69.93%</td>
+      <td align="center">89.17%</td>
+      <td align="center">61.27%</td>
+      <td align="center">4,445,000</td>
+    </tr>
+    <tr>
+      <td align="center">0.5</td>
+      <td align="center">65.11%</td>
+      <td align="center">85.95%</td>
+      <td align="center">61.94%</td>
+      <td align="center">83.79%</td>
+      <td align="center">61.92%</td>
+      <td align="center">83.76%</td>
+      <td align="center">54.36%</td>
+      <td align="center">1,384,856</td>
+    </tr>
+    <tr>
+      <td align="center">0.25</td>
+      <td align="center">53.27%</td>
+      <td align="center">77.21%</td>
+      <td align="center">46.41%</td>
+      <td align="center">71.53%</td>
+      <td align="center">46.32%</td>
+      <td align="center">71.37%</td>
+      <td align="center">46.91%</td>
+      <td align="center">483,392</td>
+    </tr>
+    <tr><td colspan="9"><b>160 &times; 160 input</b></td></tr>
+    <tr>
+      <td align="center">1.0</td>
+      <td align="center">69.68%</td>
+      <td align="center">88.87%</td>
+      <td align="center">67.04%</td>
+      <td align="center">87.13%</td>
+      <td align="center">67.01%</td>
+      <td align="center">87.13%</td>
+      <td align="center">60.81%</td>
+      <td align="center">4,445,000</td>
+    </tr>
+    <tr>
+      <td align="center">0.5</td>
+      <td align="center">62.36%</td>
+      <td align="center">83.97%</td>
+      <td align="center">57.81%</td>
+      <td align="center">80.95%</td>
+      <td align="center">57.99%</td>
+      <td align="center">80.76%</td>
+      <td align="center">54.05%</td>
+      <td align="center">1,384,856</td>
+    </tr>
+    <tr>
+      <td align="center">0.25</td>
+      <td align="center">50.00%</td>
+      <td align="center">74.43%</td>
+      <td align="center">42.64%</td>
+      <td align="center">68.15%</td>
+      <td align="center">42.54%</td>
+      <td align="center">68.15%</td>
+      <td align="center">46.71%</td>
+      <td align="center">483,392</td>
+    </tr>
+  </tbody>
+</table>
+
+### Reading the table
+
+Three patterns in these numbers are worth knowing before you pick a model.
+
+**Conversion to Akida is free.** The Akida column tracks the QAT column to within
+about 0.2 points everywhere. Conversion changes the representation, not the computation, so this is the expected result. It's also a useful sanity check: if you convert a model of your own and see a real drop, something has gone wrong.
+
+**Quantization gets more expensive as the model gets narrower.** Going from float
+to 4-bit costs roughly 2 points of top-1 at alpha 1.0, around 3 to 4 points at
+alpha 0.5, and 7 points or more at alpha 0.25. A wide model has redundant
+capacity to absorb the loss of precision; a narrow one does not, and every filter
+has to carry more of the representation. If you are choosing a width, note that
+the *quantized* accuracies are spread further apart than the float ones: alpha
+0.25 looks more competitive before quantization than it is after it.
+
+Do not read these figures as the cost of quantization in general, though. The
+drop is strongly task dependent, and ImageNet-1k is about as hard a task as this
+scale of model can take on: 1000 classes, with fine distinctions between many of
+them. On an easier task the same architectures lose almost nothing. Fine-tuned on
+[PlantVillage](../plant_village/README.md), alpha 0.5 goes from 99.61% float to
+99.43% on Akida, a drop of under 0.2 points. On
+[Visual Wake Words](../vww/README.md), even alpha 0.25 goes from 89.33% to
+88.42%, under a single point. What makes 4-bit weights bite here is having to
+separate 1000 classes; a 38-class or 2-class head has far more margin to spare.
+If your target task is narrower than ImageNet — and most are — expect the
+quantization cost to look much more like those examples than like the table
+above.
+
+**Higher test resolution buys accuracy, and buys more of it for smaller models.**
+Serving the same weights at 224 rather than 160 gains roughly 2.4 points of top-1
+at alpha 1.0, rising to about 3.3 points at alpha 0.25. See
+[Width and resolution](#width-and-resolution) below for why the same weights
+score better at a resolution they were not trained at.
+
+### AKD1500 hardware benchmark
+
+One table per model, one row per mapping mode. **Minimal** schedules the model
+onto the fewest Neural Processors it fits in, keeping power low. **AllNPs**
+spreads it across as many NPs as it can while keeping the number of hardware
+passes down, trading a modest power increase for a proportional latency
+reduction. **HwPr** also uses every NP available, but lets the mapper split the
+work over more passes instead of minimising them: the extra parallelism within
+a pass can cut latency further.
+
+<!--
+  Benchmark plots are written to docs/ by imagenet_akidanet_benchmark.py
+  --save-metrics, as ref_benchmark_results_full_<tag>.png and
+  ref_benchmark_results_layers_<tag>.png (tag = a100_224, a50_160, ...).
+  The full-model plot for each model is shown below its table; the per-layer
+  breakdowns are in docs/ but not embedded here, to keep the page readable.
+
+  ref_benchmark_summary.png is different: it is drawn from metrics.json by
+  imagenet_akidanet_summary_plot.py and regenerated by update_readme.py, so it
+  never needs a hardware run to stay in step with the tables.
+-->
+
+#### All six models at a glance
+
+Before the per-model detail, the shape of the whole trade-off. Both panels plot
+Akida top-1 accuracy against what one inference costs on AKD1500, in the **HwPr**
+mapping — the fastest and lowest-energy of the three modes on every model here.
+
+<img src="docs/ref_benchmark_summary.png" alt="Akida top-1 accuracy plotted against latency and against energy per inference, for all six models in HwPr mapping mode" width="1050">
+
+<br>
+
+
+<br><br>
+
+**alpha = 1.0, 224 &times; 224**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th><th>NPs</th><th>Passes</th><th>Cycles</th>
+      <th>Latency (ms)</th><th>Total Power (mW)</th><th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th><th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">117</td>
+      <td align="center">4</td>
+      <td align="center">50512691</td>
+      <td align="center">126.282</td>
+      <td align="center">222.3</td>
+      <td align="center">29.753</td>
+      <td align="center">108.3</td>
+      <td align="center">14.492</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">117</td>
+      <td align="center">4</td>
+      <td align="center">50500185</td>
+      <td align="center">126.250</td>
+      <td align="center">222.3</td>
+      <td align="center">29.748</td>
+      <td align="center">108.6</td>
+      <td align="center">14.533</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">132</td>
+      <td align="center">5</td>
+      <td align="center">41274237</td>
+      <td align="center">103.186</td>
+      <td align="center">244.7</td>
+      <td align="center">27.102</td>
+      <td align="center">130.9</td>
+      <td align="center">14.496</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_a100_224.png" alt="Power measurements during inference, alpha=1.0 224x224" width="1050">
+
+<br><br>
+
+**alpha = 0.5, 224 &times; 224**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th><th>NPs</th><th>Passes</th><th>Cycles</th>
+      <th>Latency (ms)</th><th>Total Power (mW)</th><th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th><th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">33</td>
+      <td align="center">1</td>
+      <td align="center">36261735</td>
+      <td align="center">90.654</td>
+      <td align="center">154.9</td>
+      <td align="center">14.090</td>
+      <td align="center">43.3</td>
+      <td align="center">3.944</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">33</td>
+      <td align="center">1</td>
+      <td align="center">36261479</td>
+      <td align="center">90.654</td>
+      <td align="center">154.7</td>
+      <td align="center">14.078</td>
+      <td align="center">43.3</td>
+      <td align="center">3.938</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">130</td>
+      <td align="center">5</td>
+      <td align="center">11024084</td>
+      <td align="center">27.560</td>
+      <td align="center">252.7</td>
+      <td align="center">7.304</td>
+      <td align="center">137.9</td>
+      <td align="center">3.985</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_a50_224.png" alt="Power measurements during inference, alpha=0.5 224x224" width="1050">
+
+<br><br>
+
+**alpha = 0.25, 224 &times; 224**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th><th>NPs</th><th>Passes</th><th>Cycles</th>
+      <th>Latency (ms)</th><th>Total Power (mW)</th><th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th><th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">23</td>
+      <td align="center">1</td>
+      <td align="center">14867433</td>
+      <td align="center">37.169</td>
+      <td align="center">143.5</td>
+      <td align="center">5.376</td>
+      <td align="center">32.0</td>
+      <td align="center">1.200</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">33</td>
+      <td align="center">1</td>
+      <td align="center">9825823</td>
+      <td align="center">24.565</td>
+      <td align="center">159.9</td>
+      <td align="center">3.976</td>
+      <td align="center">47.9</td>
+      <td align="center">1.192</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">110</td>
+      <td align="center">4</td>
+      <td align="center">4613118</td>
+      <td align="center">11.533</td>
+      <td align="center">215.6</td>
+      <td align="center">2.569</td>
+      <td align="center">101.9</td>
+      <td align="center">1.215</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_a25_224.png" alt="Power measurements during inference, alpha=0.25 224x224" width="1050">
+
+<br><br>
+
+**alpha = 1.0, 160 &times; 160**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th><th>NPs</th><th>Passes</th><th>Cycles</th>
+      <th>Latency (ms)</th><th>Total Power (mW)</th><th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th><th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">69</td>
+      <td align="center">3</td>
+      <td align="center">38299862</td>
+      <td align="center">95.750</td>
+      <td align="center">181.5</td>
+      <td align="center">18.891</td>
+      <td align="center">68.8</td>
+      <td align="center">7.163</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">79</td>
+      <td align="center">3</td>
+      <td align="center">32085266</td>
+      <td align="center">80.213</td>
+      <td align="center">196.1</td>
+      <td align="center">16.683</td>
+      <td align="center">82.9</td>
+      <td align="center">7.057</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">130</td>
+      <td align="center">5</td>
+      <td align="center">23211956</td>
+      <td align="center">58.030</td>
+      <td align="center">227.6</td>
+      <td align="center">14.074</td>
+      <td align="center">113.8</td>
+      <td align="center">7.037</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_a100_160.png" alt="Power measurements during inference, alpha=1.0 160x160" width="1050">
+
+<br><br>
+
+**alpha = 0.5, 160 &times; 160**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th><th>NPs</th><th>Passes</th><th>Cycles</th>
+      <th>Latency (ms)</th><th>Total Power (mW)</th><th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th><th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">25</td>
+      <td align="center">1</td>
+      <td align="center">24259988</td>
+      <td align="center">60.650</td>
+      <td align="center">144.4</td>
+      <td align="center">8.788</td>
+      <td align="center">33.0</td>
+      <td align="center">2.010</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">33</td>
+      <td align="center">1</td>
+      <td align="center">16988126</td>
+      <td align="center">42.470</td>
+      <td align="center">158.0</td>
+      <td align="center">6.743</td>
+      <td align="center">46.1</td>
+      <td align="center">1.969</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">107</td>
+      <td align="center">4</td>
+      <td align="center">8233113</td>
+      <td align="center">20.583</td>
+      <td align="center">207.0</td>
+      <td align="center">4.476</td>
+      <td align="center">93.7</td>
+      <td align="center">2.025</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_a50_160.png" alt="Power measurements during inference, alpha=0.5 160x160" width="1050">
+
+<br><br>
+
+**alpha = 0.25, 160 &times; 160**
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th><th>NPs</th><th>Passes</th><th>Cycles</th>
+      <th>Latency (ms)</th><th>Total Power (mW)</th><th>Total Energy (mJ/inf)</th>
+      <th>Dyn. Power (mW)</th><th>Dyn. Energy (mJ/inf)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">21</td>
+      <td align="center">1</td>
+      <td align="center">8417975</td>
+      <td align="center">21.045</td>
+      <td align="center">140.2</td>
+      <td align="center">2.976</td>
+      <td align="center">29.2</td>
+      <td align="center">0.619</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">33</td>
+      <td align="center">1</td>
+      <td align="center">5554226</td>
+      <td align="center">13.886</td>
+      <td align="center">155.0</td>
+      <td align="center">2.180</td>
+      <td align="center">43.3</td>
+      <td align="center">0.610</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">107</td>
+      <td align="center">4</td>
+      <td align="center">3210457</td>
+      <td align="center">8.026</td>
+      <td align="center">188.1</td>
+      <td align="center">1.574</td>
+      <td align="center">75.6</td>
+      <td align="center">0.632</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_a25_160.png" alt="Power measurements during inference, alpha=0.25 160x160" width="1050">
+
+<br><br>
+
+### Reading the benchmark tables
+
+**HwPr is both the fastest and the cheapest per inference, on every model here** —
+even though it draws the most power. That sounds contradictory and is not. Look at
+the dynamic energy column: it barely moves across the three rows of any table,
+within about 4% at worst. Dynamic energy is the cost of the events the model
+actually generates, and that work is fixed by the model and the input, not by how
+the mapper spreads it over the mesh. What the mapping changes is how *long* the
+inference takes, and the device pays its static floor — around 111 to 114 mW on
+this board — for every millisecond of it. Finish sooner and you pay that floor for
+less time, so total energy falls even as power rises. The dynamic power figure is
+the honest measure of how hard the mesh is working; total energy is the one to
+optimise if you are running on a battery.
+
+**Minimal and AllNPs do not always differ.** For alpha 1.0 and alpha 0.5 at
+224&times;224 the mapper returns the same solution for both — identical NP count and
+pass count — so those two rows agree to within measurement noise. The
+Minimal-versus-AllNPs trade-off only has something to say when the model is small
+enough relative to the mesh that there is slack to spread into; below that, HwPr
+splitting the work over more passes is the only mapping choice that still buys
+anything.
+
+## The AkidaNet architecture
+
+AkidaNet is a variant of **MobileNet v1**, 
+[Howard et al, (2017)](https://arxiv.org/abs/1704.04861)
+reshaped so that every operation maps cleanly onto Akida 1. It keeps 
+MobileNet's core idea — depthwise-separable convolutions to cut parameter 
+count and compute — and changes three things.
+
+**1. The first four blocks use standard convolutions, not separable ones.**
+
+MobileNet v1 uses a separable convolution everywhere after the stem. AkidaNet
+instead uses full standard convolutions for the first four blocks, switching to
+separable convolutions from `separable_4` onward. The cost is modest precisely
+because these early layers are narrow — at alpha 1.0 they carry 32 to 128
+filters, so a standard convolution there is cheap in absolute terms. The return
+is extra expressivity in exactly the layers that build the low-level features
+everything downstream depends on.
+
+**2. No ReLU between the depthwise and pointwise stages.**
+
+A MobileNet separable block is depthwise conv → BN → ReLU → pointwise conv → BN
+→ ReLU. The Akida 1 separable convolution is a *fused* primitive: the depthwise
+and pointwise stages execute as one operation, with no opportunity to apply an
+activation between them. AkidaNet therefore drops that intermediate ReLU, giving
+depthwise → pointwise → BN → ReLU.
+
+**3. Global average pooling comes before the final ReLU, not after.**
+
+The usual ordering is convolution → BN → ReLU → global average pooling. The
+Akida 1 implementation of global average pooling requires it to sit *before* the
+neighbouring ReLU, so the last block ends convolution → pooling → BN → ReLU.
+Since ReLU is monotonic but not linear, this is a genuine change to the
+computation rather than a reordering, and the models are trained accordingly.
+You can confirm the ordering on any of these models by listing the layers around
+`separable_13/global_avg`.
+
+Points 2 and 3 are what `akida_models` selects automatically when the Akida v1
+context is active (see `get_params_by_version()`). This matters in practice:
+the default context is **v2**, which builds the unfused, post-ReLU-pooling
+variant and will silently fail to match these weights. All model construction in
+this example is wrapped in `with set_akida_version(AkidaVersion.v1):`.
+
+The full stack, for input resolution *R* and width multiplier *alpha*:
+
+| Stage | Block | Type | Filters | Stride |
+|---|---|---|---|---|
+| 1 | `conv_0` | standard conv | 32 &times; alpha | 2 |
+| 2 | `conv_1` | standard conv | 64 &times; alpha | 1 |
+| 3 | `conv_2` | standard conv | 128 &times; alpha | 2 |
+| 4 | `conv_3` | standard conv | 128 &times; alpha | 1 |
+| 5 | `separable_4` | separable conv | 256 &times; alpha | 2 |
+| 6 | `separable_5` | separable conv | 256 &times; alpha | 1 |
+| 7 | `separable_6` | separable conv | 512 &times; alpha | 2 |
+| 8&ndash;12 | `separable_7` &hellip; `separable_11` | separable conv | 512 &times; alpha | 1 |
+| 13 | `separable_12` | separable conv | 1024 &times; alpha | 2 |
+| 14 | `separable_13` | separable conv + global avg pool | 1024 &times; alpha | 1 |
+| — | `classifier` | dense | 1000 | — |
+
+All convolutions are 3&times;3 with `padding='same'`, no bias, batch normalisation,
+and ReLU6. Input scaling is built into the model as a `Rescaling` layer
+computing `x / 128 - 1`, so **the data pipeline must deliver raw uint8 pixels
+with no normalisation of any kind**.
+
+### Width and resolution
+
+`alpha` scales the number of filters in every layer, trading accuracy for size
+and speed. `alpha=0.25` is roughly 1/10th the parameters of `alpha=1.0`.
+
+The two input resolutions are worth understanding, because they are not two
+separate training runs. **These models were trained at 160&times;160 and are also
+served at 224&times;224.** Evaluating at a higher resolution than you trained at
+generally *improves* accuracy: the random-resized-crop augmentation used during
+training makes objects appear larger than they do under the centre-crop used at
+test time, and raising the test resolution closes that gap. This is the
+train-test resolution discrepancy described by Touvron et al., *"Fixing the
+train-test resolution discrepancy"* (FAIR,
+[arXiv:1906.06423](https://arxiv.org/abs/1906.06423), with a 2020 follow-up at
+[arXiv:2003.08237](https://arxiv.org/abs/2003.08237)).
+
+You can see the evidence directly in the shipped files: the 224 checkpoints still
+carry the internal Keras model name `akidanet_1.00_160_1000`, because they were
+produced by rescaling the 160 models. For that reason, code in this example
+reads the resolution from `model.input_shape` and never from `model.name`.
+
+The practical consequence for the tables above: the 224 rows cost more latency
+and energy per inference than the 160 rows, and buy accuracy for it. Which
+trade-off is right depends on your application.
+
+## Requirements
+
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README.
+
+## Dataset
+
+**ImageNet-1k** (ILSVRC 2012) is the standard large-scale image classification
+benchmark: 1000 object categories, 1,281,167 training images and 50,000
+validation images. Accuracy in this example is measured on the validation split
+at its full size without subsampling.
+
+Images are preprocessed with the conventional ImageNet validation recipe: an
+aspect-preserving resize so the shorter side becomes `round(size * 1.143)`
+(256 for a 224 model, 183 for a 160 model), then a centre crop to the target
+size. There is no mean subtraction and no division by 255 — normalisation is a
+layer inside the model. See `imagenet_akidanet_preprocessing.py`, which is a
+self-contained copy of the `akida_models` implementation and is verified against
+it.
+
+For quick checks and for hardware benchmarking, a small **ImageNet-like sample
+pack** of 10 labelled images is fetched on demand from BrainChip's dataset
+mirror. It needs no setup and is not subject to ImageNet's redistribution terms.
+
+<img src="docs/sample_mosaic.png" alt="The 10 images of the ImageNet-like sample pack with their labels" width="700">
+
+*The 10-image sample pack is enough to verify the pipeline and drive an
+activity-realistic hardware benchmark but nowhere near enough to measure accuracy.*
+
+> ImageNet is distributed under its own terms, which permit non-commercial
+> research and educational use and do **not** permit redistribution. No ImageNet
+> imagery is included in this repository; you must obtain it yourself.
+>
+> Deng, J., Dong, W., Socher, R., Li, L.-J., Li, K. and Fei-Fei, L.,
+> *"ImageNet: A Large-Scale Hierarchical Image Database"*, CVPR 2009.
+
+## Dataset setup
+
+ImageNet cannot be downloaded automatically — it requires registration and
+manual acceptance of its terms. Follow the instructions on the TensorFlow
+Datasets catalog page:
+
+https://www.tensorflow.org/datasets/catalog/imagenet2012
+
+In short: register at [image-net.org](https://image-net.org/), download the two
+archives `ILSVRC2012_img_train.tar` and `ILSVRC2012_img_val.tar`, and place them
+in a directory of your choice. That directory is what you pass as `--data`.
+TensorFlow Datasets will then prepare the dataset into a `tfds/` subdirectory on
+first use — a one-off step that takes a while and needs roughly 150 GB:
+
+```bash
+python -c "import tensorflow_datasets as tfds; import os; \
+  d='/path/to/imagenet'; \
+  tfds.load('imagenet2012', data_dir=os.path.join(d,'tfds','data'), split='validation', \
+    download_and_prepare_kwargs=dict(download_dir=os.path.join(d,'tfds','downloaded'), \
+      download_config=tfds.download.DownloadConfig(manual_dir=d)))"
+```
+
+The expected layout is:
+
+```
+/path/to/imagenet/
+├── ILSVRC2012_img_train.tar
+├── ILSVRC2012_img_val.tar
+└── tfds/
+    ├── data/          <- prepared dataset (TFDS data_dir)
+    └── downloaded/    <- TFDS working directory
+```
+
+Scripts default to `./data/imagenet_tfds`. Either pass your path with `-d`, or
+create a symbolic link once so everything works without arguments:
+
+```bash
+ln -s /path/to/imagenet ./data/imagenet_tfds
+```
+
+If you only want to run the hardware benchmark or a quick smoke test, you can
+skip all of this as both work from the 10-image sample pack.
+
+## Pipeline
+
+There is no training here. The published models were produced by BrainChip with
+the pipeline below; this example picks it up at the evaluation stage.
+
+| Stage | Description | Run here? |
+|---|---|---|
+| Full-precision training | AkidaNet trained on ImageNet-1k at 160&times;160 | No — supplied |
+| Rescaling | 160 models rescaled to accept 224&times;224 input | No — supplied |
+| Post-training quantization | `cnn2snn quantize -i 8 -w 4 -a 4` — 8-bit input, 4-bit weights and activations | No — supplied |
+| Quantization-aware tuning | Fine-tuning of the quantized model to recover accuracy | No — supplied |
+| Conversion to Akida | `cnn2snn convert` to Akida model format | No — supplied |
+| **Evaluation** | Top-1/top-5 for all three variants, plus activation sparsity | **Yes** |
+| **Hardware benchmark** | AKD1500 latency and power, three mapping modes | **Yes** |
+
+## Reference Models
+
+All 18 model files — three variants for each of six models — are in
+`pretrained_models/`, handled with `git-lfs` (git large file storage). To get the
+real weights rather than text pointers, you will need `git-lfs` set up. See the
+[Trained models](../../../README.md#trained-models) section of the top-level README.
+
+```
+akidanet_imagenet_<RES>_alpha_<A>.h5          full-precision (transfer-learning backbone)
+akidanet_imagenet_<RES>_alpha_<A>_qat.h5      quantized, 8/4/4
+akidanet_imagenet_<RES>_alpha_<A>_qat.fbz     converted Akida model
+```
+
+where `<RES>` is `160` or `224` and `<A>` is `0.25`, `0.5` or `1.0`.
+
+### Using these models as transfer-learning backbones
+
+This is the main reason the weights live here. An ImageNet-pretrained backbone is
+what makes it possible to reach high accuracy on a new task with a small dataset
+and a few minutes of fine-tuning, and image examples in this zoo typically start
+from one.
+
+`load_akidanet_backbone()` returns the network without its 1000-class head, with
+the ImageNet weights loaded and the Akida v1 context applied:
+
+```python
+from imagenet_akidanet_model import load_akidanet_backbone
+from akida_models.layer_blocks import dense_block
+from tf_keras import Model
+
+backbone = load_akidanet_backbone(alpha=0.5, resolution=224)
+
+x = dense_block(backbone.output, units=NUM_CLASSES, name='predictions',
+                add_batchnorm=False, relu_activation=False)
+model = Model(backbone.input, x, name='akidanet_my_task')
+```
+
+The output is a 1024 &times; alpha feature vector (global-average-pooled), or pass
+`pooling=None` to keep the final feature map for a detection or segmentation head.
+
+Two things to keep in mind:
+
+- **Feed uint8, do not normalise.** The rescaling layer is inside the model.
+- **Stay in the v1 context** for anything you build on top, so that your own
+  layers are constructed with Akida 1 compatible activations.
+
+For a complete worked example, see
+[plant_village_model.py](../plant_village/plant_village_model.py), which fine-tunes
+the alpha 0.5 backbone to 38 classes and reaches 99%+ accuracy in about 20
+minutes. [vww](../vww) does the same for a 2-class problem.
+
+Note that `akida_models` also offers `akidanet_imagenet_pretrained()`, but it only
+knows about the **224** checkpoints. The 160 weights are reachable only by loading
+them directly, which is what this module does for both resolutions.
+
+## Usage
+
+### Notebook
+
+Two notebooks are provided.
+
+[imagenet_akidanet_notebook_evaluation.ipynb](imagenet_akidanet_notebook_evaluation.ipynb)
+tours the architecture, evaluates a chosen model across all three variants, and
+demonstrates backbone extraction for transfer learning. Accuracy is measured on
+the full validation set if you have it set up, and falls back to the 10-image
+sample pack otherwise, so the notebook runs either way.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida1/model_zoo/imagenet_akidanet/imagenet_akidanet_notebook_evaluation.ipynb)
+
+[imagenet_akidanet_notebook_benchmark.ipynb](imagenet_akidanet_notebook_benchmark.ipynb)
+covers evaluation of the Akida model and, if a device is available, benchmarking
+of latency and power. It works from the sample pack alone.
+
+> **Note:** the hardware benchmark section reads live power measurements from a
+> physical AKD1500 device over I2C. It will not run in Colab — use it locally
+> with a connected board.
+
+### Script
+
+To evaluate and benchmark one model end to end:
+
+```bash
+bash imagenet_akidanet_eval.sh [ALPHA] [RESOLUTION] [DATADIR]
+```
+
+for example `bash imagenet_akidanet_eval.sh 0.5 224`. All three arguments are
+optional and default to alpha 1.0, 224&times;224, and `./data/imagenet_tfds`.
+
+The individual steps, if you want to run them separately:
+
+1. Full-precision accuracy:
+   ```bash
+   python imagenet_akidanet_eval.py -a 0.5 -i 224 --variant float
+   ```
+2. Quantized (QAT) accuracy:
+   ```bash
+   python imagenet_akidanet_eval.py -a 0.5 -i 224 --variant qat
+   ```
+3. Akida accuracy and activation sparsity:
+   ```bash
+   python imagenet_akidanet_eval.py -a 0.5 -i 224 --variant akida
+   ```
+4. Hardware latency and power (requires a connected AKD1500):
+   ```bash
+   python imagenet_akidanet_benchmark.py -a 0.5 -i 224
+   ```
+
+A full-precision or quantized pass over the 50,000 validation images takes a
+couple of minutes on a modern GPU. The Akida pass runs on the software backend
+when no device is present, which takes a few minutes for the small models and
+around 20 minutes for alpha 1.0 at 224&times;224.
+
+Without any dataset setup, you can still check the pipeline end to end:
+
+```bash
+python imagenet_akidanet_eval.py -a 1.0 -i 224 --variant float --samples
+```
+
+which classifies the 10 sample images and prints predicted against true labels.
+
+To inspect a backbone:
+
+```bash
+python imagenet_akidanet_model.py -a 0.5 -i 224
+```
+
+## Contributing and Maintenance
+
+This README is autogenerated from `docs/README.md.template`
+so that the accuracy and hardware benchmark values are written directly
+by the code (via the `metrics.json` file, also in the docs folder).
+
+Metric keys are namespaced per model as `a<ALPHA100>_<RESOLUTION>_`, for example
+`a50_224_float_t1`. Six models share one metrics file.
+
+When the models or the evaluation pipeline change, rerun the evaluations with
+`--save-metrics` and regenerate the README:
+
+```bash
+for RES in 224 160; do
+  for ALPHA in 1.0 0.5 0.25; do
+    python imagenet_akidanet_eval.py -a $ALPHA -i $RES --variant float --save-metrics
+    python imagenet_akidanet_eval.py -a $ALPHA -i $RES --variant qat   --save-metrics
+    python imagenet_akidanet_eval.py -a $ALPHA -i $RES --variant akida --save-metrics
+    python imagenet_akidanet_benchmark.py -a $ALPHA -i $RES --save-metrics
+  done
+done
+python update_readme.py
+```
+
+The benchmark step needs a connected AKD1500 and will exit early without one;
+the evaluation steps do not.
+
+`update_readme.py` also redraws `docs/ref_benchmark_summary.png` from the same
+metrics file, via `imagenet_akidanet_summary_plot.py`, so that figure cannot drift
+away from the tables below it. It needs no hardware. The per-model plots do — they
+are written by the benchmark script itself.
+
+Then commit the changed files (template, metrics, summary figure and updated
+README).
+
+Likewise, if you want to edit the contents of this README, you should
+not edit it directly, but instead edit `docs/README.md.template` and
+then regenerate the README using
+``` bash
+python update_readme.py
+```
+
+Note that `update_readme.py` uses `str.format_map`, so any literal brace in the
+template must be doubled.
