@@ -9,15 +9,48 @@ class HoyerSquare(Regularizer):
 
     Promotes sparse binary-like activations by minimizing the ratio of L1 to L2 norm.
     Applied per activation tensor.
+
+    Raw form is unbounded: for a tensor of N elements the ratio ranges up to N
+    itself (dense/uniform case), so the same `strength` exerts more pressure on
+    layers with more elements. With `normalize=True`, divides by N so the
+    penalty is bounded in (0, 1] regardless of tensor size -- see
+    ../vww/SPARSITY_EXPERIMENT.md and ../plant_village/SPARSITY_EXPERIMENT.md
+    for why this matters in practice.
     """
 
-    def __init__(self, strength=1e-4):
+    def __init__(self, strength=1e-4, normalize=False):
         self.strength = float(strength)
+        self.normalize = bool(normalize)
 
     def __call__(self, x):
         l1 = tf.reduce_sum(tf.abs(x))
         l2sq = tf.reduce_sum(tf.square(x)) + 1e-8  # epsilon avoids div-by-zero on zero tensors
-        return self.strength * (l1 ** 2) / l2sq
+        hoyer_sq = (l1 ** 2) / l2sq
+        if self.normalize:
+            n = tf.cast(tf.size(x), tf.float32)
+            hoyer_sq = hoyer_sq / n
+        return self.strength * hoyer_sq
+
+    def get_config(self):
+        return {"strength": self.strength, "normalize": self.normalize}
+
+
+@tf_keras.utils.register_keras_serializable(package="Custom", name="L1L2Activity")
+class L1L2Activity(Regularizer):
+    """L1L2 activity regularizer: strength * (sum|x| + sum(x^2)).
+
+    Added alongside HoyerSquare to compare against the existing VWW/PlantVillage
+    sparsity experiments, which found Hoyer-Square (especially normalized)
+    beats plain L1L2 activity regularization.
+    """
+
+    def __init__(self, strength=1e-6):
+        self.strength = float(strength)
+
+    def __call__(self, x):
+        l1 = tf.reduce_sum(tf.abs(x))
+        l2sq = tf.reduce_sum(tf.square(x))
+        return self.strength * (l1 + l2sq)
 
     def get_config(self):
         return {"strength": self.strength}
