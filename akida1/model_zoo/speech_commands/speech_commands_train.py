@@ -25,7 +25,7 @@ from cnn2snn import load_quantized_model
 from cnn2snn.quantization_layers import QuantizedReLU
 
 from speech_commands_data_loader import compute_mfcc_range, get_datasets
-from regularizers_custom import HoyerSquare
+from regularizers_custom import HoyerSquare, L1L2Activity
 
 # Must be called before any TF ops to make GPU ops (conv backward passes,
 # bilinear resize, etc.) deterministic. Has a small throughput cost.
@@ -48,20 +48,26 @@ def _lr_schedule(peak_lr, total_steps, warmup_fraction=0.1, initial_learning_rat
             warmup_steps=int(warmup_fraction * total_steps),
         )
 
-def train_speech_commands(model, train_ds, val_ds, 
+def train_speech_commands(model, train_ds, val_ds,
                           epochs,
                           peak_lr,
                           warmup_fraction,
                           act_reg_strength,
+                          reg_type='hoyer_square',
                           seed=111):
     set_random_seed(seed)
-    
+
     # ---------------------------------------------------------------------------
     # Model
     # ---------------------------------------------------------------------------
     if act_reg_strength>0:
-        act_reg = HoyerSquare(act_reg_strength)
-        print('Adding Activity Regularization (Hoyer-Square) to ReLU layers')
+        if reg_type == 'hoyer_square_norm':
+            act_reg = HoyerSquare(act_reg_strength, normalize=True)
+        elif reg_type == 'l1l2':
+            act_reg = L1L2Activity(act_reg_strength)
+        else:
+            act_reg = HoyerSquare(act_reg_strength)
+        print(f'Adding {reg_type} Activity Regularization to ReLU layers')
         for layer in model.layers:
             if isinstance(layer, (ReLU, QuantizedReLU)) or "re_lu" in layer.name.lower():
                 layer.activity_regularizer = act_reg
@@ -134,6 +140,7 @@ if __name__ == '__main__':
     # Training
     # ---------------------------------------------------------------------------
     warmup_fraction = cfg.get("warmup_fraction", 0.1)
+    reg_type = cfg.get("reg_type", "hoyer_square")
     if args.qat:
         # Get QAT-specific training params
         act_reg_strength = cfg["activity_reg_hoyer_strength_qat"]
@@ -144,7 +151,7 @@ if __name__ == '__main__':
         act_reg_strength = cfg["activity_reg_hoyer_strength"]
         epochs = cfg["epochs_float"]
         peak_lr = cfg["lr_float"]
-        
+
 
     train_speech_commands(
         model=model,
@@ -154,6 +161,7 @@ if __name__ == '__main__':
         peak_lr=peak_lr,
         warmup_fraction=warmup_fraction,
         act_reg_strength=act_reg_strength,
+        reg_type=reg_type,
         seed=cfg.get("seed")
     )
 
