@@ -22,7 +22,7 @@ echo "Running arrhythmia pipeline with seed ${SEED} on the inter-patient split"
 python arrhythmia_model.py -s models/arrhythmia_classification_untrained.h5 --seed "$SEED"
 
 python arrhythmia_train.py -l models/arrhythmia_classification_untrained.h5 -s models/arrhythmia_classification.h5 -e 80 -lr 3e-3 -reg 2e-7 --seed "$SEED" $DATA_ARG
- python arrhythmia_eval.py -l models/arrhythmia_classification.h5 --seed "$SEED" $DATA_ARG 
+python arrhythmia_eval.py -l models/arrhythmia_classification.h5 --seed "$SEED" $DATA_ARG 
 
 # 4 bits quantization and tuning
 cnn2snn quantize -m models/arrhythmia_classification.h5 -i 8 -w 4 -a 4
