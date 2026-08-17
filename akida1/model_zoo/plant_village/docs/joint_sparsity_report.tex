@@ -1,0 +1,279 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage[colorlinks=true, linkcolor=blue!50!black, citecolor=blue!50!black, urlcolor=blue!50!black]{hyperref}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{Joint Activation and Structured Sparsity\\ for PlantVillage on Akida 1}
+\author{Akida 1 Model Zoo}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Akida 1 hardware accelerates inference by exploiting \emph{activation} (event) sparsity, not weight sparsity. A companion study on Visual Wake Words (VWW) found that combining activation-sparsity regularization with structured (channel) pruning is \emph{complementary}: the combined accuracy cost is less than the sum of each mechanism's individual cost. This report repeats that investigation on PlantVillage (38-class plant-disease classification, AkidaNet $\alpha=0.5$) and finds the \emph{opposite} at aggressive settings: the joint configuration costs 19.58 accuracy points, an order of magnitude more than either mechanism alone (${\sim}1.4$ points each). Tracing the cause shows this is primarily a fine-tuning-budget problem rather than fundamentally incompatible mechanisms --- quadrupling the post-prune fine-tuning recovers most (not all) of the gap --- and that a \emph{lighter} joint configuration avoids the problem almost entirely, reaching 97.81\% accuracy (a 1.92-point drop) with 75.9\% activation sparsity and a 21.0\% parameter reduction using the same modest fine-tuning budget that left the aggressive configuration badly undertrained. The practical conclusion mirrors VWW's (a lighter joint configuration is the best operating point) but for a different reason: here, aggressive joint settings are a genuine trap rather than merely a less-efficient use of accuracy budget.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+
+This report repeats, on a second model and dataset, the joint activation-sparsity and structured-sparsity investigation first conducted on Visual Wake Words (VWW). It asks the same two questions as the original study:
+
+\begin{enumerate}[label=(\roman*)]
+    \item Does combining activation-sparsity regularization with structured channel pruning cost \emph{more} accuracy than the sum of what each costs on its own, or can the two be pushed together more cheaply?
+    \item Can a better-optimized operating point be found that keeps most of the sparsity/size benefit while shrinking the accuracy drop?
+\end{enumerate}
+
+On VWW, the answer to (i) was that the two mechanisms are complementary: the joint configuration cost \emph{less} than the sum of its parts. This report finds that answer does \textbf{not} generalize as-is: on PlantVillage, an aggressive joint configuration costs dramatically \emph{more} than the sum of its parts. Diagnosing why (Section~\ref{sec:results}) shows this is substantially --- though not entirely --- a fine-tuning-budget artifact, and that a lighter joint configuration avoids it, giving the same practical recommendation as VWW (favor a lighter joint configuration) by a different route.
+
+All work in this report is on the branch\\
+\code{akida1-\allowbreak sparsify-\allowbreak plantvillage-\allowbreak joint}.
+This follows up on two prior efforts: the single-axis activation-sparsity
+experiment on branch \code{akida1-\allowbreak sparsify-\allowbreak plantvillage}
+(\code{SPARSITY\_EXPERIMENT.\allowbreak md}), and the joint VWW study on branch
+\code{akida1-\allowbreak sparsify-\allowbreak vww-\allowbreak joint}.
+
+\section{Background}
+
+\subsection{Akida 1 and activation sparsity}
+
+Akida 1 is an event-based neural processor that skips computation on zero-valued activations, so models with sparser intermediate activations run faster and at lower power on the physical device. Structured (channel) sparsity is a different property: it describes how much of the model's parameter count has been physically removed. Akida 1's execution model does not exploit weight sparsity for speed, so reducing parameter count is a memory-footprint argument, not a latency one.
+
+\subsection{PlantVillage}
+
+PlantVillage is a 38-class image classification task: given a leaf image, predict which of 38 (crop, disease) categories it belongs to (including healthy classes). It is a substantially larger and more fine-grained task than VWW's binary person/non-person classification, both in output cardinality and in input resolution.
+
+\section{Dataset}
+
+The dataset is the \emph{Plant leaf diseases dataset without augmentation}, loaded via \code{tensorflow\_datasets} from a mirror hosted at \code{data.\allowbreak brainchip.\allowbreak com} (\code{plant\_village\_data.py}). It contains approximately 54,000 leaf images across 38 classes.
+
+\begin{table}[H]
+\centering
+\caption{Dataset summary, as loaded by \code{plant\_village\_data.get\_data}.}
+\label{tab:dataset}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Property & Value \\
+\midrule
+Classes & 38 (plant/disease combinations) \\
+Input resolution & $224 \times 224 \times 3$ (RGB, \code{uint8}) \\
+Train / validation / test split & 80\% / 10\% / 10\% \\
+Total images & $\approx$54{,}000 \\
+Train-time augmentation & random horizontal flip, brightness ($\pm0.1$), contrast (0.9--1.1) \\
+Validation/test-time augmentation & none (only resize) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Unlike VWW, PlantVillage has a dedicated held-out \emph{test} split, separate from validation; all accuracy figures in this report are measured on that test split, matching \code{plant\_village\_eval.py}'s own convention.
+
+\section{Model architecture}
+\label{sec:architecture}
+
+The model is AkidaNet at width multiplier $\alpha=0.5$ (twice VWW's $\alpha=0.25$), $224\times224$ input (VWW: $96\times96$), initialized from ImageNet-pretrained weights and adapted for PlantVillage with a deeper classification head than VWW's: the backbone's final feature layer feeds a 512-unit dense block (with its own BatchNormalization and ReLU) before a dropout layer and the 38-class logits layer. Like VWW, the backbone is a strict feed-forward chain with no residual/skip connections.
+
+\begin{table}[H]
+\centering
+\caption{AkidaNet-PlantVillage ($\alpha=0.5$) architecture. Every \code{conv\_*}/\code{separable\_*} row is immediately followed by its own BatchNormalization and ReLU (omitted for brevity; parameter counts include them).}
+\label{tab:arch}
+\begin{tabular}{@{}llrr@{}}
+\toprule
+Layer & Type & Output shape & Params (layer + BN) \\
+\midrule
+\code{input} & Input & $224\times224\times3$ & 0 \\
+\code{rescaling} & Rescaling ($\div 255$) & $224\times224\times3$ & 0 \\
+\code{conv\_0} & Conv2D, stride 2 & $112\times112\times16$ & 496 \\
+\code{conv\_1} & Conv2D & $112\times112\times32$ & 4{,}736 \\
+\code{conv\_2} & Conv2D, stride 2 & $56\times56\times64$ & 18{,}688 \\
+\code{conv\_3} & Conv2D & $56\times56\times64$ & 37{,}120 \\
+\code{separable\_4} & SeparableConv2D, stride 2 & $28\times28\times128$ & 9{,}280 \\
+\code{separable\_5} & SeparableConv2D & $28\times28\times128$ & 18{,}048 \\
+\code{separable\_6} & SeparableConv2D, stride 2 & $14\times14\times256$ & 34{,}944 \\
+\code{separable\_7} & SeparableConv2D & $14\times14\times256$ & 68{,}864 \\
+\code{separable\_8} & SeparableConv2D & $14\times14\times256$ & 68{,}864 \\
+\code{separable\_9} & SeparableConv2D & $14\times14\times256$ & 68{,}864 \\
+\code{separable\_10} & SeparableConv2D & $14\times14\times256$ & 68{,}864 \\
+\code{separable\_11} & SeparableConv2D & $14\times14\times256$ & 68{,}864 \\
+\code{separable\_12} & SeparableConv2D, stride 2 & $7\times7\times512$ & 135{,}424 \\
+\code{separable\_13} & SeparableConv2D + global-avg-pool & $512$ & 268{,}800 \\
+\code{fc\_1} & Dense + BN + ReLU & $512$ & 264{,}704 \\
+\code{dropout\_1} & Dropout & $512$ & 0 \\
+\code{predictions} & Dense (logits, no activation) & $38$ & 19{,}494 \\
+\midrule
+\multicolumn{3}{r}{\textbf{Total}} & \textbf{1{,}156{,}054} \\
+\multicolumn{3}{r}{Trainable / non-trainable} & 1{,}149{,}046 / 7{,}008 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Note that \code{fc\_1}, unlike VWW's direct backbone-to-logits connection, sits between the backbone and the classifier head -- one of the reasons \code{separable\_13} is excluded from the prunable set (Section~\ref{sec:structured}).
+
+\section{Methodology}
+
+The two sparsity mechanisms, and the rationale for a float-only pipeline, are identical to the VWW study; this section summarizes them and highlights the one PlantVillage-specific parameter (the established best activation-regularizer strength).
+
+\subsection{Activation sparsity: normalized Hoyer-Square regularization}
+
+An activity regularizer is attached to every ReLU layer's output $x$:
+\begin{equation}
+\mathcal{L}_{\text{Hoyer-norm}}(x) = \frac{\lambda}{N} \cdot \frac{\left(\sum_i |x_i|\right)^2}{\sum_i x_i^2 + \varepsilon},
+\end{equation}
+where $N$ is the tensor's element count (the normalization that bounds the penalty to $(0,1]$ regardless of layer width). The prior single-axis experiment on PlantVillage established $\lambda=36$ as the best point on this axis alone: 78.2\% activation sparsity (measured on the quantized, Akida-converted model) for a $\sim$1.5-point accuracy cost. This $\lambda$ is an order of magnitude larger than VWW's own best value ($\lambda=3.6$) because PlantVillage's per-layer activation-tensor sizes are far more imbalanced (ranging up to $\sim$792$\times$ between the smallest and largest ReLU layer, versus VWW's $\sim$186$\times$), so the same normalized penalty scale requires a proportionally larger $\lambda$ to reach comparable pressure.
+
+\subsection{Structured sparsity: Network Slimming}
+\label{sec:structured}
+
+Network Slimming \cite{networkslimming} is applied identically to the VWW study: an $L_1$ penalty ($\mu=10^{-5}$) on each targeted BatchNormalization layer's $\gamma$, attached via the zero-argument-callable form of \code{model.add\_loss}; after training, channels are ranked by $|\gamma|$ and the lowest-ranked fraction (the prune target) is dropped per layer, then the model is physically rebuilt with sliced weights, propagating the channel-count change to the next weighted layer. The implementation (\code{plant\_\allowbreak village\_\allowbreak structured\_\allowbreak sparsity.\allowbreak py}) is a direct, unmodified port of VWW's -- it walks the model graph generically rather than hardcoding layer names or channel counts, so it applies to this different architecture without changes.
+
+\paragraph{Pruning scope.} \code{separable\_4} through \code{separable\_12} (9 of the network's 10 separable-convolution blocks) are eligible for pruning; the stem and \code{separable\_13} are excluded, since \code{separable\_13} feeds \code{fc\_1} directly and pruning it would require resizing that Dense layer's input.
+
+\subsection{Float-only evaluation}
+
+As with VWW, this study trains and evaluates float models only -- no \code{cnn2snn quantize}/QAT/\code{convert} anywhere in the pipeline -- for the same two reasons: it sidesteps the software-simulator-vs-hardware sparsity discrepancy documented in the single-axis experiments, and it keeps channel pruning decoupled from quantization concerns. Activation sparsity is measured as the mean fraction of exactly-zero outputs across all ReLU layers on 1{,}000 held-out samples, and \textbf{is not directly comparable} to the prior experiment's Akida-measured figures for the same reason as VWW (e.g.\ $\lambda=36$ reads 83.1\% here on the float model versus 78.2\% on the quantized/converted model).
+
+\subsection{Training pipeline}
+
+Each configuration is defined by $(\lambda, p)$: the activation-regularizer strength and structured prune target.
+
+\begin{description}
+    \item[Phase 1 (float training, 10 epochs).] Matches \code{plant\_village\_train.sh}'s existing float-training schedule (Adam, learning rate $10^{-3}$ with exponential decay to $10^{-3}\times0.01$ over the run) -- this model already reaches 99\%+ accuracy in 10 epochs, so no epoch-budget increase was needed before regularization was introduced, unlike VWW.
+    \item[Pruning (if $p>0$).] Channels pruned per Section~\ref{sec:structured}.
+    \item[Phase 2 (post-prune fine-tuning, learning rate $10^{-4}$).] 5 epochs by default (proportionally similar to VWW's 40:15 Phase-1:Phase-2 ratio); Section~\ref{sec:results} shows this default was insufficient at aggressive settings, and a 20-epoch variant was also tested.
+\end{description}
+
+\paragraph{Data pipeline.} PlantVillage's \code{tf.data}-based loading pipeline (\code{plant\_village\_data.py}, via \code{tensorflow\_datasets}, with \code{AUTOTUNE} prefetching already built in) did not exhibit VWW's single-threaded-generator bottleneck -- no analogous \code{workers=}/\code{use\_multiprocessing} fix was needed. A full training epoch on the $\sim$43,000-image training split at $224\times224$ took approximately 40--45 seconds on GPU~1 of the shared training server.
+
+\section{Experimental design}
+
+Three rounds of configurations were run, sharing one summary CSV.
+
+\paragraph{Pilot (2$\times$2 grid).} All four combinations of activation regularization on/off ($\lambda=36$, the established best single-axis point) and pruning on/off ($p=40\%$, a starting guess with no prior data point on this axis, mirroring VWW's choice).
+
+\paragraph{Follow-up (lighter settings).} Motivated by VWW's finding that a lighter joint configuration ($\lambda$ and $p$ each roughly halved) substantially reduced the accuracy cost, three lighter points were tested: $\lambda=15$ and $p=20\%$ individually and jointly.
+
+\paragraph{Diagnostic (longer fine-tuning).} The pilot's aggressive joint configuration ($\lambda=36$, $p=40\%$) showed a very large accuracy drop (Section~\ref{sec:results}); to determine whether this reflected an insufficient Phase-2 budget or a more fundamental problem, the same configuration was re-run with Phase 2 lengthened from 5 to 20 epochs.
+
+\begin{table}[H]
+\centering
+\caption{All configurations run. $\lambda$ is the normalized Hoyer-Square strength; $p$ is the structured prune target.}
+\label{tab:configs}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Tag & $\lambda$ & $p$ & Phase-2 epochs \\
+\midrule
+\code{baseline} & 0 & 0\% & -- \\
+\code{activation\_only} & 36 & 0\% & -- \\
+\code{structured\_only} & 0 & 40\% & 5 \\
+\code{joint} & 36 & 40\% & 5 \\
+\code{activation\_light} & 15 & 0\% & -- \\
+\code{structured\_light} & 0 & 20\% & 5 \\
+\code{joint\_light} & 15 & 20\% & 5 \\
+\code{joint\_long\_finetune} & 36 & 40\% & 20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All runs used GPU 1 of a shared training server; the full experiment (8 configurations) took well under two hours end to end.
+
+\section{Results}
+\label{sec:results}
+
+\begin{table}[H]
+\centering
+\caption{Full results. Accuracy drop is relative to \code{baseline} (99.72\%). Parameter reduction is relative to \code{baseline}'s 1{,}156{,}054 parameters. Activation sparsity is the float-model measurement (Section 5.3) and is \emph{not} directly comparable to the prior experiment's Akida-measured numbers.}
+\label{tab:results}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+Tag & $\lambda$ & $p$ & Accuracy & Acc.\ drop & Act.\ sparsity & Params (reduction) \\
+\midrule
+\code{baseline}            & 0  & 0\%  & 99.72\% & --      & 51.7\% & 1{,}156{,}054 (--) \\
+\code{activation\_only}    & 36 & 0\%  & 98.31\% & 1.42pt  & 83.1\% & 1{,}156{,}054 (0\%) \\
+\code{activation\_light}   & 15 & 0\%  & 98.86\% & 0.87pt  & 76.8\% & 1{,}156{,}054 (0\%) \\
+\code{structured\_only}    & 0  & 40\% & 98.32\% & 1.40pt  & 56.9\% & 711{,}624 (38.4\%) \\
+\code{structured\_light}   & 0  & 20\% & 99.50\% & 0.22pt  & 55.0\% & 913{,}771 (21.0\%) \\
+\code{joint}               & 36 & 40\% & 80.15\% & 19.58pt & 81.4\% & 711{,}624 (38.4\%) \\
+\code{joint\_long\_finetune} & 36 & 40\% & 93.48\% & 6.24pt  & 83.2\% & 711{,}624 (38.4\%) \\
+\code{joint\_light}        & 15 & 20\% & 97.81\% & 1.92pt  & 75.9\% & 913{,}771 (21.0\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{joint_sparsity_sweep.png}
+    \caption{Activation sparsity vs.\ parameter count for all eight configurations. Marker shape encodes family (circle: baseline, triangle: activation sparsity only, square: structured sparsity only, diamond: joint/joint variants); marker color and the accompanying label encode accuracy. Note the two diamonds at the same parameter count (right side): the darker \code{joint} (80.1\%, 5 fine-tune epochs) and the lighter \code{joint\_long\_finetune} (93.5\%, 20 fine-tune epochs).}
+    \label{fig:sweep}
+\end{figure}
+
+\subsection{An aggressive joint configuration is antagonistic, not complementary}
+
+Relative to \code{baseline}, \code{activation\_only} alone costs 1.42 points and \code{structured\_only} alone costs 1.40 points; a naive additive expectation predicts $\sim$2.81 points for both together. The aggressive \code{joint} configuration instead costs \textbf{19.58 points} -- an order of magnitude worse than either mechanism alone, and the opposite of what the VWW study found (there, the joint cost was \emph{less} than the sum of its parts).
+
+\subsection{Tracing the cause: a pruning-recovery problem, not unstable joint training}
+
+Phase 1 training (both regularizers active simultaneously) was entirely well-behaved: validation accuracy climbed smoothly from 79.9\% to 98.3\% over 10 epochs, with no sign of instability. The collapse happens precisely at the channel-pruning step: the first epoch of Phase 2 opens at only 59.9\% validation accuracy (down from 98.3\% immediately beforehand, before any further training has occurred), and the default 5 fine-tuning epochs recover only to 78.9\%. This indicates that channel pruning driven by BN-$\gamma$ magnitude, performed while the activation regularizer is simultaneously suppressing the network's internal activations, removes channels that matter substantially more than the same 40\% removed under \code{structured\_only}'s undisturbed $\gamma$ ranking.
+
+\subsection{Most, but not all, of the damage is recoverable with more fine-tuning}
+
+\code{joint\_long\_finetune} -- identical $(\lambda, p)$ to the aggressive \code{joint}, but with Phase 2 lengthened from 5 to 20 epochs -- recovers to \textbf{93.48\%}, a large improvement over 80.15\% that confirms the original number was substantially an under-trained-recovery artifact rather than irreversible channel damage. Even so, a 6.24-point cost remains at four times the fine-tuning budget, versus $\sim$1.4 points for either mechanism alone -- so some genuine antagonism between the two mechanisms persists at these aggressive settings, just far less severe than the 5-epoch figure suggested.
+
+\subsection{A lighter joint configuration avoids the problem almost entirely}
+
+\code{joint\_light} ($\lambda=15$, $p=20\%$), using the same modest 5-epoch fine-tuning budget that left the aggressive configuration badly undertrained, reaches \textbf{97.81\%} accuracy (a 1.92-point drop) with 75.9\% activation sparsity and a 21.0\% parameter reduction -- better on every axis than \code{joint\_long\_finetune} achieved even with four times the fine-tuning time at the aggressive settings. Whatever makes aggressive joint pruning hard to recover from is evidently much less of a problem at lighter regularization/pruning strengths.
+
+\subsection{Recommendation}
+
+\code{joint\_light} ($\lambda=15$, $p=20\%$) is the clear best operating point found in this study. Unlike VWW, where every joint configuration tested was a reasonable trade and the lighter one simply used the accuracy budget more efficiently, PlantVillage's aggressive joint configuration is a genuine trap: it costs over 13 points more accuracy than \code{joint\_light} even after quadrupling its recovery budget. The practical guidance for this model is to stay in the lighter joint regime rather than push both regularization knobs hard simultaneously.
+
+\section{Discussion and limitations}
+
+\paragraph{Why does the interaction differ from VWW?} This report does not establish a confirmed mechanism, only a well-supported hypothesis: the BN-$\gamma$ importance ranking that guides pruning may become less reliable once a strong activation regularizer is simultaneously reshaping the network's internal representations, so pruning ``the lowest-$\gamma$ channels'' no longer reliably means ``the least task-relevant channels'' when that regularizer is active. Why this effect would be more severe on PlantVillage than on VWW is not established here -- plausible contributing factors include PlantVillage's much larger per-layer size imbalance (Section 5.1) and its considerably higher output cardinality (38 classes vs.\ 2), but confirming either would require further experiments (e.g.\ comparing which specific channels get pruned under \code{structured\_only} vs.\ \code{joint} at matched prune targets).
+
+\paragraph{Float-vs-hardware sparsity gap and no latency validation.} As with VWW, the float-model activation-sparsity measurements used throughout this report are not on the same footing as the original single-axis experiment's Akida-hardware/software-simulator-measured figures, and this study makes no claim about actual Akida 1 latency or power -- the parameter-count reduction is a memory-footprint argument only, since Akida 1 does not accelerate on weight sparsity.
+
+\paragraph{Unexplored surface.} \code{joint\_long\_finetune} was only tested at 20 Phase-2 epochs; a longer fine-tune might close more of the remaining 6.24-point gap, or might plateau before that. The reverse combinations -- light activation regularization with aggressive pruning, or aggressive activation regularization with light pruning -- have not been tested, so it is not yet known whether the antagonism requires both knobs to be turned up together or whether either one alone at full strength is already sufficient to make pruning hard to recover from.
+
+\section{Conclusion}
+
+Repeating the joint activation-sparsity and structured-sparsity investigation on PlantVillage produced a materially different finding than on VWW: rather than the two mechanisms being complementary, an aggressive joint configuration here is actively antagonistic, costing an order of magnitude more accuracy than either mechanism alone. Diagnosis shows this is substantially a fine-tuning-budget problem -- quadrupling the post-prune recovery time recovers most of the gap -- but a genuine residual antagonism remains at aggressive settings even so. A lighter joint configuration ($\lambda=15$ activation regularization, 20\% structured pruning) sidesteps the problem almost entirely, reaching 97.81\% accuracy with 75.9\% activation sparsity and a 21.0\% parameter reduction using the same modest fine-tuning budget that left the aggressive configuration badly undertrained. The practical recommendation --- favor a lighter joint configuration --- matches VWW's, but this study shows that conclusion should not be assumed to transfer for the \emph{same reason}: on VWW it reflected a smoothly diminishing-returns curve, while on PlantVillage it reflects an outright trap at aggressive settings that a lighter configuration avoids.
+
+\begin{thebibliography}{9}
+
+\bibitem{networkslimming}
+Z.~Liu, J.~Li, Z.~Shen, G.~Huang, S.~Yan, and C.~Zhang.
+\newblock Learning Efficient Convolutional Networks through Network Slimming.
+\newblock In \emph{Proceedings of the IEEE International Conference on Computer Vision (ICCV)}, 2017.
+
+\bibitem{deephoyer}
+H.~Yang, W.~Wen, and H.~Li.
+\newblock DeepHoyer: Learning Sparser Neural Network with Differentiable Scale-Invariant Sparsity Measures.
+\newblock In \emph{International Conference on Learning Representations (ICLR)}, 2020.
+
+\bibitem{mobilenets}
+A.~G.~Howard, M.~Zhu, B.~Chen, D.~Kalenichenko, W.~Wang, T.~Weyand, M.~Andreetto, and H.~Adam.
+\newblock MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications.
+\newblock \emph{arXiv preprint arXiv:1704.04861}, 2017.
+
+\bibitem{plantvillage}
+D.~P.~Hughes and M.~Salath\'e.
+\newblock An Open Access Repository of Images on Plant Health to Enable the Development of Mobile Disease Diagnostics.
+\newblock \emph{arXiv preprint arXiv:1511.08060}, 2015.
+
+\end{thebibliography}
+
+\end{document}
