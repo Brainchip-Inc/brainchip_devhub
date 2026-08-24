@@ -1,0 +1,138 @@
+name: models-hardware
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: models-hardware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: scope (hardware)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      run_all: ${{ steps.discover.outputs.run_all }}
+      v1_quantized: ${{ steps.discover.outputs.v1_quantized }}
+      v1_akida: ${{ steps.discover.outputs.v1_akida }}
+      v2_quantized: ${{ steps.discover.outputs.v2_quantized }}
+      v2_akida: ${{ steps.discover.outputs.v2_akida }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Discover models in scope
+        id: discover
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python test/discover_models.py --all --github-output >> "$GITHUB_OUTPUT"
+          else
+            python test/discover_models.py --diff "origin/${{ github.base_ref }}" --github-output >> "$GITHUB_OUTPUT"
+          fi
+
+  akd1500:
+    name: AKD1500 (v1 models)
+    needs: scope
+    if: >-
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.pull_request.head.repo.full_name == github.repository) &&
+      (needs.scope.outputs.v1_quantized != '' || needs.scope.outputs.v1_akida != '')
+    runs-on: [self-hosted, linux, akd1500]
+    timeout-minutes: 120
+    container:
+      image: bender:5000/akida-gpu-tf2.19:2.19.3
+      options: --privileged
+      volumes:
+        - /dev/akd1500_0:/dev/akd1500_0
+        - /opt/ci-cache/lfs:/lfs-cache
+    env:
+      MODELS: ${{ needs.scope.outputs.v1_quantized }} ${{ needs.scope.outputs.v1_akida }}
+    steps:
+      - name: Report host
+        run: echo "Running on $(hostname)"
+
+      - name: Ensure git and git-lfs
+        run: |
+          (command -v git && command -v git-lfs) >/dev/null 2>&1 || \
+            (apt-get update && apt-get install -y git git-lfs)
+
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+
+      - name: Fetch model files (LFS, scoped, cached)
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global lfs.storage /lfs-cache
+          INCLUDE=$(echo $MODELS | xargs | tr ' ' ',')
+          git lfs pull --include="$INCLUDE"
+
+      - name: Install pinned toolchain
+        run: |
+          AKIDA_MODELS_SPEC=$(grep -oE 'akida_models==[0-9][0-9a-z.]*' pyproject.toml | head -1)
+          pip install "$AKIDA_MODELS_SPEC" pytest pytest-rerunfailures
+
+      - name: Check device
+        run: |
+          python -c "import akida; ds = akida.devices(); print('Devices:', [d.desc for d in ds]); assert ds, 'No Akida device visible in container'"
+
+      - name: Hardware model tests
+        run: pytest test/test_models.py -v -m hardware --models "$MODELS"
+
+
+  fpga-v2-6node:
+    name: FPGA v2 6-node (v2 models)
+    needs: scope
+    if: >-
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.pull_request.head.repo.full_name == github.repository) &&
+      (needs.scope.outputs.v2_quantized != '' || needs.scope.outputs.v2_akida != '')
+    runs-on: [self-hosted, linux, fpga-v2-6node]
+    timeout-minutes: 120
+    container:
+      image: bender:5000/akida-gpu-tf2.19:2.19.3
+      options: --privileged
+      volumes:
+        - /dev/xdma/card0:/dev/xdma/card0
+        - /dev/xdma0_user:/dev/xdma0_user
+        - /opt/ci-cache/lfs:/lfs-cache
+    env:
+      MODELS: ${{ needs.scope.outputs.v2_quantized }} ${{ needs.scope.outputs.v2_akida }}
+    steps:
+      - name: Report host
+        run: echo "Running on $(hostname)"
+
+      - name: Ensure git and git-lfs
+        run: |
+          (command -v git && command -v git-lfs) >/dev/null 2>&1 || \
+            (apt-get update && apt-get install -y git git-lfs)
+
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+
+      - name: Fetch model files (LFS, scoped, cached)
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global lfs.storage /lfs-cache
+          INCLUDE=$(echo $MODELS | xargs | tr ' ' ',')
+          git lfs pull --include="$INCLUDE"
+
+      - name: Install pinned toolchain
+        run: |
+          AKIDA_MODELS_SPEC=$(grep -oE 'akida_models==[0-9][0-9a-z.]*' pyproject.toml | head -1)
+          pip install "$AKIDA_MODELS_SPEC" pytest pytest-rerunfailures
+
+      - name: Check device
+        run: |
+          python -c "import akida; ds = akida.devices(); print('Devices:', [d.desc for d in ds]); assert ds, 'No Akida device visible in container'"
+
+      - name: Hardware model tests
+        run: pytest test/test_models.py -v -m hardware --models "$MODELS"
