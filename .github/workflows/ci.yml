@@ -1,0 +1,69 @@
+name: models-float
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: models-float-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: scope (float)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      run_all: ${{ steps.discover.outputs.run_all }}
+      v1_float: ${{ steps.discover.outputs.v1_float }}
+      v2_float: ${{ steps.discover.outputs.v2_float }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Discover models in scope
+        id: discover
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python test/discover_models.py --all --github-output >> "$GITHUB_OUTPUT"
+          else
+            python test/discover_models.py --diff "origin/${{ github.base_ref }}" --github-output >> "$GITHUB_OUTPUT"
+          fi
+
+  float-sanity:
+    needs: scope
+    if: needs.scope.outputs.v1_float != '' || needs.scope.outputs.v2_float != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      MODELS: ${{ needs.scope.outputs.v1_float }} ${{ needs.scope.outputs.v2_float }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+
+      - name: Fetch model files (LFS, scoped)
+        run: |
+          INCLUDE=$(echo $MODELS | xargs | tr ' ' ',')
+          git lfs pull --include="$INCLUDE"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned toolchain (CPU, public PyPI)
+        run: |
+          # Install the akida_models/tensorflow versions pinned in
+          # pyproject.toml, but with the CPU tensorflow build (no [and-cuda]):
+          # GitHub-hosted runners have no GPU and the CUDA wheels are large.
+          AKIDA_MODELS_SPEC=$(grep -oE 'akida_models==[0-9][0-9a-z.]*' pyproject.toml | head -1)
+          TF_SPEC=$(grep -oE 'tensorflow(\[and-cuda\])?==[0-9][0-9a-z.]*' pyproject.toml | head -1 | sed 's/\[and-cuda\]//')
+          pip install "$TF_SPEC" "$AKIDA_MODELS_SPEC" pytest
+
+      - name: Float model quantize sanity
+        run: pytest test/test_models.py -v -m "not hardware" --models "$MODELS"

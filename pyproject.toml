@@ -20,3 +20,13 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["brainchip_utils*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "hardware: test requires an Akida hardware device",
+    "flaky: rerun on failure (provided by pytest-rerunfailures in the hardware CI)",
+]
+filterwarnings = [
+    "ignore::FutureWarning",
+    "ignore::DeprecationWarning",
+]
