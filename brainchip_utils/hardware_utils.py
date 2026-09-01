@@ -60,13 +60,13 @@ def get_akida_device(target_version=None):
                 print(str(len(devices)) + ' Akida devices found. Using the first device detected.')
             return devices[0]
         else:
-            for dd in akida.devices():
+            for dd in devices:
                 if dd.ip_version == target_version:
                     print('Target Akida device found')
                     return dd
-                print('Connected Akida Device does not match the requested IPVersion.')
-                print('Calls to akida will run on the software backend.')
-                return None
+            print('Connected Akida Device does not match the requested IPVersion.')
+            print('Calls to akida will run on the software backend.')
+            return None
 
 #----------------------------------------------------------------------------------
 #
