@@ -111,14 +111,20 @@ print(f'Float validation accuracy: {float_accuracy:.4f}')
 #
 # * **8-bit** (i8/w8/a8) — post-training quantization only; 8-bit PTQ is accurate enough that QAT is not needed.
 # * **4-bit** (i8/w4/a4) — quantization-aware training (QAT); 4-bit PTQ accuracy is poor, so we fine-tune. The input layer weights stay 8-bit in both variants.
+#
+# Note that quantization using `quantizeml` requires samples for calibration. Ideally those should be representative samples for the task, drawn from the training split to avoid data leakage.
 
 # %%
-from quantizeml.models import quantize
-from quantizeml.layers import QuantizationParams
+from quantizeml.models import quantize, QuantizationParams
+
+from vww_data import get_samples
+
+NUM_SAMPLES = 1024
+samples = get_samples(DATA_PATH, INPUT_SHAPE, num_samples=NUM_SAMPLES)
 
 # --- 8-bit variant (i8 / w8 / a8), PTQ only ---
 qparams_8bit = QuantizationParams(input_weight_bits=8, weight_bits=8, activation_bits=8)
-model_8bit = quantize(model, qparams=qparams_8bit)
+model_8bit = quantize(model, qparams=qparams_8bit, samples=samples)
 
 q8_path = os.path.join(MODELS_DIR, 'akidanet_vww_i8_w8_a8.h5')
 model_8bit.save(q8_path, include_optimizer=False)
@@ -135,7 +141,7 @@ print(f'8-bit quantized validation accuracy: {acc_8bit:.4f}')
 # %%
 # --- 4-bit variant (i8 / w4 / a4), QAT ---
 qparams_4bit = QuantizationParams(input_weight_bits=8, weight_bits=4, activation_bits=4)
-model_4bit = quantize(model, qparams=qparams_4bit)
+model_4bit = quantize(model, qparams=qparams_4bit, samples=samples)
 
 # QAT fine-tune the quantized 4-bit model. quantizeml-quantized models are standard
 # Keras models, so the same training loop applies.
@@ -196,15 +202,11 @@ print(f'Akida 4-bit QAT accuracy: {akida_acc_4bit:.4f}')
 # %% [markdown]
 # ## Activation Sparsity
 #
-# Activation sparsity drives efficiency on Akida (zero activations are skipped).
+# Activation sparsity drives efficiency on Akida (zero activations are skipped). To check activation sparsity within the model, we need to run some real samples through. Here, we re-use the samples that we generated earlier for calibration during quantization.
 
 # %%
 from akida_models.sparsity import compute_sparsity
 from brainchip_utils.plot_utils import pretty_print_sparsity
-from vww_data import get_samples
-
-NUM_SAMPLES = 1024
-samples = get_samples(DATA_PATH, INPUT_SHAPE, num_samples=NUM_SAMPLES)
 
 print('8-bit sparsity:')
 pretty_print_sparsity(compute_sparsity(akida_8bit, samples=samples))

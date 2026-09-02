@@ -147,6 +147,22 @@ ln -s /path/to/your/data/vw_coco2014_96 ./data/vw_coco2014_96
 
 This way the scripts work out of the box without any extra arguments.
 
+### Calibration samples
+
+Quantization with `quantizeml` is calibrated on real data, so a batch of 1024
+VWW samples is needed in addition to the dataset itself. A prepared batch is
+published on the BrainChip mirror, and `vww_train.sh` fetches it into `data/`
+automatically:
+
+```bash
+wget -N https://data.brainchip.com/dataset-mirror/samples/vww/vww_batch1024.npz -P data/
+```
+
+The training notebook does not use this file. It builds its samples directly
+from the dataset with `get_samples()` from
+[vww_data.py](vww_data.py), so that the process is visible and easy to adapt to
+your own data.
+
 ## Pipeline
 
 Training produces a float model, then quantizes it with `quantizeml` into
@@ -155,8 +171,8 @@ several variants, each converted to Akida format:
 | Stage | Description |
 |---|---|
 | Full-precision | Float32 training from scratch |
-| 8-bit quantization | `quantizeml quantize` to 8-bit weights and activations (8-bit input); no QAT required |
-| 4-bit quantization | `quantizeml quantize` to 4-bit weights and activations (8-bit input), with QAT fine-tuning — 4-bit PTQ accuracy is poor so only the QAT model is kept |
+| 8-bit quantization | `quantizeml quantize` to 8-bit weights and activations (8-bit input), calibrated on real samples; no QAT required |
+| 4-bit quantization | `quantizeml quantize` to 4-bit weights and activations (8-bit input), calibrated on real samples, with QAT fine-tuning — 4-bit PTQ accuracy is poor so only the QAT model is kept |
 | Conversion to Akida | Automated conversion of each quantized model to Akida 2 format with `cnn2snn convert` |
 
 ## Reference Models

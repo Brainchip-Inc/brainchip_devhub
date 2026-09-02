@@ -20,6 +20,10 @@ set -e
 DATADIR="${1:-}"
 DATA_ARG=${DATADIR:+-d "$DATADIR"}
 
+# Download batch of samples for calibration
+wget -N https://data.brainchip.com/dataset-mirror/samples/vww/vww_batch1024.npz \
+     -P data/
+
 # 1. Build untrained float model
 python vww_model.py -s models/akidanet_vww_untrained.h5
 
@@ -29,7 +33,9 @@ python vww_eval.py -l models/akidanet_vww.h5 $DATA_ARG
 
 # 8-BIT VARIANT (i8/w8/a8) -- PTQ only, no QAT
 quantizeml quantize -m models/akidanet_vww.h5 -i 8 -w 8 -a 8 \
-    -s models/akidanet_vww_i8_w8_a8.h5
+    -s models/akidanet_vww_i8_w8_a8.h5 \
+    --samples data/vww_batch1024.npz
+
 python vww_eval.py -l models/akidanet_vww_i8_w8_a8.h5 $DATA_ARG
 
 cnn2snn convert -m models/akidanet_vww_i8_w8_a8.h5
@@ -39,7 +45,8 @@ python vww_benchmark.py -l models/akidanet_vww_i8_w8_a8.fbz $DATA_ARG || true
 
 # 4-BIT VARIANT (i8/w4/a4) -- QAT only. 4-bit PTQ is a throwaway (_pretmp).
 quantizeml quantize -m models/akidanet_vww.h5 -i 8 -w 4 -a 4 \
-    -s models/akidanet_vww_i8_w4_a4_pretmp.h5
+    -s models/akidanet_vww_i8_w4_a4_pretmp.h5 \
+    --samples data/vww_batch1024.npz
 
 python vww_train.py -l models/akidanet_vww_i8_w4_a4_pretmp.h5 -s models/akidanet_vww_i8_w4_a4_qat.h5 -e 5 -lr 1e-4 $DATA_ARG
 python vww_eval.py -l models/akidanet_vww_i8_w4_a4_qat.h5 $DATA_ARG

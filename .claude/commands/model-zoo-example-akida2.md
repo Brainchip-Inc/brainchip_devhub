@@ -71,6 +71,22 @@ file, identify:
   variant (QAT only). The input layer weights are always 8-bit. See 3f for the exact pipeline
   — the source is reference-only for quantization; the v2 scheme above is fixed.
 
+- **Calibration samples** (required — see 3f): `quantizeml quantize` calibrates while
+  quantizing, and it must be given real samples. The source `.sh` fetches them with a `wget`
+  that is normally the **first command in the script**, pointing at the dataset mirror:
+  ```bash
+  wget -N https://data.brainchip.com/dataset-mirror/samples/<dataset>/<file>.npz
+  ```
+  Record the **exact URL and filename** — the naming is per-dataset and not derivable
+  (`vww/vww_batch1024.npz`, `kws/kws_batch1024.npz`, `imagenet/imagenet_batch1024_160.npz`,
+  `voc/voc20_384_batch1024.npz`, `eye_tracking/eye_tracking_bs100.npz`, …). Also note any
+  `-e` (calibration epochs) / `-bs` (calibration batch size) arguments the source passes to
+  `quantizeml quantize`.
+
+  If the source has no such `wget`, or it is present but commented out (as in
+  `detection/train_voc.sh`), **stop and ask the user** for the sample pack to use. Do not
+  silently fall back to random calibration.
+
 - **Any notebooks** in `SOURCE_DIR` — read their content if they exist.
 
 ---
@@ -226,22 +242,33 @@ DATADIR="${1:-}"
 DATA_ARG=${DATADIR:+-d "$DATADIR"}
 ```
 
+Immediately after it, the calibration-samples download, using the URL recorded in Step 1:
+```bash
+# Download batch of samples for calibration
+wget -N <SAMPLES_URL> \
+     -P data/
+```
+Note the `-P data/`: the source scripts drop the `.npz` in the working directory, but devhub
+examples keep it inside the example's own `data/` folder alongside the dataset. `-N` makes
+the download idempotent across reruns.
+
 Quantization uses **`quantizeml`** (not `cnn2snn quantize`). The **input layer weights are
-always 8-bit** (`-i 8`), regardless of the target precision. Two quantized variants are
-produced:
+always 8-bit** (`-i 8`), regardless of the target precision. Both quantize calls pass the
+downloaded samples via `--samples`. Two quantized variants are produced:
 
 | Variant | quantize command | QAT? |
 |---|---|---|
-| 8-bit | `quantizeml quantize -m <float>.h5 -i 8 -w 8 -a 8 -s <name>_i8_w8_a8.h5` | No — 8-bit PTQ is accurate enough |
-| 4-bit | `quantizeml quantize -m <float>.h5 -i 8 -w 4 -a 4 -s <name>_i8_w4_a4_pretmp.h5`, then QAT-fine-tune | Yes — **QAT only** |
+| 8-bit | `quantizeml quantize -m <float>.h5 -i 8 -w 8 -a 8 -s <name>_i8_w8_a8.h5 --samples data/<samples>.npz` | No — 8-bit PTQ is accurate enough |
+| 4-bit | `quantizeml quantize -m <float>.h5 -i 8 -w 4 -a 4 -s <name>_i8_w4_a4_pretmp.h5 --samples data/<samples>.npz`, then QAT-fine-tune | Yes — **QAT only** |
 
 Pipeline order:
 1. Build untrained/starting model: `python <NAME>_model.py -s models/<short>_<NAME>[_untrained].h5`
 2. Float-train → `models/<short>_<NAME>.h5`, then `python <NAME>_eval.py -l ...<NAME>.h5 $DATA_ARG`
-3. **8-bit**: `quantizeml quantize ... -i 8 -w 8 -a 8 -s ...i8_w8_a8.h5` → eval `.h5` →
-   `cnn2snn convert -m ...i8_w8_a8.h5` → eval `.fbz` → `python <NAME>_benchmark.py -l ...i8_w8_a8.fbz $DATA_ARG`
-4. **4-bit (QAT only)**: `quantizeml quantize ... -i 8 -w 4 -a 4 -s ...i8_w4_a4_pretmp.h5` →
-   `python <NAME>_train.py -l ...i8_w4_a4_pretmp.h5 -s ...i8_w4_a4_qat.h5 -e <N> -lr <LR> $DATA_ARG`
+3. **8-bit**: `quantizeml quantize ... -i 8 -w 8 -a 8 -s ...i8_w8_a8.h5 --samples data/<samples>.npz`
+   → eval `.h5` → `cnn2snn convert -m ...i8_w8_a8.h5` → eval `.fbz` →
+   `python <NAME>_benchmark.py -l ...i8_w8_a8.fbz $DATA_ARG`
+4. **4-bit (QAT only)**: `quantizeml quantize ... -i 8 -w 4 -a 4 -s ...i8_w4_a4_pretmp.h5 --samples data/<samples>.npz`
+   → `python <NAME>_train.py -l ...i8_w4_a4_pretmp.h5 -s ...i8_w4_a4_qat.h5 -e <N> -lr <LR> $DATA_ARG`
    → eval `.h5` → `cnn2snn convert -m ...i8_w4_a4_qat.h5` → eval `.fbz` → benchmark `.fbz` →
    `rm -f models/<short>_<NAME>_i8_w4_a4_pretmp.h5`
 
@@ -252,11 +279,15 @@ Key points:
 - `quantizeml` has **no `convert` subcommand**. Conversion to `.fbz` is always
   `cnn2snn convert -m <model>.h5` (it accepts quantizeml-quantized models). Output filename is
   `<input_stem>.fbz`.
-- `quantizeml quantize` calibrates during quantization; with no `-sa samples.npz` it uses
-  random calibration samples. **Note:** quantizeml warns that random calibration is inaccurate
-  for per-axis activation quantization — for accurate results pass real calibration samples
-  (`-sa`) or set `QuantizationParams.per_tensor_activations=True`. Flag this as a per-example
-  decision.
+- **Real calibration samples are mandatory, not a per-example decision.** `quantizeml
+  quantize` calibrates during quantization; left to itself it calibrates on random data, which
+  quantizeml itself warns is inaccurate for per-axis activation quantization. The `.sh`
+  pipeline therefore always passes the published sample pack downloaded above. `-sa` and
+  `--samples` are the same flag (the reference spells it `--samples`); `-ns/--num_samples` is
+  ignored once samples are supplied. Do **not** use `--per_tensor_activations` as a substitute
+  for real samples — it changes the quantization scheme rather than fixing the calibration.
+- `-e` / `-bs` (calibration epochs and batch size) default to `1` / `None`. Carry over the
+  source's values only if the source sets them explicitly.
 
 Model naming (keep bit-widths explicit; 8-bit needs no suffix, 4-bit always carries `_qat`):
 - Float: `<short>_<NAME>_untrained.h5` → `<short>_<NAME>.h5`
@@ -289,9 +320,13 @@ rewriting content for this dataset/model. Sections in order:
 4. `## Requirements` — copy from the reference; add example-specific deps if any.
 5. `## Dataset` — describe the dataset from Step 1.
 6. `## Dataset setup` — download/obtain instructions; include a URL + wget/extract if known,
-   else a `<!-- TODO -->`.
+   else a `<!-- TODO -->`. End the section with a short **calibration samples** paragraph:
+   give the mirror URL of the `.npz`, and state that `<NAME>_train.sh` fetches it into `data/`
+   automatically, while the training notebook instead builds its samples from the dataset with
+   `get_samples()` (see 3m).
 7. `## Pipeline` — copy the pipeline table from the reference, adapting the quantization rows
-   to this example.
+   to this example. Both quantization rows must say that quantization is calibrated on real
+   samples.
 8. `## Usage` → two subsections:
    - `### Notebook` — link the two notebooks (`<NAME>_notebook_training.ipynb` and
      `<NAME>_notebook_benchmark.ipynb`) with a short description of each, and place the
@@ -357,8 +392,30 @@ notebooks:
      `QuantizationParams(input_weight_bits=8, weight_bits=8, activation_bits=8)` → `quantize`
      → eval; and 4-bit `(…weight_bits=4, activation_bits=4)` → `quantize` → **QAT fine-tune
      via `train_<NAME>`** → eval. (Do not use `cnn2snn.quantize` — that is Akida 1.)
+
+     **Calibration samples are generated in the notebook, not downloaded.** This is a
+     deliberate difference from `<NAME>_train.sh`, which uses the published `.npz`: the
+     notebook is teaching material, so the reader sees how samples are built for their own
+     use case. Concretely, in the first quantization cell:
+     ```python
+     from quantizeml.models import quantize, QuantizationParams
+
+     from <NAME>_data import get_samples
+
+     NUM_SAMPLES = 1024
+     samples = get_samples(DATA_PATH, INPUT_SHAPE, num_samples=NUM_SAMPLES)
+     ```
+     Import `quantize` **and** `QuantizationParams` from `quantizeml.models` — a single
+     import; do not import `QuantizationParams` from `quantizeml.layers`. Pass
+     `samples=samples` to **both** `quantize(...)` calls. Precede the cell with a markdown
+     note that `quantizeml` quantization requires calibration samples, and that these should
+     be representative samples for the task drawn from the **training** split, to avoid data
+     leakage.
   6. Conversion: `cnn2snn.convert` for both variants → `.fbz`.
-  7. Akida software-backend eval for both variants; activation sparsity for both.
+  7. Akida software-backend eval for both variants; activation sparsity for both. The sparsity
+     section **reuses the `samples` array already built for calibration** — do not re-import
+     `get_samples` or rebuild the array, and say in the markdown that the calibration samples
+     are being reused (sparsity needs real activations, same as calibration).
   8. Summary table (float vs 8-bit vs 4-bit-QAT).
   Train from scratch by default (`RUN_FLOAT_TRAINING = True`); do not add a pretrained-load
   fast path unless committed pretrained models exist.
@@ -391,7 +448,7 @@ itself (copy verbatim from the reference — it is not a `.gitkeep`):
 Summarise:
 1. Files created (paths).
 2. TODOs left for the user (dataset URL/hash, the provisional epoch/LR values, the
-   `quantizeml` calibration-samples decision, the provisional projected clock).
+   provisional projected clock).
 3. Verification commands:
    ```bash
    cd TARGET_DIR
@@ -399,6 +456,7 @@ Summarise:
    bash -n <NAME>_train.sh
    python update_readme.py   # must render with no KeyError
    python -c "import nbformat; [nbformat.validate(nbformat.read(f, as_version=4)) for f in ['<NAME>_notebook_training.ipynb','<NAME>_notebook_benchmark.ipynb']]"
+   wget --spider -q <SAMPLES_URL> && echo "samples URL OK"
    ```
    Also confirm the `--save-metrics` key set matches the template exactly (extract `{...}`
    placeholders from the template, compare against the union of keys the eval + benchmark
@@ -422,6 +480,14 @@ Summarise:
   enough) and a 4-bit `i8/w4/a4` variant (QAT only — 4-bit PTQ accuracy is poor, so the PTQ
   model is a throwaway, never stored/evaluated). Both convert to `.fbz` with the same
   `cnn2snn convert` — there is no `quantizeml convert`.
+- **Quantization always calibrates on real samples — never random.** The two paths get their
+  samples differently, and that split is intentional:
+  `<NAME>_train.sh` downloads the published pack from the dataset mirror
+  (`wget -N <url> -P data/`) and passes `--samples data/<file>.npz` to every quantize call;
+  the training notebook builds its own with `samples = get_samples(DATA_PATH, INPUT_SHAPE,
+  num_samples=1024)` and passes `samples=samples` to every `quantize(...)` call, so the
+  reader can see how to produce samples for their own data. If no published pack exists for
+  the source example, stop and ask — do not fall back to random calibration.
 - Do not fabricate Akida 2 hardware numbers: AKD2500 production silicon does not exist yet;
   the reference platform is a 25 MHz FPGA, benchmarking is latency-only (no power) with a
   clearly-provisional projected clock. The software pipeline is fully real regardless.
