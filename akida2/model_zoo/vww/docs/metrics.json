@@ -1,7 +1,7 @@
 {
-    "float_acc": "TBD",
-    "params": "TBD",
-    "w4a4_qat_akida_acc": "TBD",
+    "float_acc": "88.09%",
+    "params": "219,058",
+    "w4a4_qat_akida_acc": "83.71%",
     "w4a4_qat_allnps_cycles": "TBD",
     "w4a4_qat_allnps_latency_ms": "TBD",
     "w4a4_qat_allnps_nps": "TBD",
@@ -12,9 +12,9 @@
     "w4a4_qat_minimal_nps": "TBD",
     "w4a4_qat_minimal_passes": "TBD",
     "w4a4_qat_minimal_projected_ms": "TBD",
-    "w4a4_qat_quant_acc": "TBD",
+    "w4a4_qat_quant_acc": "83.72%",
     "w4a4_qat_sparsity": "TBD",
-    "w8a8_akida_acc": "TBD",
+    "w8a8_akida_acc": "87.59%",
     "w8a8_allnps_cycles": "TBD",
     "w8a8_allnps_latency_ms": "TBD",
     "w8a8_allnps_nps": "TBD",
@@ -25,6 +25,6 @@
     "w8a8_minimal_nps": "TBD",
     "w8a8_minimal_passes": "TBD",
     "w8a8_minimal_projected_ms": "TBD",
-    "w8a8_quant_acc": "TBD",
+    "w8a8_quant_acc": "87.59%",
     "w8a8_sparsity": "TBD"
 }

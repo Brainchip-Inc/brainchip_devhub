@@ -4,7 +4,7 @@
 
 ## Model Card
 
-Float accuracy: **TBD** &nbsp;|&nbsp; Parameters: **TBD**
+Float accuracy: **88.09%** &nbsp;|&nbsp; Parameters: **219,058**
 
 The quantized variants below all share the same float backbone. On Akida 2 the
 model is quantized with **`quantizeml`**: 8-bit weights and activations need no
@@ -28,16 +28,16 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td>8-bit</td>
       <td align="center">w8 / a8</td>
       <td align="center">-</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">87.59%</td>
+      <td align="center">87.59%</td>
       <td align="center">TBD</td>
     </tr>
     <tr>
       <td>4-bit</td>
       <td align="center">w4 / a4</td>
       <td align="center">yes</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">83.72%</td>
+      <td align="center">83.71%</td>
       <td align="center">TBD</td>
     </tr>
   </tbody>
@@ -105,9 +105,9 @@ rescale of the measured cycles.
   </tbody>
 </table>
 
-The model is a standard **AkidaNet** (from `akida_models`) with
-width multiplier **alpha = 0.25** and input resolution **96 × 96**, built for
-Akida 2.
+The model is a standard **MobileNet** (from `tf_keras.applications`) with
+width multiplier **alpha = 0.25** and input resolution **96 × 96**. We use
+very basic transfer learning from the ImageNet-pretrained model.
 
 ## Requirements
 
@@ -231,17 +231,17 @@ model versions, plus the hardware benchmark, including the
 using `update_readme.py`:
 ```bash
 # Float model
-python vww_eval.py -l pretrained_models/akidanet_vww.h5 --save-metrics
+python vww_eval.py -l pretrained_models/mobilenet_vww.h5 --save-metrics
 
 # 8-bit variant
-python vww_eval.py -l pretrained_models/akidanet_vww_i8_w8_a8.h5 --save-metrics
-python vww_eval.py -l pretrained_models/akidanet_vww_i8_w8_a8.fbz --save-metrics
-python vww_benchmark.py -l pretrained_models/akidanet_vww_i8_w8_a8.fbz --save-metrics
+python vww_eval.py -l pretrained_models/mobilenet_vww_i8_w8_a8.h5 --save-metrics
+python vww_eval.py -l pretrained_models/mobilenet_vww_i8_w8_a8.fbz --save-metrics
+python vww_benchmark.py -l pretrained_models/mobilenet_vww_i8_w8_a8.fbz --save-metrics
 
 # 4-bit variant (QAT)
-python vww_eval.py -l pretrained_models/akidanet_vww_i8_w4_a4_qat.h5 --save-metrics
-python vww_eval.py -l pretrained_models/akidanet_vww_i8_w4_a4_qat.fbz --save-metrics
-python vww_benchmark.py -l pretrained_models/akidanet_vww_i8_w4_a4_qat.fbz --save-metrics
+python vww_eval.py -l pretrained_models/mobilenet_vww_i8_w4_a4_qat.h5 --save-metrics
+python vww_eval.py -l pretrained_models/mobilenet_vww_i8_w4_a4_qat.fbz --save-metrics
+python vww_benchmark.py -l pretrained_models/mobilenet_vww_i8_w4_a4_qat.fbz --save-metrics
 
 python update_readme.py
 ```
