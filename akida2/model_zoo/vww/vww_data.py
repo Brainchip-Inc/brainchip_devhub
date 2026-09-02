@@ -8,6 +8,8 @@ from tf_keras.utils import set_random_seed
 
 # Define the base directory for the VWW dataset
 
+VALIDATION_SPLIT= 0.1
+
 def get_data(data_path, input_shape, batch_size, seed=42):
     """ Loads VWW data.
 
@@ -23,7 +25,7 @@ def get_data(data_path, input_shape, batch_size, seed=42):
     set_random_seed(seed)
 
     # Set aside .1 split for validation
-    validation_split = 0.1
+    validation_split = VALIDATION_SPLIT
 
     # Create a data generator with data augmentation and load files from
     # directory
@@ -72,11 +74,18 @@ def get_samples(data_path, input_shape, num_samples=1024):
     Returns:
         np.ndarray: array of shape (num_samples, height, width, channels), dtype uint8
     """
-    generator = ImageDataGenerator().flow_from_directory(
+    # Set aside .1 split for validation
+    validation_split = VALIDATION_SPLIT
+    # Create a data generator without data augmentation, but taking
+    # from the same training split as the main dataset generator
+    train_generator = ImageDataGenerator(validation_split = validation_split).flow_from_directory(
         data_path,
         target_size=input_shape[:2],
         batch_size=num_samples,
-        shuffle=False)
+        subset = 'training',
+        color_mode='rgb',
+        class_mode = 'sparse',
+        shuffle=True)
 
-    images, _ = next(generator)
+    images, _ = next(train_generator)
     return images[:num_samples].astype(np.uint8)
