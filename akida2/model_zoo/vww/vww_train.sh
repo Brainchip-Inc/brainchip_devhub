@@ -34,7 +34,7 @@ python vww_eval.py -l models/mobilenet_vww.h5 $DATA_ARG
 # 8-BIT VARIANT (i8/w8/a8) -- PTQ only, no QAT
 quantizeml quantize -m models/mobilenet_vww.h5 -i 8 -w 8 -a 8 \
     -s models/mobilenet_vww_i8_w8_a8.h5 \
-    --samples data/vww_batch1024.npz
+    --samples data/vww_batch1024.npz -e 2 -bs 128
 
 python vww_eval.py -l models/mobilenet_vww_i8_w8_a8.h5 $DATA_ARG
 
@@ -46,7 +46,7 @@ python vww_benchmark.py -l models/mobilenet_vww_i8_w8_a8.fbz $DATA_ARG || true
 # 4-BIT VARIANT (i8/w4/a4) -- QAT only. 4-bit PTQ is a throwaway (_pretmp).
 quantizeml quantize -m models/mobilenet_vww.h5 -i 8 -w 4 -a 4 \
     -s models/mobilenet_vww_i8_w4_a4_pretmp.h5 \
-    --samples data/vww_batch1024.npz
+    --samples data/vww_batch1024.npz -e 2 -bs 128
 
 python vww_train.py -l models/mobilenet_vww_i8_w4_a4_pretmp.h5 -s models/mobilenet_vww_i8_w4_a4_qat.h5 -e 5 -lr 1e-4 $DATA_ARG
 python vww_eval.py -l models/mobilenet_vww_i8_w4_a4_qat.h5 $DATA_ARG

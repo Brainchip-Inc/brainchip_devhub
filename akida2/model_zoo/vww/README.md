@@ -28,16 +28,16 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td>8-bit</td>
       <td align="center">w8 / a8</td>
       <td align="center">-</td>
-      <td align="center">87.59%</td>
-      <td align="center">87.59%</td>
+      <td align="center">87.77%</td>
+      <td align="center">87.77%</td>
       <td align="center">TBD</td>
     </tr>
     <tr>
       <td>4-bit</td>
       <td align="center">w4 / a4</td>
       <td align="center">yes</td>
-      <td align="center">83.72%</td>
-      <td align="center">83.71%</td>
+      <td align="center">84.02%</td>
+      <td align="center">84.02%</td>
       <td align="center">TBD</td>
     </tr>
   </tbody>

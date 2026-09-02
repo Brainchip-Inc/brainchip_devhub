@@ -24,7 +24,6 @@ from tf_keras.utils import set_random_seed
 from tf_keras import Model
 from tf_keras.applications.mobilenet import MobileNet
 from akida_models.layer_blocks import dense_block
-from akida_models.imagenet.imagenet_train import rescale
 from quantizeml.models.transforms import insert_rescaling
 
 
@@ -54,7 +53,6 @@ def build_vww_model(seed = 42):
                     )
     
     model = Model(base_model.input, x, name = 'mobilenet_vww')
-    model = rescale(model, (96, 96))
     return model
 
 
