@@ -32,19 +32,20 @@ from akida_models.sparsity import compute_sparsity
 
 from vww_data import get_samples
 from brainchip_utils.hardware_utils import (get_mapping_stats, get_akida_device,
-                                            per_layer_benchmark, full_model_benchmark)
+                                            per_layer_benchmark, full_model_benchmark,
+                                            AKIDA_CLOCKS_HZ)
 from brainchip_utils.plot_utils import (plot_full_model_results, plot_per_layer_results,
                                         pretty_print_sparsity)
 
 # Measured clock: Akida 2 reference hardware is an FPGA clocked at 25 MHz.
-MEASURED_CLOCK = 25e6  # 25 MHz FPGA
+MEASURED_CLOCK = AKIDA_CLOCKS_HZ['AKIDA2_FPGA']
 
-# Projected clock: latency is also projected to a higher target clock to
-# indicate expected performance on faster (e.g. ASIC) hardware. Cycle count is
-# clock-independent, so the projection is exact given the target frequency.
-# TODO: confirm the intended projection target clock for Akida 2 silicon.
-#       100 MHz is a provisional placeholder only.
-PROJECTED_CLOCK = 100e6  # provisional
+# Projected clock: latency is also projected to the AKD2500 target silicon clock, to
+# indicate expected performance on production hardware. Cycle count is clock-independent,
+# so the projection is exact given the target frequency. AKD2500 production silicon does
+# not exist yet, so this is BrainChip's current internal target (1 GHz), not a measured
+# value -- it may still change before production. See brainchip_utils.hardware_utils.AKIDA_CLOCKS_HZ.
+PROJECTED_CLOCK = AKIDA_CLOCKS_HZ['AKD2500']
 
 
 if __name__ == '__main__':
@@ -58,7 +59,7 @@ if __name__ == '__main__':
                         help='Write benchmark values to metrics.json')
     args = parser.parse_args()
 
-    NUM_SAMPLES = 1000
+    NUM_SAMPLES = 100
 
     # -------------------------------------------------------------------------
     # Model
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     # power path is still under development, so we report latency only. When a
     # power path exists, this is where full_model_benchmark's power fields would
     # be surfaced (as in the Akida 1 example).
-    map_modes = ['Minimal', 'AllNps']
+    map_modes = ['Minimal', 'AllNps', 'HwPr']
     full_results = dict()
     for mm in map_modes:
         map_mode = getattr(akida.MapMode, mm)

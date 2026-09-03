@@ -109,6 +109,10 @@ software-backend eval → sparsity) is fully real, but the hardware benchmark is
 **latency-only** (the power path is still under development). Do not fabricate power numbers
 or a production clock.
 
+Reference clock frequencies for Akida devices/platforms (FPGA and AKD2500 included) live in
+`brainchip_utils.hardware_utils.AKIDA_CLOCKS_HZ` — a single dict shared across model zoo
+examples. Import and use it rather than hardcoding clock values (see 3e).
+
 ---
 
 ## Step 3 — Generate target files
@@ -221,11 +225,14 @@ Copy the reference `vww_benchmark.py` and substitute only:
 - All `brainchip_utils` imports, benchmark calls, and plotting calls are identical.
 
 Akida 2 benchmark specifics (already in the reference — preserve them):
-- `MEASURED_CLOCK = 25e6` (FPGA).
+- Import `AKIDA_CLOCKS_HZ` from `brainchip_utils.hardware_utils` and use
+  `MEASURED_CLOCK = AKIDA_CLOCKS_HZ['AKIDA2_FPGA']` (25 MHz) rather than hardcoding the value.
 - A **projected latency** at a higher clock: `projected_ms = mean_inf_clk / PROJECTED_CLOCK *
-  1000` (cycle count is clock-independent, so this is exact). `PROJECTED_CLOCK` is a
-  **provisional placeholder** (reference uses 100 MHz with a `# TODO: confirm target clock`) —
-  do not present it as final.
+  1000` (cycle count is clock-independent, so this is exact), with
+  `PROJECTED_CLOCK = AKIDA_CLOCKS_HZ['AKD2500']` (1 GHz — BrainChip's current target for
+  AKD2500 production silicon). AKD2500 silicon does not exist yet, so this is a target, not a
+  measured value, and it may change — but it is not a per-example placeholder to invent; it
+  comes from the shared dict.
 - **Latency-only**: no power measurement (the FPGA power path is WIP); no power columns/keys.
 - `--save-metrics` writes variant-keyed metrics: `<variant>_sparsity`, and per map-mode
   `<variant>_<mode>_{nps,passes,cycles,latency_ms,projected_ms}`, with `<variant>` ∈
@@ -315,7 +322,8 @@ rewriting content for this dataset/model. Sections in order:
      The 8-bit row shows `-` in the QAT column; the 4-bit row shows `yes`. Float accuracy +
      params are stated once above the table.
    - **Benchmark table**: the two stored variants × {Minimal, AllNps} = 4 rows, latency-only,
-     with `Latency @ 25 MHz` and `Projected @ <N> MHz (provisional)` columns. No power columns.
+     with `Latency @ 25 MHz` and `Projected @ 1000 MHz (target)` columns (values from
+     `AKIDA_CLOCKS_HZ`, see Step 2). No power columns.
    - A short architecture description.
 4. `## Requirements` — copy from the reference; add example-specific deps if any.
 5. `## Dataset` — describe the dataset from Step 1.
@@ -447,8 +455,8 @@ itself (copy verbatim from the reference — it is not a `.gitkeep`):
 
 Summarise:
 1. Files created (paths).
-2. TODOs left for the user (dataset URL/hash, the provisional epoch/LR values, the
-   provisional projected clock).
+2. TODOs left for the user (dataset URL/hash, the provisional epoch/LR values). The projected
+   clock is not a per-generation TODO — it comes from `AKIDA_CLOCKS_HZ`.
 3. Verification commands:
    ```bash
    cd TARGET_DIR
@@ -489,7 +497,10 @@ Summarise:
   reader can see how to produce samples for their own data. If no published pack exists for
   the source example, stop and ask — do not fall back to random calibration.
 - Do not fabricate Akida 2 hardware numbers: AKD2500 production silicon does not exist yet;
-  the reference platform is a 25 MHz FPGA, benchmarking is latency-only (no power) with a
-  clearly-provisional projected clock. The software pipeline is fully real regardless.
+  the reference platform is a 25 MHz FPGA, benchmarking is latency-only (no power). Both the
+  FPGA (25 MHz) and AKD2500 target (1 GHz) clocks come from
+  `brainchip_utils.hardware_utils.AKIDA_CLOCKS_HZ` — the single source of truth, since the
+  AKD2500 value is a pre-production target that may still change. The software pipeline is
+  fully real regardless.
 - The metrics.json / template / `--save-metrics` key sets must be in exact three-way bijection
   (variant-prefixed keys). Verify programmatically, not by eye.
