@@ -30,7 +30,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">-</td>
       <td align="center">87.77%</td>
       <td align="center">87.77%</td>
-      <td align="center">TBD</td>
+      <td align="center">27.98%</td>
     </tr>
     <tr>
       <td>4-bit</td>
@@ -38,7 +38,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">yes</td>
       <td align="center">84.02%</td>
       <td align="center">84.02%</td>
-      <td align="center">TBD</td>
+      <td align="center">31.73%</td>
     </tr>
   </tbody>
 </table>
@@ -51,8 +51,9 @@ indicate expected performance on faster silicon. The cycle count is fixed for a
 given model and mapping regardless of clock rate, so the projection is an exact
 rescale of the measured cycles.
 
-> **Note:** the projected clock is **provisional** — it is a placeholder pending
-> confirmation of the target Akida 2 silicon clock. Power measurement on the FPGA
+> **Note:** the projected clock is BrainChip's current **target** for AKD2500 production
+> silicon — that silicon does not exist yet, so treat this as a target rather than a
+> measured value; it may still change before production. Power measurement on the FPGA
 > platform is still under development, so only latency is reported at this time.
 
 <table>
@@ -64,43 +65,43 @@ rescale of the measured cycles.
       <th>Passes</th>
       <th>Cycles</th>
       <th>Latency @ 25 MHz (ms)</th>
-      <th>Projected @ 100 MHz (ms) <i>(provisional)</i></th>
+      <th>Projected @ 1000 MHz (ms) <i>(target)</i></th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td rowspan="2">8-bit</td>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">29</td>
+      <td align="center">2</td>
+      <td align="center">1043316</td>
+      <td align="center">41.733</td>
+      <td align="center">1.043</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">46</td>
+      <td align="center">2</td>
+      <td align="center">873810</td>
+      <td align="center">34.952</td>
+      <td align="center">0.874</td>
     </tr>
     <tr>
       <td rowspan="2">4-bit (QAT)</td>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">28</td>
+      <td align="center">2</td>
+      <td align="center">923436</td>
+      <td align="center">36.937</td>
+      <td align="center">0.923</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">46</td>
+      <td align="center">2</td>
+      <td align="center">742299</td>
+      <td align="center">29.692</td>
+      <td align="center">0.742</td>
     </tr>
   </tbody>
 </table>

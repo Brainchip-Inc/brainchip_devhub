@@ -51,8 +51,9 @@ indicate expected performance on faster silicon. The cycle count is fixed for a
 given model and mapping regardless of clock rate, so the projection is an exact
 rescale of the measured cycles.
 
-> **Note:** the projected clock is **provisional** — it is a placeholder pending
-> confirmation of the target Akida 2 silicon clock. Power measurement on the FPGA
+> **Note:** the projected clock is BrainChip's current **target** for AKD2500 production
+> silicon — that silicon does not exist yet, so treat this as a target rather than a
+> measured value; it may still change before production. Power measurement on the FPGA
 > platform is still under development, so only latency is reported at this time.
 
 <table>
@@ -64,7 +65,7 @@ rescale of the measured cycles.
       <th>Passes</th>
       <th>Cycles</th>
       <th>Latency @ 25 MHz (ms)</th>
-      <th>Projected @ 100 MHz (ms) <i>(provisional)</i></th>
+      <th>Projected @ 1000 MHz (ms) <i>(target)</i></th>
     </tr>
   </thead>
   <tbody>
