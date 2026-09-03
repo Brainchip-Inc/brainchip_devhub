@@ -16,6 +16,17 @@ except ImportError:
 _AKD1500_I2C_URL = 'ftdi://ftdi:ft2232h/1'
 _AKD1500_INA_CONFIGS = [(0x40, 0.002), (0x41, -0.05)]
 
+# Reference clock frequencies (Hz) for Akida devices/platforms, shared across model zoo
+# examples so there is one place to update if a target changes. AKD2500 production silicon
+# does not exist yet, so its value is BrainChip's current internal target clock (confirmed
+# 2026-09-03), not a measured figure -- it may change before production.
+AKIDA_CLOCKS_HZ = {
+    'AKD1000': 300e6,
+    'AKD1500': 400e6,
+    'AKD2500': 1e9,        # Akida 2 target silicon clock (pre-production, subject to change)
+    'AKIDA2_FPGA': 25e6,   # Akida 2 reference FPGA platform (current hardware)
+}
+
 
 def get_mapping_stats(ak_model):
     """Return mapping statistics for a mapped akida.Model.
@@ -81,12 +92,34 @@ def _silence_output_layer(ak_model):
     final layer from producing output events whose copy-off could skew 
     timing.
     """
-    layer = ak_model.layers[-1]
-    if len(layer.get_variable_names()) > 0:
-        th = layer.get_variable('threshold')
-        layer.set_variable('threshold', np.ones_like(th) * 524287)
-        act = layer.get_variable('act_step')
-        layer.set_variable('act_step', np.ones_like(act)*65535)
+    if ak_model.ip_version==akida.IpVersion.v1:
+        layer = ak_model.layers[-1]
+        if len(layer.get_variable_names()) > 0:
+            # Set high output threshold so no events are generated
+            th = layer.get_variable('threshold')
+            layer.set_variable('threshold', np.ones_like(th) * 524287)
+            act = layer.get_variable('act_step')
+            layer.set_variable('act_step', np.ones_like(act)*65535)
+    elif ak_model.ip_version==akida.IpVersion.v2:
+        # Add activation if the layer has none
+        cfg = ak_model.to_dict()
+        if cfg['layers'][-1]['parameters'].get('activation')==0 and not cfg['layers'][-1]['parameters']['layer_type']=='Dense1D':
+            cfg['layers'][-1]['parameters']['activation']=1
+            # If weights are 4-bits, activations must be too for some layer types
+            cfg['layers'][-1]['parameters']['output_bits']=cfg['layers'][-1]['parameters']['weights_bits']
+            ak_model = akida.Model.from_dict(cfg)
+
+        layer = ak_model.layers[-1]
+        varnames = layer.get_variable_names()
+        if len(varnames)>0 and ('bias' in varnames):
+            # Set a large negative bias so that no events are generated
+            old_bias = layer.get_variable('bias')
+            old_bias_shift = layer.get_variable('bias_shift')
+            new_bias = np.ones_like(old_bias)*-128
+            new_bias_shift = np.ones_like(old_bias_shift)*12
+            layer.set_variable('bias', new_bias)
+            layer.set_variable('bias_shift', new_bias_shift)
+
     return ak_model
 
 
