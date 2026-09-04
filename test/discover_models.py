@@ -60,7 +60,7 @@ def classify(rel_path):
     if name.endswith(".fbz"):
         kind = "akida"
     elif name.endswith(".h5"):
-        kind = "quantized" if name[:-len(".h5")].endswith("_qat") else "float"
+        kind = "quantized" if name[:-len(".h5")].endswith(("_qat", "_i8_w8_a8")) else "float"
     else:
         return None
     return ModelSpec(path=str(PurePosixPath(*parts)), kind=kind, arch=arch)
