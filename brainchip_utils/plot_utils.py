@@ -296,7 +296,9 @@ def plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
     layer_names = per_layer_results['layer_names']
     num_layers = len(layer_names)
 
-    output_sparsity = [sparsity_dict[name] for name in layer_names]
+    # Some layers (e.g. Dequantizer) are not included in the sparsity dict
+    # sparsity_dict.get(name, 0) returns the default value 0 in that case
+    output_sparsity = [sparsity_dict.get(name, 0) for name in layer_names]
     input_sparsity_pct = [0.0] + [s * 100.0 for s in output_sparsity[:-1]]
 
     fig, axs = plt.subplots(3, 1, figsize=(14, 10), constrained_layout=True)
