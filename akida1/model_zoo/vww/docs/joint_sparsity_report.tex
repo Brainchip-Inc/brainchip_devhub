@@ -1,0 +1,295 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage[colorlinks=true, linkcolor=blue!50!black, citecolor=blue!50!black, urlcolor=blue!50!black]{hyperref}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{Joint Activation and Structured Sparsity\\ for Visual Wake Words on Akida 1}
+\author{Akida 1 Model Zoo}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Akida 1 hardware accelerates inference by exploiting \emph{activation} (event) sparsity, not weight sparsity. A prior experiment (\code{SPARSITY\_EXPERIMENT.md}) showed that VWW's ReLU activations can be pushed to roughly 70\% sparsity for a modest accuracy cost using an activity regularizer. This report investigates a second, independent lever --- \emph{structured} (channel/filter) sparsity, which reduces the model's parameter count rather than its runtime behavior --- and asks whether the two axes can be pushed together without the combined accuracy cost exceeding what either costs alone. We find that they are complementary rather than additive: a joint configuration reaches 77.6\% activation sparsity and a 50\% parameter reduction for a 3.90-point accuracy drop, less than the 4.86-point drop a naive sum of the two individual costs would predict. A lighter joint configuration further reduces this to a 1.22-point drop while retaining most of the sparsity and size benefit, making it the recommended operating point.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+
+Brainchip's Akida 1 neuromorphic processor accelerates convolutional neural network inference by skipping computation on zero-valued activations as data flows through the network event by event. Because this speedup comes specifically from \emph{activation} sparsity, work on making VWW models more efficient on Akida 1 has so far focused on that single axis: adding an activity regularizer to every ReLU layer during training so that more of its outputs are driven to exactly zero.
+
+A separate, and largely independent, lever is \emph{structured sparsity}: pruning whole output channels (filters) from convolutional layers. Unlike activation sparsity, channel pruning does not by itself make Akida 1 run any faster --- the hardware does not accelerate on weight sparsity --- but it directly reduces the number of parameters the model needs to store, which matters for memory footprint on constrained edge devices.
+
+This report documents an experiment that trains VWW with both regularization mechanisms active at once, to answer two questions:
+
+\begin{enumerate}[label=(\roman*)]
+    \item Does combining activation-sparsity regularization with structured channel pruning cost \emph{more} accuracy than the sum of what each costs on its own, or can the two be pushed together more cheaply?
+    \item Starting from an aggressive joint configuration, can a better-optimized operating point be found that keeps most of the sparsity/size benefit while shrinking the accuracy drop?
+\end{enumerate}
+
+The short answers, developed in Section~\ref{sec:results}, are: the two axes are complementary (question~i), and yes --- a lighter joint configuration cuts the accuracy drop by more than $3\times$ while retaining most of the benefit (question~ii).
+
+All work in this report is on branch \code{akida1-sparsify-vww-joint}, a follow-up to the single-axis activation-sparsity experiment on branch \code{akida1-sparsify-vww} (\code{SPARSITY\_EXPERIMENT.md}).
+
+\section{Background}
+
+\subsection{Akida 1 and activation sparsity}
+
+Akida 1 is an event-based neural processor: rather than computing every multiply-accumulate in a dense feature map regardless of value, it skips work corresponding to zero activations. A model with sparser intermediate activations therefore runs measurably faster and at lower power on the physical device. This motivates training procedures that explicitly encourage activations --- specifically, the outputs of ReLU layers --- toward zero, provided this can be done without an unacceptable loss of accuracy.
+
+Weight (parameter) sparsity is a different property: it describes how many of the trained weights themselves are zero (or, in the case of structured/channel pruning, how many whole channels have been removed). Akida 1's execution model does not exploit this for speed. Reducing the parameter count is nonetheless useful on its own terms, primarily for reducing the model's memory footprint.
+
+\subsection{Visual Wake Words}
+
+Visual Wake Words (VWW) is a binary image classification task: given a $96\times96$ RGB image, predict whether a person is present (\code{person}) or not (\code{non\_person}). It is a standard microcontroller-class vision benchmark intended to be representative of always-on, resource-constrained vision workloads.
+
+\section{Dataset}
+
+The dataset used is \code{vw\_coco2014\_96}, a $96\times96$ pre-cropped/resized derivative of the COCO 2014 dataset labeled for the person / non-person VWW task, obtained from Silicon Labs' public machine-learning benchmark mirror. On disk it is organized as two class subdirectories (\code{person/}, \code{non\_person/}).
+
+\begin{table}[H]
+\centering
+\caption{Dataset summary, as loaded by \code{vww\_data.get\_data}.}
+\label{tab:dataset}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Property & Value \\
+\midrule
+Classes & 2 (\code{person}, \code{non\_person}) \\
+Input resolution & $96 \times 96 \times 3$ (RGB, \code{uint8}) \\
+Train / validation split & 90\% / 10\% \\
+Training images & 98{,}658 \\
+Validation images & 10{,}961 \\
+Train-time augmentation & rotation ($\pm10^{\circ}$), width/height shift (5\%), zoom (10\%), horizontal flip \\
+Validation-time augmentation & none (only the train/val split is applied) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Loading is performed with Keras' \code{ImageDataGenerator.flow\_from\_directory}, using a fixed random seed (42) so the train/validation split and augmentation stream are reproducible across runs.
+
+\section{Model architecture}
+\label{sec:architecture}
+
+The model is AkidaNet at width multiplier $\alpha=0.25$, a MobileNetV1-style convolutional network optimized for Akida 1, initialized from ImageNet-pretrained weights (\code{akidanet\_imagenet\_pretrained} with \code{alpha=0.25}) and adapted for VWW by taking the penultimate feature layer and attaching a 2-class classification head (\code{vww\_model.py}). The network is a strict feed-forward chain with no residual/skip connections: every layer takes only its immediate predecessor's output as input, which is what makes the channel-pruning procedure in Section~\ref{sec:structured} tractable.
+
+Every convolutional block follows the same pattern: a (separable) convolution, a \code{BatchNormalization} layer, and a clipped ReLU activation (\code{ReLU3.75}). The full layer sequence, with output shapes and parameter counts as reported by \code{model.summary()}, is given in Table~\ref{tab:arch}.
+
+\begin{table}[H]
+\centering
+\caption{AkidaNet-VWW ($\alpha=0.25$) architecture. Every \code{conv\_*}/\code{separable\_*} row is immediately followed by its own BatchNormalization and ReLU (omitted from the table for brevity; their parameter counts are included in the running total).}
+\label{tab:arch}
+\begin{tabular}{@{}llrr@{}}
+\toprule
+Layer & Type & Output shape & Params (layer + BN) \\
+\midrule
+\code{input} & Input & $96\times96\times3$ & 0 \\
+\code{rescaling} & Rescaling ($\div 255$) & $96\times96\times3$ & 0 \\
+\code{conv\_0} & Conv2D, stride 2 & $48\times48\times8$ & 248 \\
+\code{conv\_1} & Conv2D & $48\times48\times16$ & 1{,}216 \\
+\code{conv\_2} & Conv2D, stride 2 & $24\times24\times32$ & 4{,}736 \\
+\code{conv\_3} & Conv2D & $24\times24\times32$ & 9{,}344 \\
+\code{separable\_4} & SeparableConv2D, stride 2 & $12\times12\times64$ & 2{,}592 \\
+\code{separable\_5} & SeparableConv2D & $12\times12\times64$ & 4{,}928 \\
+\code{separable\_6} & SeparableConv2D, stride 2 & $6\times6\times128$ & 9{,}280 \\
+\code{separable\_7} & SeparableConv2D & $6\times6\times128$ & 18{,}048 \\
+\code{separable\_8} & SeparableConv2D & $6\times6\times128$ & 18{,}048 \\
+\code{separable\_9} & SeparableConv2D & $6\times6\times128$ & 18{,}048 \\
+\code{separable\_10} & SeparableConv2D & $6\times6\times128$ & 18{,}048 \\
+\code{separable\_11} & SeparableConv2D & $6\times6\times128$ & 18{,}048 \\
+\code{separable\_12} & SeparableConv2D, stride 2 & $3\times3\times256$ & 34{,}944 \\
+\code{separable\_13} & SeparableConv2D + global-avg-pool & $256$ & 68{,}864 \\
+\code{predictions} & Dense (logits, no activation) & $2$ & 514 \\
+\midrule
+\multicolumn{3}{r}{\textbf{Total}} & \textbf{226{,}906} \\
+\multicolumn{3}{r}{Trainable / non-trainable} & 223{,}914 / 2{,}992 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\code{separable\_13} additionally performs a global average pool before its BatchNormalization, collapsing the $3\times3$ spatial map to a $256$-vector that is what the classification head (\code{predictions}) reads directly.
+
+\section{Methodology}
+
+Two sparsity mechanisms are combined: an established activation-sparsity regularizer (Section~\ref{sec:activation}) and a newly implemented structured-sparsity (channel pruning) procedure (Section~\ref{sec:structured}).
+
+\subsection{Activation sparsity: normalized Hoyer-Square regularization}
+\label{sec:activation}
+
+Following the prior single-axis experiment, activation sparsity is induced with a Hoyer-Square activity regularizer \cite{deephoyer} attached to every ReLU layer's output $x$:
+\begin{equation}
+\mathcal{L}_{\text{Hoyer}}(x) = \lambda \cdot \frac{\left(\sum_i |x_i|\right)^2}{\sum_i x_i^2 + \varepsilon},
+\end{equation}
+scale-invariant and sparsity-inducing: for a fixed $L_1$ norm, a configuration with a few large activations and the rest at zero has a lower Hoyer-Square value than one with many small, non-zero activations. The \emph{normalized} variant used throughout this report additionally divides by the tensor's element count $N$,
+\begin{equation}
+\mathcal{L}_{\text{Hoyer-norm}}(x) = \frac{\lambda}{N} \cdot \frac{\left(\sum_i |x_i|\right)^2}{\sum_i x_i^2 + \varepsilon},
+\end{equation}
+which bounds the penalty to $(0,1]$ regardless of layer width and avoids applying disproportionate pressure to the network's largest layers (see \code{SPARSITY\_EXPERIMENT.md} for the calibration study motivating this). The prior experiment established $\lambda=3.6$ as the best point on this axis alone: 70.4\% activation sparsity (as measured on the quantized, Akida-converted model) for a 2.6-point accuracy cost.
+
+\subsection{Structured sparsity: Network Slimming}
+\label{sec:structured}
+
+No channel-pruning tooling exists anywhere in \code{akida\_models}, \code{quantizeml}, or \code{cnn2snn} (confirmed by inspecting the installed packages), so this was implemented from scratch, following the Network Slimming method of Liu et al.\ \cite{networkslimming}.
+
+\paragraph{Channel-importance signal.} During training, an $L_1$ penalty is added on the $\gamma$ (scale) parameter of each targeted \code{BatchNormalization} layer:
+\begin{equation}
+\mathcal{L}_{\gamma} = \mu \sum_{c} |\gamma_c|,
+\end{equation}
+summed over the channels $c$ of one BN layer, with $\mu = 10^{-5}$ held fixed throughout this report. Because \code{BatchNormalization} layers built by \code{akida\_models.layer\_blocks} are not given a \code{gamma\_regularizer} at construction time, this penalty is instead attached directly as a model-level loss via the zero-argument-callable form of \code{model.add\_loss}, evaluated fresh at every training step against the live \code{gamma} variable.
+
+\paragraph{Pruning.} After training, channels of each targeted \code{SeparableConv2D} layer are ranked by the magnitude of their paired BN layer's $\gamma$, and the lowest-ranked fraction (the \emph{prune target}) is dropped uniformly per layer. The model is then physically rebuilt smaller: the pruned layer's pointwise kernel and bias are sliced along the output-channel axis, its BN's four statistics are sliced identically, and --- since the architecture is a strict chain with no skip connections (Section~\ref{sec:architecture}) --- the very next weighted layer has its depthwise and pointwise kernels sliced along the corresponding \emph{input}-channel axis to match. Every other layer (ReLU, pooling, input scaling, the classification head) is rebuilt unchanged once no pending channel change remains to propagate.
+
+\paragraph{Pruning scope.} Only \code{separable\_4} through \code{separable\_12} (9 of the network's 10 separable-convolution blocks) are eligible for pruning. The stem (\code{conv\_0}--\code{conv\_3}) and \code{separable\_13} are excluded: the classification head reads \code{separable\_13/relu} directly, so pruning it would additionally require resizing the \code{predictions} Dense layer's input --- extra engineering risk not needed to answer the questions this report addresses.
+
+\subsection{Float-only evaluation}
+
+This study is conducted entirely on float (unquantized, unconverted) models --- no \code{cnn2snn quantize}, quantization-aware fine-tuning, or \code{convert} to an Akida model is performed anywhere in the pipeline. Two considerations motivate this:
+
+\begin{enumerate}[label=(\alph*)]
+    \item The prior single-axis experiment found that Akida's software behavioral simulator and its hardware execution engine are not bit-exact at the activation-threshold level, producing an internally consistent but not directly hardware-comparable sparsity number when no physical device is attached. Measuring sparsity directly on the float model's ReLU outputs sidesteps this discrepancy entirely.
+    \item Restricting the pipeline to float training keeps the channel-pruning implementation decoupled from any quantization/hardware-mapping constraints, which was out of scope for this study.
+\end{enumerate}
+
+Activation sparsity is accordingly computed as the mean, across all 14 ReLU layers, of the fraction of exactly-zero output elements, evaluated on 1{,}000 held-out samples. \textbf{This number is not directly comparable to the prior experiment's Akida-measured sparsity} --- at the same regularizer strength ($\lambda=3.6$), the float measurement reads 80.1\% versus 70.4\% on the quantized/converted model --- but is internally consistent for comparing configurations within this report.
+
+\subsection{Training pipeline}
+
+Each configuration is defined by a pair $(\lambda, p)$: the activation-regularizer strength and the structured prune target. Training proceeds in up to two phases:
+
+\begin{description}
+    \item[Phase 1 (float training, 40 epochs).] The pretrained model is built; if $\lambda>0$, the Hoyer-Square-normalized regularizer is attached to every ReLU layer's \code{activity\_regularizer}; if $p>0$, the BN-$\gamma$ $L_1$ loss is attached to every prunable layer. The model is trained with Adam and a cosine-decay learning-rate schedule with a 10\%-of-training linear warmup, peak learning rate $10^{-3}$.
+    \item[Pruning (if $p>0$).] Channels are pruned per Section~\ref{sec:structured} and the model rebuilt.
+    \item[Phase 2 (post-prune fine-tuning, 15 epochs, only if $p>0$).] The rebuilt model is fine-tuned at a lower learning rate ($10^{-4}$) to recover accuracy lost to channel removal, with the activation regularizer re-attached (rebuilding creates fresh layer instances that do not carry it over automatically).
+\end{description}
+
+Batch size is 32 throughout; all runs use random seed 42 for reproducibility.
+
+\paragraph{Data-loading performance.} An early timing measurement found that a single training epoch took approximately 30 minutes on a GPU, with the GPU itself largely idle --- the bottleneck was Keras' single-threaded \code{ImageDataGenerator}, which could not perform image decoding and augmentation fast enough to keep the accelerator fed. Enabling parallel data loading (\code{workers=8}, \code{use\_multiprocessing=True}, \code{max\_queue\_size=32} on \code{model.fit}) reduced this to approximately 4 minutes per epoch, a $7.5\times$ speedup, which is what made the sweep described below practical within the time available.
+
+\section{Experimental design}
+
+Two rounds of configurations were run, sharing the same summary CSV so later points build on earlier ones without re-running them.
+
+\paragraph{Pilot (2$\times$2 grid).} A first, deliberately small grid tests all four combinations of ``activation regularizer on/off'' $\times$ ``pruning on/off'', at the strongest settings considered: $\lambda=3.6$ (the established best point from the single-axis experiment) and $p=40\%$ (a starting guess, with no prior data point on this axis).
+
+\paragraph{Follow-up (lighter settings).} Motivated by the pilot's finding that the joint configuration's combined accuracy cost, while sub-additive, was still a 3.90-point drop, four additional points probe lighter regularization: $\lambda=1.5$ and $p=20\%$ individually and jointly, plus one intermediate joint point at $\lambda=2.5$, $p=30\%$, to trace the shape of the accuracy/sparsity/size trade-off between the light and aggressive joint settings.
+
+Table~\ref{tab:configs} summarizes all eight configurations.
+
+\begin{table}[H]
+\centering
+\caption{All configurations run. $\lambda$ is the normalized Hoyer-Square strength; $p$ is the structured prune target (fraction of channels dropped per targeted layer).}
+\label{tab:configs}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Tag & $\lambda$ & $p$ \\
+\midrule
+\code{baseline} & 0 & 0\% \\
+\code{activation\_only} & 3.6 & 0\% \\
+\code{structured\_only} & 0 & 40\% \\
+\code{joint} & 3.6 & 40\% \\
+\code{activation\_light} & 1.5 & 0\% \\
+\code{structured\_light} & 0 & 20\% \\
+\code{joint\_light} & 1.5 & 20\% \\
+\code{joint\_medium} & 2.5 & 30\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All runs used GPU 1 of a shared training server (\code{NVIDIA A30}); the pilot took approximately 1 hour 40 minutes end to end, the follow-up a further 2 hours 10 minutes.
+
+\section{Results}
+\label{sec:results}
+
+\begin{table}[H]
+\centering
+\caption{Full results. Accuracy drop is relative to \code{baseline} (89.14\%). Parameter reduction is relative to \code{baseline}'s 226{,}906 parameters. Activation sparsity is the float-model measurement described in Section~4.3 and is \emph{not} directly comparable to the prior experiment's Akida-measured numbers.}
+\label{tab:results}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+Tag & $\lambda$ & $p$ & Accuracy & Acc.\ drop & Act.\ sparsity & Params (reduction) \\
+\midrule
+\code{baseline}          & 0   & 0\%  & 89.14\% & --     & 51.9\% & 226{,}906 (--) \\
+\code{activation\_only}  & 3.6 & 0\%  & 87.32\% & 1.82pt & 80.1\% & 226{,}906 (0\%) \\
+\code{activation\_light} & 1.5 & 0\%  & 88.17\% & 0.98pt & 71.1\% & 226{,}906 (0\%) \\
+\code{structured\_only}  & 0   & 40\% & 86.11\% & 3.04pt & 54.0\% & 112{,}879 (50.3\%) \\
+\code{structured\_light} & 0   & 20\% & 88.45\% & 0.69pt & 52.9\% & 164{,}162 (27.7\%) \\
+\code{joint}             & 3.6 & 40\% & 85.25\% & 3.90pt & 77.6\% & 112{,}879 (50.3\%) \\
+\code{joint\_medium}     & 2.5 & 30\% & 87.06\% & 2.08pt & 74.7\% & 137{,}836 (39.3\%) \\
+\code{joint\_light}      & 1.5 & 20\% & 87.92\% & 1.22pt & 69.4\% & 164{,}162 (27.7\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{joint_sparsity_sweep.png}
+    \caption{Activation sparsity vs.\ parameter count for all eight configurations. Marker shape encodes family (circle: baseline, triangle: activation sparsity only, square: structured sparsity only, diamond: joint); marker color and the accompanying label encode accuracy.}
+    \label{fig:sweep}
+\end{figure}
+
+\subsection{The two axes are complementary, not additive}
+
+Relative to \code{baseline}, \code{activation\_only} alone costs 1.82 accuracy points and \code{structured\_only} alone costs 3.04 points; a naive expectation that the costs simply add would predict roughly $1.82+3.04=4.86$ points for doing both. The aggressive \code{joint} configuration instead costs 3.90 points --- less than the sum of its parts --- while still reaching 77.6\% activation sparsity (close to \code{activation\_only}'s own 80.1\%) and the full 50.3\% parameter reduction that \code{structured\_only} achieves on its own (parameter count is set entirely by the prune target, independent of the activation regularizer). Pushing both sparsity mechanisms at once is therefore a good trade, not a compounding cost.
+
+\subsection{A lighter joint configuration substantially reduces the accuracy cost}
+
+Halving both regularization strengths ($\lambda:3.6\rightarrow1.5$, $p:40\%\rightarrow20\%$) reduces the joint configuration's accuracy cost from 3.90 points to just \textbf{1.22 points} (\code{joint\_light}), while retaining 69.4\% activation sparsity and a 27.7\% parameter reduction. The three joint operating points obtained so far --- \code{joint\_light} (1.22pt / 69.4\% / $-$27.7\%), \code{joint\_medium} (2.08pt / 74.7\% / $-$39.3\%), and \code{joint} (3.90pt / 77.6\% / $-$50.3\%) --- trace a smooth, gradually-degrading curve rather than a sudden cliff, consistent with the shape each regularizer shows individually.
+
+\subsection{Recommendation}
+
+\code{joint\_light} ($\lambda=1.5$, $p=20\%$) is the best operating point found in this study when minimizing accuracy loss is the priority: 87.92\% accuracy (a 1.22-point drop from baseline) with a meaningfully smaller (27.7\% fewer parameters) and meaningfully sparser (69.4\% vs.\ 51.9\% baseline) model. The heavier \code{joint\_medium} and \code{joint} configurations remain preferable only if the priority shifts toward maximizing sparsity or size reduction and a larger accuracy budget is acceptable.
+
+\section{Discussion and limitations}
+
+\paragraph{Float-vs-hardware sparsity gap.} At matched regularizer strength ($\lambda=3.6$), the float-model activation-sparsity measurement used throughout this report (80.1\%) is substantially higher than the prior experiment's Akida-hardware/software-simulator-measured figure for the same regularizer (70.4\%). This is expected --- the two measurements are taken on different representations of the model (unquantized float vs.\ quantized/converted) using different execution engines --- and means the absolute sparsity percentages in this report should be read as internally comparable to each other, not to the prior experiment's numbers.
+
+\paragraph{No hardware latency/power validation.} Because this study is float-only, it makes no claim about actual Akida 1 inference latency or power. Akida 1 does not accelerate on weight sparsity in the first place, so the structured-sparsity axis's benefit here is entirely a model-footprint (parameter/memory) argument, not a runtime one. Validating the joint approach's practical benefit end-to-end would require carrying a chosen configuration through quantization, quantization-aware fine-tuning, and conversion to an Akida model, then benchmarking on physical hardware, as the original single-axis experiment did for its own best point.
+
+\paragraph{Unexplored surface.} The three joint configurations tested move both knobs together in fixed proportion; no configuration with, say, high $\lambda$ paired with low $p$ (or vice versa) has been tried, so it is not yet known whether the two axes trade off symmetrically once combined. The BN-$\gamma$ regularization strength $\mu=10^{-5}$ was likewise held fixed throughout and has not itself been tuned. Finally, nothing lighter than \code{joint\_light} has been tested; if an even smaller accuracy drop is desired, the natural next step is to continue in the same direction (e.g.\ $\lambda\approx0.5$--$1$, $p\approx10$--$15\%$) rather than explore a new direction.
+
+\section{Conclusion}
+
+Activation sparsity and structured (channel) sparsity are two largely independent levers for making the VWW AkidaNet model more efficient: the former reduces Akida 1 inference time via event-driven compute skipping, the latter reduces the model's parameter footprint. This study shows that the two can be pushed simultaneously at a combined accuracy cost lower than their sum, and that a moderate, jointly-tuned configuration (\code{joint\_light}: $\lambda=1.5$ activation regularization, 20\% structured channel pruning) recovers most of both benefits --- 69.4\% activation sparsity and a 27.7\% parameter reduction --- for only a 1.22-point accuracy drop from the unregularized baseline, making it the recommended starting point for further work, including full quantization and on-hardware validation.
+
+\begin{thebibliography}{9}
+
+\bibitem{networkslimming}
+Z.~Liu, J.~Li, Z.~Shen, G.~Huang, S.~Yan, and C.~Zhang.
+\newblock Learning Efficient Convolutional Networks through Network Slimming.
+\newblock In \emph{Proceedings of the IEEE International Conference on Computer Vision (ICCV)}, 2017.
+
+\bibitem{deephoyer}
+H.~Yang, W.~Wen, and H.~Li.
+\newblock DeepHoyer: Learning Sparser Neural Network with Differentiable Scale-Invariant Sparsity Measures.
+\newblock In \emph{International Conference on Learning Representations (ICLR)}, 2020.
+
+\bibitem{mobilenets}
+A.~G.~Howard, M.~Zhu, B.~Chen, D.~Kalenichenko, W.~Wang, T.~Weyand, M.~Andreetto, and H.~Adam.
+\newblock MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications.
+\newblock \emph{arXiv preprint arXiv:1704.04861}, 2017.
+
+\bibitem{vww}
+A.~Chowdhery, P.~Warden, J.~Shlens, A.~Howard, and R.~Rhodes.
+\newblock Visual Wake Words Dataset.
+\newblock \emph{arXiv preprint arXiv:1906.05721}, 2019.
+
+\end{thebibliography}
+
+\end{document}
