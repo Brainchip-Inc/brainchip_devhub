@@ -56,7 +56,7 @@ import argparse
 from cnn2snn import AkidaVersion, set_akida_version
 from tf_keras import Model
 from tf_keras.layers import (BatchNormalization, Conv2D, Dense, Flatten, Input,
-                             MaxPooling2D, ReLU, Rescaling)
+                             MaxPooling2D, ReLU, Rescaling, GlobalAveragePooling2D)
 from tf_keras.utils import set_random_seed
 
 from uored_vafcls_data import INPUT_SHAPE, NUM_LABELS, ZERO_POINT
@@ -67,12 +67,14 @@ BN_EPSILON = 1e-5
 
 # Filters per block, and whether the block pools. The last two do not: the
 # height is already 1 by then (see the module docstring).
-BLOCK_FILTERS = (32, 64, 64, 64, 64, 64)
-BLOCK_POOLING = (True, True, True, True, False, False)
+BLOCK_FILTERS = (32, 64, 64, 64, 96)
+BLOCK_POOLING = (True, True, True, True, True)
+# BLOCK_FILTERS = (32, 64, 64, 64, 96, 128)
+# BLOCK_POOLING = (True, True, True, True, True, False)
 
 STEM_FILTERS = 16
 STEM_KERNEL = (7, 7)
-DENSE_UNITS = 100
+DENSE_UNITS = 512
 RELU_MAX = 6.0
 
 
@@ -108,30 +110,34 @@ def build_uored_vafcls_model(seed=0):
     """
     set_random_seed(seed)
 
-    with set_akida_version(AkidaVersion.v1):
-        inputs = Input(shape=INPUT_SHAPE, name='input')
+    inputs = Input(shape=INPUT_SHAPE, name='input')
 
-        # Inverts the data pipeline's uint8 encoding. Folded into stem_conv at
-        # conversion, giving input_scaling = (127, ZERO_POINT).
-        x = Rescaling(1.0 / 127.0, -ZERO_POINT / 127.0, name='rescaling')(inputs)
+    # Normalize incoming data from the uint8 range to [-1, 1]
+    # Folded into stem_conv at conversion
+    x = Rescaling(1.0 / 127.0, -1.0, name='rescaling')(inputs)
 
-        # Stem: a dense convolution with no padding, so the first layer sees the
-        # raw framed signal.
-        x = _conv_block(x, STEM_FILTERS, 'stem', kernel=STEM_KERNEL,
-                        padding='valid', pool=True, pool_padding='valid')
+    # Stem: a dense convolution with no padding
+    x = _conv_block(x, STEM_FILTERS, 'stem', kernel=STEM_KERNEL,
+                    padding='valid', pool=True, pool_padding='valid')
 
-        for i, (filters, pool) in enumerate(zip(BLOCK_FILTERS, BLOCK_POOLING),
-                                            start=1):
-            x = _conv_block(x, filters, f'block{i}', pool=pool)
+    for i, (filters, pool) in enumerate(zip(BLOCK_FILTERS, BLOCK_POOLING),
+                                        start=1):
+        x = _conv_block(x, filters, f'block{i}', pool=pool)
 
-        x = Flatten(name='flatten')(x)
-        x = Dense(DENSE_UNITS, name='fc')(x)
-        x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
-                               name='fc_bn')(x)
-        x = ReLU(name='fc_relu')(x)
-        outputs = Dense(NUM_LABELS, name='predictions')(x)
+    x = Conv2D(128, 3, padding='same', use_bias=False,
+                    name='block6_conv')(x)
+    x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
+                            name='block6_bn')(x)
+    x = GlobalAveragePooling2D(name='gap')(x)
+    x = ReLU(max_value=RELU_MAX, name='block6_relu')(x)
 
-        model = Model(inputs, outputs, name='akdcnn_uored_vafcls')
+    x = Dense(DENSE_UNITS, name='fc')(x)
+    x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
+                            name='fc_bn')(x)
+    x = ReLU(name='fc_relu')(x)
+    outputs = Dense(NUM_LABELS, name='predictions')(x)
+
+    model = Model(inputs, outputs, name='akdcnn_uored_vafcls')
 
     return model
 

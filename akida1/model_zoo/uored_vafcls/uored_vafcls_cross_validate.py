@@ -103,6 +103,7 @@ def run_fold(fold, seed=0, data_path='./data/uored_vafcls', epochs=30,
 
     with set_akida_version(AkidaVersion.v1):
         model = build_uored_vafcls_model(seed=seed)
+    # model.summary()
     train_ds, test_ds = get_data(data_path, model.input_shape[1:], batch_size,
                                  fold=fold, seed=seed)
 
@@ -114,7 +115,10 @@ def run_fold(fold, seed=0, data_path='./data/uored_vafcls', epochs=30,
     # ---------------------------------------------------------------------------
     # Full precision
     # ---------------------------------------------------------------------------
-    train_uored_vafcls(model, train_ds, test_ds, epochs, learning_rate, seed=seed)
+    if verbose>0:
+        train_uored_vafcls(model, train_ds, test_ds, epochs, learning_rate, seed=seed)
+    else:
+        train_uored_vafcls(model, train_ds, None, epochs, learning_rate, seed=seed)
     float_scores = auroc_scores(*predict_keras_model(model, test_ds))
     row['float_auroc'] = f'{float_scores["macro"]:.6f}'
     for name in LABEL_COLUMNS:
@@ -131,36 +135,40 @@ def run_fold(fold, seed=0, data_path='./data/uored_vafcls', epochs=30,
         # Quantization, tuning and conversion
         # -----------------------------------------------------------------------
         with set_akida_version(AkidaVersion.v1):
-            # qmodel = quantize(model, input_weight_quantization=8,
-            #                   weight_quantization=4, activ_quantization=4)
+            qmodel = quantize(model, input_weight_quantization=8,
+                              weight_quantization=4, activ_quantization=4)
 
             # qmodel = quantize_until(model, 'fc_relu')
-            qmodel = quantize_until(model, 'block6_relu')
+            # qmodel = quantize_until(model, 'block6_relu')
             
-            qmodel.summary()
-            train_uored_vafcls(qmodel, train_ds, test_ds, qat_epochs,
-                               qat_learning_rate, seed=seed)
+            # qmodel.summary()
+            if verbose>0:
+                train_uored_vafcls(qmodel, train_ds, test_ds, qat_epochs,
+                                qat_learning_rate, seed=seed)
+            else:
+                train_uored_vafcls(qmodel, train_ds, None, qat_epochs,
+                                               qat_learning_rate, seed=seed)
             qat_scores = auroc_scores(*predict_keras_model(qmodel, test_ds))
             row['qat_auroc'] = f'{qat_scores["macro"]:.6f}'
 
-        #     ak_model = convert(qmodel)
+            ak_model = convert(qmodel)
 
-        # if models_dir is not None:
-        #     qmodel.save(os.path.join(models_dir,
-        #                              f'akdcnn_uored_vafcls_fold{fold:03d}_'
-        #                              f'seed{seed}_qat.h5'),
-        #                 include_optimizer=False)
-        #     ak_model.save(os.path.join(models_dir,
-        #                                f'akdcnn_uored_vafcls_fold{fold:03d}_'
-        #                                f'seed{seed}_qat.fbz'))
+        if models_dir is not None:
+            qmodel.save(os.path.join(models_dir,
+                                     f'akdcnn_uored_vafcls_fold{fold:03d}_'
+                                     f'seed{seed}_qat.h5'),
+                        include_optimizer=False)
+            ak_model.save(os.path.join(models_dir,
+                                       f'akdcnn_uored_vafcls_fold{fold:03d}_'
+                                       f'seed{seed}_qat.fbz'))
 
-        # # -----------------------------------------------------------------------
-        # # Akida
-        # # -----------------------------------------------------------------------
-        # akida_scores = auroc_scores(*evaluate_akida_model(ak_model, test_ds))
-        # row['akida_auroc'] = f'{akida_scores["macro"]:.6f}'
-        # for name in LABEL_COLUMNS:
-        #     row[f'akida_auroc_{name}'] = f'{akida_scores[name]:.6f}'
+        # -----------------------------------------------------------------------
+        # Akida
+        # -----------------------------------------------------------------------
+        akida_scores = auroc_scores(*evaluate_akida_model(ak_model, test_ds))
+        row['akida_auroc'] = f'{akida_scores["macro"]:.6f}'
+        for name in LABEL_COLUMNS:
+            row[f'akida_auroc_{name}'] = f'{akida_scores[name]:.6f}'
 
     row['seconds'] = f'{time.time() - started:.1f}'
     return row
