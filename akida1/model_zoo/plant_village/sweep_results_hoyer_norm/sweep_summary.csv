@@ -1,0 +1,4 @@
+akida_accuracy,float_accuracy,latency_ms,qat_accuracy,reg,reg_type,sparsity
+0.9937,0.9965,,0.9947,0.36,hoyer_square_norm,0.558
+0.9939,0.9952,,0.9943,3.6,hoyer_square_norm,0.6317
+0.9808,0.9829,,0.9816,36.0,hoyer_square_norm,0.782

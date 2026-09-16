@@ -1,0 +1,4 @@
+akida_accuracy,error,float_accuracy,latency_ms,qat_accuracy,reg,reg_type,sparsity
+0.9956,,0.9972,,0.9952,0.0,none,0.5417
+0.5238,,0.9729,,0.553,1e-05,l1l2,0.8175
+,command failed (1): cnn2snn convert -m sweep_results/l1l2_reg_1e-03/akidanet_plant_village_qat.h5,,,,0.001,,

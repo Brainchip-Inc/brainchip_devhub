@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Sparsity sweep experiment outputs: model weights, logs, and raw datasets
+# are large and regeneratable; only sweep_summary.csv/accuracies.json/*.png are tracked.
+akida1/model_zoo/*/sweep_results*/
+akida1/model_zoo/*/sweep_results*.log
+akida1/model_zoo/*/joint_sweep_results*/
+akida1/model_zoo/arrhythmia_classification/data/

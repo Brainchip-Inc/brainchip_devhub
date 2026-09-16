@@ -26,12 +26,12 @@ Resources for developing and deploying AI models on BrainChip Akida neuromorphic
 
 ## What do you want to do?
 
-| Goal | Where to go |
-| --- | --- |
-| Train, convert, and evaluate a model | [Akida 1](akida1) · Akida 2 (**COMING SOON**) · Akida Pico (**COMING SOON**) |
-| Deploy to hardware and benchmark | Deployment (**COMING SOON**) |
-| Understand how Akida works | Concepts (**COMING SOON**) |
-| New to Akida — not sure where to start | [Getting Started](#getting-started) |
+| Goal                                    | Where to go                                                                               |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Train, convert, and evaluate a model    | [Akida 1](akida1) · Akida 2 (**COMING SOON**) · Akida Pico (**COMING SOON**) |
+| Deploy to hardware and benchmark        | Deployment (**COMING SOON**)                                                        |
+| Understand how Akida works              | Concepts (**COMING SOON**)                                                          |
+| New to Akida — not sure where to start | [Getting Started](#getting-started)                                                        |
 
 ---
 
@@ -39,11 +39,11 @@ Resources for developing and deploying AI models on BrainChip Akida neuromorphic
 
 Akida 1 examples are available today; Akida 2 models/examples can be found [here](https://doc.brainchipinc.com/model_zoo_performance.html#akida-2-0-models) in the official docs, and Akida Pico content for this repo is on the way.
 
-| | Akida 1 | Akida 2 | Akida Pico |
-| --- | --- | --- | --- |
-| **Chip** | AKD1500 | AKD2500 | — |
-| **Typical use cases** | Image classification, keyword spotting, object detection | Larger models, higher accuracy targets | Always-on sensing, edge inference |
-| **Examples in this repo** | [Image Classification](akida1/model_zoo/plant_village) · [Object Detection](akida1/model_zoo/vww) | 🔜 Coming soon | 🔜 Coming soon |
+|                                 | Akida 1                                                                                          | Akida 2                                | Akida Pico                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------- | --------------------------------- |
+| **Chip**                  | AKD1500                                                                                          | AKD2500                                | —                                |
+| **Typical use cases**     | Image classification, keyword spotting, object detection                                         | Larger models, higher accuracy targets | Always-on sensing, edge inference |
+| **Examples in this repo** | [Image Classification](akida1/model_zoo/plant_village) · [Object Detection](akida1/model_zoo/vww) | 🔜 Coming soon                         | 🔜 Coming soon                    |
 
 ---
 
@@ -62,10 +62,12 @@ Full benchmark breakdowns, mapping comparisons, and reproduction steps live in e
 Every result in this repo runs on real Akida silicon, not a simulation.
 
 **Chips**
+
 - [AKD1500](https://brainchip.com/chips/) — 22nm neuromorphic co-processor, up to 800 effective GOPS, pairs with any host CPU/MCU over PCIe or SPI
 - **AKD1000** — the processor behind the PCIe and Raspberry Pi dev boards below; ARM Cortex-M4 host, Linux (x86-64/ARM) support
 
 **Dev kits & boards**
+
 - AKD1000 PCIe Development Board
 - AKD1000 Raspberry Pi 4 Dev Kit
 - AKD1000 Raspberry Pi 5 Dev Kit
