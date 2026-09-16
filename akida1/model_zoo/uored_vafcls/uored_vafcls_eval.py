@@ -33,7 +33,7 @@ from akida_models.sparsity import compute_sparsity
 from brainchip_utils.hardware_utils import get_akida_device
 from brainchip_utils.plot_utils import pretty_print_sparsity
 from uored_vafcls_data import (FIXED_FOLD, LABEL_COLUMNS, BATCH_SIZE,
-                               get_samples, get_test_data)
+                               get_samples, get_data)
 
 tf.config.experimental.enable_op_determinism()
 
@@ -47,11 +47,6 @@ NUM_SPARSITY_SAMPLES = 240
 # ---------------------------------------------------------------------------
 def auroc_scores(logits, labels):
     """Macro and per-label AUROC.
-
-    Uses the same scikit-learn function the reference protocol uses, so the
-    metric can never be the source of a discrepancy between this port and the
-    published numbers.
-
     Args:
         logits (np.ndarray): raw model outputs, shape (N, len(LABEL_COLUMNS)).
         labels (np.ndarray): binary indicator labels, same shape.
@@ -85,7 +80,7 @@ def predict_keras_model(model, dataset):
     return np.concatenate(logits_all), np.concatenate(labels_all)
 
 
-def evaluate_akida_model(akida_model, val_dataset):
+def evaluate_akida_model(akida_model, dataset):
     """Run inference with an Akida model and return (logits, labels).
 
     Returns logits rather than predictions: AUROC is rank-based and multi-label,
@@ -102,7 +97,7 @@ def evaluate_akida_model(akida_model, val_dataset):
 
     # Akida can't directly digest the tensorflow dataset, we need to
     # manually iterate over the dataset to deliver inputs as numpy arrays
-    for batch, label_batch in tqdm(val_dataset, desc="Evaluating on Akida"):
+    for batch, label_batch in tqdm(dataset, desc="Evaluating on Akida"):
         if not isinstance(batch, np.ndarray):
             batch = batch.numpy()
 
@@ -153,7 +148,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     # Data loading
     # ---------------------------------------------------------------------------
-    test_ds = get_test_data(args.data, imsize, batch_size=args.batch_size,
+    _, test_ds = get_data(args.data, imsize, batch_size=args.batch_size,
                             fold=args.fold)
 
     # ---------------------------------------------------------------------------

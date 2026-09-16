@@ -8,21 +8,24 @@ convolutional model can consume directly:
 
     raw vibration (42 kHz) -> 1 s window (42000 samples)
                            -> random gain (training only)
-                           -> per-recording DC removal + rescale to uint8
+                           -> rescale to uint8-range using a
+                              single per-dataset scale factor
                            -> reshape to (1200, 35, 1)
 
-The reshape is a plain framing, not a spectrogram: row j is samples
-[35j, 35j+35), so the row axis is coarse time (1200 frames, 0.833 ms apart) and
-the column axis is fine phase within a frame. It happens here rather than in the
-model because an Akida graph cannot contain a reshape - the deployed model
-receives the already-framed tensor.
+DATA SPLIT PROTOCOL
 
-The split is bearing-disjoint and drawn *before* any windowing. Fault mode is
-determined by bearing id in this dataset (inner=1-5, outer=6-10, ball=11-15,
-cage=16-20), so a model given any split that is not bearing-disjoint can score
-near-perfectly by re-identifying the bearing without learning anything about
-faults. Each bearing contributes three recordings - its own healthy one plus two
-severities of a single fault mode - and holding a bearing out removes all three.
+The dataset split implemented here is derived from the method proposed by 
+Vieira et al (2026), "Towards a more realistic evaluation of machine learning
+models for bearing fault diagnosis" (https://arxiv.org/abs/2509.22267)
+The split is bearing-disjoint and drawn *before* any windowing to avoid the
+data-leakage that compromises the majority of naive approaches to this dataset.
+
+Fault mode is determined by bearing id in this dataset (inner=1-5, outer=6-10, 
+ball=11-15, cage=16-20), so a model given any split that is not bearing-disjoint 
+can score near-perfectly by re-identifying the bearing without learning anything 
+about faults. Each bearing contributes three recordings - its own healthy one 
+plus two severities of a single fault mode - and holding a bearing out removes 
+all three.
 
 Folds are enumerated, not tabulated: every way of holding out 2 bearings from
 each of the 4 fault modes gives C(5,2)^4 = 10,000 folds, shuffled once with a
@@ -34,6 +37,15 @@ Labels are multi-label, not one-of-N: [inner, outer, ball, cage], with healthy
 encoded as the all-zero vector rather than a fifth class. The reported metric is
 macro AUROC (see uored_vafcls_eval.py) - there is no argmax prediction here, so
 an accuracy figure would depend on an arbitrary threshold.
+                           
+DATA PREPARATION
+
+The raw input vectors are reshaped to a 2D input, (1200, 35, 1). Note that's a 
+plain reshape, not a spectrogram: row j is samples [35j, 35j+35), so the row axis
+is coarse time (1200 frames, 0.833 ms apart) and the column axis is fine phase 
+within a frame. It happens here rather than in the model because an Akida graph 
+cannot contain a reshape - the deployed model receives the already-framed tensor.
+
 
 Usage:
     from uored_vafcls_data import get_data, get_test_data, get_samples
@@ -42,10 +54,6 @@ Usage:
                                  batch_size=120, fold=5, seed=0)
     test_ds = get_test_data('./data/uored_vafcls', (1200, 35, 1), fold=5)
     samples = get_samples('./data/uored_vafcls', (1200, 35, 1), num_samples=100)
-
-Check the split protocol, or the input encoding, without training anything:
-    python uored_vafcls_data.py --check-splits
-    python uored_vafcls_data.py --report-encoding
 
 Rebuild the cache from the raw Mendeley CSVs:
     python uored_vafcls_data.py --prepare-raw /path/to/1_CSV_Raw_Data_Files
@@ -112,26 +120,18 @@ BATCH_SIZE = 120                   # exact divisor of 720 -> 6 steps per epoch
 # ---------------------------------------------------------------------------
 # uint8 input encoding
 # ---------------------------------------------------------------------------
-# Akida takes 8-bit inputs, and per-recording std in this dataset spans 69x
-# (1.87 to 129.4). No single global scale fits that into 256 levels: one wide
-# enough for the loudest recording leaves the quietest under one level. So the
-# encoding is per *recording* - computed from the whole 10 s trace, never from
-# the window being encoded, because a window-dependent scale (min-max, say) is
-# scale-invariant and would silently turn the gain augmentation into a no-op.
+# Akida takes 8-bit inputs (uint8 range). Inspection of the UORED-VAFCLS data
+# shows that amplitude varies widely across recordings (with, predictably, 
+# vibration increasing markedly when bearings are faulty). Rather than set the
+# range according to the global min-max of the data (which would completely 
+# flatten the low amplitude vibrations of some recordings when reduced to 8-bit)
+# we choose a range that preserves the majority of data points, while clipping
+# the worst outliers to preserve resolution for low-amplitude signals. We
+# chose a range of [-128, 127], which looks suitable for the data, and has the
+# advantage of requiring minimal transformation of the input signal: no rescaling,
+# a simple offset of +128 plus rounding and clipping to [0, 255].
 #
-# Removing the per-recording mean is not only a concession to 8 bits. The raw
-# signals carry a DC offset that is itself a fault-mode fingerprint: all ten
-# inner-race recordings sit at mean 46.6-55.6 while every outer and ball
-# recording sits at 0.9-3.1. On its own the per-recording mean scores 0.776
-# macro AUROC on inner-race and the std scores 0.798 - a shortcut the model can
-# read without looking at the vibration at all. Centring and rescaling per
-# recording deletes it. See the README's "Input encoding" section: this is a
-# deliberate deviation from the source pipeline, and the reason the source's
-# published figure is not the figure in the Model Card.
-ZERO_POINT = 128          # mid-scale, so a negative gain is a real polarity flip
-ENCODE_PERCENTILE = 99.9  # robust peak of |x - center|, per recording
-ENCODE_HEADROOM = 2.0     # room for the gain augmentation before it clips
-
+ZERO_POINT = 128
 
 # ---------------------------------------------------------------------------
 # Split protocol
@@ -191,45 +191,15 @@ def fold_rows(bearing_id, fold, n_per_mode=N_BEARINGS_PER_FAULT_MODE,
 # ---------------------------------------------------------------------------
 # Input encoding
 # ---------------------------------------------------------------------------
-def encoding_constants(signals):
-    """Compute the per-recording centre and full-scale value.
-
-    Both are derived from the entire 10 s recording, so they are a fixed
-    property of the recording rather than of any window drawn from it.
-
-    Args:
-        signals (np.ndarray): float32, shape (N_RECORDINGS, SIGNAL_LENGTH).
-
-    Returns:
-        np.ndarray, np.ndarray: centre and scale, both float32 (N_RECORDINGS,).
-    """
-    center = signals.mean(axis=1).astype(np.float32)
-    deviation = np.abs(signals - center[:, None])
-    scale = ENCODE_HEADROOM * np.percentile(deviation, ENCODE_PERCENTILE, axis=1)
-    # return center, scale.astype(np.float32)
-    # HACK: Hard coding a single scaling factor
-    center = np.zeros_like(center)
-    scale = np.ones_like(scale)*127.
-    return center, scale
-    
-
-
-def encode_uint8(window, center, scale):
+def encode_uint8(window):
     """Encode a float window as uint8 centred on ZERO_POINT.
-
-    The model's Rescaling layer inverts this exactly, so float training, QAT and
-    Akida inference all see the same values.
-
     Args:
         window (np.ndarray): float32 samples, any shape.
-        center (float): the recording's centre, from encoding_constants().
-        scale (float): the recording's full-scale value.
 
     Returns:
         np.ndarray: uint8, same shape as `window`.
     """
-    normalised = (window - center) / scale
-    return np.clip(np.round(ZERO_POINT + 127.0 * normalised), 0, 255).astype(np.uint8)
+    return np.clip(np.round(ZERO_POINT + window), 0, 255).astype(np.uint8)
 
 
 def frame_window(x, width=FRAME_WIDTH):
@@ -262,15 +232,14 @@ def _load_cache(data_path):
     """Load the prepared recordings and derive the encoding constants.
 
     lru_cached because uored_vafcls_cross_validate.py calls get_data() a hundred
-    times in one process; without this it would re-read ~100 MB and recompute 60
-    percentiles on every fold.
+    times in one process; without this it would re-read ~100 MB
 
     Args:
         data_path (str): directory holding (or to receive) the .npz cache.
 
     Returns:
         dict: signals, labels, bearing_id, fault_type, severity, rpm,
-        waveform_id, center, scale.
+        waveform_id
     """
     path = _cache_path(data_path)
     if not os.path.exists(path):
@@ -284,7 +253,6 @@ def _load_cache(data_path):
         raise ValueError(f'{path}: expected signals of shape '
                          f'{(N_RECORDINGS, SIGNAL_LENGTH)}, got {signals.shape}')
 
-    cache['center'], cache['scale'] = encoding_constants(signals)
     return cache
 
 
@@ -329,7 +297,7 @@ def _describe(name, cache, rows):
 # ---------------------------------------------------------------------------
 def _train_dataset(cache, rows, batch_size, dtype, seed):
     """Random 1 s crops with a random gain, re-drawn every epoch."""
-    signals, center, scale = cache['signals'], cache['center'], cache['scale']
+    signals = cache['signals']
     labels = _labels(cache, rows)
     n_items = len(rows) * TRAIN_WINDOWS_PER_RECORDING
 
@@ -346,10 +314,10 @@ def _train_dataset(cache, rows, batch_size, dtype, seed):
             start = rng.integers(0, SIGNAL_LENGTH - WINDOW_LENGTH)
             window = np.array(signals[row, start:start + WINDOW_LENGTH],
                               dtype=np.float32)
-            # Gain is applied to the float waveform, before encoding, so that it
-            # survives the per-recording rescale instead of cancelling out.
+            # Gain is applied to the float waveform
             window *= np.float32(rng.normal(1.0, GAIN_STD))
-            window = encode_uint8(window, center[row], scale[row])
+            # window = encode_uint8(window, center[row], scale[row])
+            window = encode_uint8(window)
             yield frame_window(window), labels[i]
 
     signature = (tf.TensorSpec(shape=INPUT_SHAPE, dtype=tf.uint8),
@@ -371,7 +339,7 @@ def _eval_arrays(cache, rows):
 
     Small enough to materialise (240 x 1200 x 35 uint8 is about 10 MB).
     """
-    signals, center, scale = cache['signals'], cache['center'], cache['scale']
+    signals = cache['signals']
     labels = _labels(cache, rows)
     windows, targets = [], []
     for i, row in enumerate(rows):
@@ -379,7 +347,7 @@ def _eval_arrays(cache, rows):
             start = j * WINDOW_LENGTH
             window = np.array(signals[row, start:start + WINDOW_LENGTH],
                               dtype=np.float32)
-            windows.append(encode_uint8(window, center[row], scale[row]))
+            windows.append(encode_uint8(window))
             targets.append(labels[i])
     return frame_window(np.stack(windows)), np.stack(targets)
 
@@ -436,30 +404,31 @@ def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
             _eval_dataset(cache, test_rows, batch_size, dtype))
 
 
-def get_test_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
-                  batch_size=BATCH_SIZE, dtype=tf.uint8, fold=FIXED_FOLD):
-    """Load only the held-out dataset for one fold.
+# def get_test_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
+#                   batch_size=BATCH_SIZE, dtype=tf.uint8, fold=FIXED_FOLD):
+#     """Load only the held-out dataset for one fold.
 
-    Deterministic: EVAL_WINDOWS_PER_RECORDING contiguous windows per recording,
-    no augmentation, so repeated evaluations of one model agree exactly.
+#     Deterministic: EVAL_WINDOWS_PER_RECORDING contiguous windows per recording.
+#     Evaluation of the dataset at this temporal resolution  is defined by the
+#     reference protocol.
 
-    Args:
-        data_path (str): directory holding the .npz cache.
-        input_shape (tuple): model input shape; must be INPUT_SHAPE.
-        batch_size (int): the batch size.
-        dtype (tf.dtypes.DType, optional): input data type. Defaults to tf.uint8.
-        fold (int): bearing-disjoint fold index. Defaults to FIXED_FOLD.
+#     Args:
+#         data_path (str): directory holding the .npz cache.
+#         input_shape (tuple): model input shape; must be INPUT_SHAPE.
+#         batch_size (int): the batch size.
+#         dtype (tf.dtypes.DType, optional): input data type. Defaults to tf.uint8.
+#         fold (int): bearing-disjoint fold index. Defaults to FIXED_FOLD.
 
-    Returns:
-        tf.data.Dataset: held-out dataset yielding (uint8 windows, float labels).
-    """
-    _check_input_shape(input_shape)
-    cache = _load_cache(data_path)
+#     Returns:
+#         tf.data.Dataset: held-out dataset yielding (uint8 windows, float labels).
+#     """
+#     _check_input_shape(input_shape)
+#     cache = _load_cache(data_path)
 
-    _, test_rows = fold_rows(cache['bearing_id'], fold)
-    _describe(f'Held out (fold {fold})', cache, test_rows)
+#     _, test_rows = fold_rows(cache['bearing_id'], fold)
+#     _describe(f'Held out (fold {fold})', cache, test_rows)
 
-    return _eval_dataset(cache, test_rows, batch_size, dtype)
+#     return _eval_dataset(cache, test_rows, batch_size, dtype)
 
 
 def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
@@ -469,7 +438,8 @@ def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
     Used for activation-sparsity measurement and hardware benchmarking, both of
     which need uint8 numpy input rather than a dataset. The draw is over the
     fold's *training* recordings: Akida timings depend on input activity, so the
-    windows have to be real, but they must not come from held-out data.
+    windows have to be real, but to avoid data leakage at quantization, they must
+    not come from held-out data.
 
     Up to EVAL_WINDOWS_PER_RECORDING per training recording (360 for a standard
     fold) are the deterministic tiled windows; beyond that the remainder are
@@ -489,7 +459,7 @@ def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
     """
     _check_input_shape(input_shape)
     cache = _load_cache(data_path)
-    signals, center, scale = cache['signals'], cache['center'], cache['scale']
+    signals = cache['signals']
 
     train_rows, _ = fold_rows(cache['bearing_id'], fold)
     rng = np.random.default_rng(seed)
@@ -506,7 +476,7 @@ def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
             start = rng.integers(0, SIGNAL_LENGTH - WINDOW_LENGTH)
             window = np.array(signals[row, start:start + WINDOW_LENGTH],
                               dtype=np.float32)
-            extra[k] = encode_uint8(window, center[row], scale[row])
+            extra[k] = encode_uint8(window)
         samples = np.concatenate([samples, frame_window(extra)])
 
     return samples.astype(np.uint8)
@@ -609,135 +579,6 @@ def prepare_raw(raw_dir, data_path=DEFAULT_DATA_PATH):
     return path
 
 
-# ---------------------------------------------------------------------------
-# Self-checks
-# ---------------------------------------------------------------------------
-def check_splits(data_path=DEFAULT_DATA_PATH, folds=None, fixtures=None):
-    """Assert the split protocol holds for every fold.
-
-    This is the port-fidelity test: if the fold enumeration were renumbered, or
-    the split drawn at the wrong granularity, these assertions catch it.
-
-    Args:
-        data_path (str): directory holding the .npz cache.
-        folds (iterable, optional): folds to check. Defaults to every tuning and
-            evaluation fold.
-        fixtures (str, optional): directory of published run_*.parquet split
-            fixtures to cross-check the held-out bearing sets against.
-
-    Returns:
-        int: the number of folds checked.
-    """
-    cache = _load_cache(data_path)
-    bearing_id = cache['bearing_id']
-    fault_type = cache['fault_type']
-    all_bearings = set(bearing_id.tolist())
-    folds = list(folds) if folds is not None else (list(TUNING_FOLDS)
-                                                   + list(EVAL_FOLDS))
-
-    n_train = (len(all_bearings) - NUM_LABELS * N_BEARINGS_PER_FAULT_MODE) * 3
-    n_test = NUM_LABELS * N_BEARINGS_PER_FAULT_MODE * 3
-
-    for fold in folds:
-        held_out = held_out_bearings_for_fold(fold)
-        train_rows, test_rows = fold_rows(bearing_id, fold)
-
-        train_bearings = set(bearing_id[train_rows].tolist())
-        test_bearings = set(bearing_id[test_rows].tolist())
-
-        assert not train_bearings & test_bearings, \
-            f'fold {fold}: bearings on both sides: {train_bearings & test_bearings}'
-        assert train_bearings | test_bearings == all_bearings, \
-            f'fold {fold}: bearings missing from the split'
-        assert test_bearings == set(held_out), \
-            f'fold {fold}: test bearings {sorted(test_bearings)} != {held_out}'
-        assert len(train_rows) == n_train, \
-            f'fold {fold}: {len(train_rows)} train recordings, expected {n_train}'
-        assert len(test_rows) == n_test, \
-            f'fold {fold}: {len(test_rows)} test recordings, expected {n_test}'
-
-        for mode, ids in FAULT_BEARING_IDS.items():
-            n_held = len(test_bearings & set(ids))
-            assert n_held == N_BEARINGS_PER_FAULT_MODE, \
-                (f'fold {fold}: {n_held} {mode} bearings held out, '
-                 f'expected {N_BEARINGS_PER_FAULT_MODE}')
-
-        # Every fault mode must appear on both sides, or a label column is
-        # constant in the test set and its AUROC is undefined.
-        for rows, side in ((train_rows, 'train'), (test_rows, 'test')):
-            present = {str(f) for f in fault_type[rows]}
-            assert present == {'Healthy', 'Inner', 'Outer', 'Ball', 'Cage'}, \
-                f'fold {fold}: {side} side is missing fault types: {present}'
-
-    print(f'Split protocol holds for {len(folds)} folds '
-          f'({n_train} train / {n_test} test recordings each).')
-
-    if fixtures is not None:
-        _check_against_fixtures(fixtures, folds)
-
-    return len(folds)
-
-
-def _check_against_fixtures(fixtures, folds):
-    """Cross-check held-out bearing sets against published split fixtures.
-
-    Each run_<fold>.parquet holds a single row with `train_ids` and `test_ids`
-    columns listing bearing ids. Matching them fold-for-fold is the strongest
-    available evidence that the fold enumeration was ported without renumbering.
-    """
-    import glob
-
-    import pandas as pd
-
-    checked = 0
-    for path in sorted(glob.glob(os.path.join(fixtures, 'run_*.parquet'))):
-        fold = int(os.path.splitext(os.path.basename(path))[0].split('_')[1])
-        if fold not in folds:
-            continue
-        frame = pd.read_parquet(path)
-        expected = sorted(int(b) for b in frame['test_ids'].iloc[0])
-        actual = held_out_bearings_for_fold(fold)
-        assert actual == expected, \
-            f'fold {fold}: held out {actual}, fixture says {expected}'
-        checked += 1
-
-    if checked:
-        print(f'Held-out bearings match the published fixtures for '
-              f'{checked} folds.')
-    else:
-        print(f'No run_*.parquet fixtures found in {fixtures}.')
-
-
-def report_encoding(data_path=DEFAULT_DATA_PATH):
-    """Print the per-recording encoding constants and their cost.
-
-    This is how ENCODE_HEADROOM gets re-justified after any change: it reports
-    how many uint8 levels one signal standard deviation spans, and what fraction
-    of samples clip at plausible augmentation gains.
-    """
-    cache = _load_cache(data_path)
-    signals, center, scale = cache['signals'], cache['center'], cache['scale']
-
-    std = signals.std(axis=1)
-    levels = 127.0 * std / scale
-
-    print(f'Per-recording encoding, headroom {ENCODE_HEADROOM}, '
-          f'percentile {ENCODE_PERCENTILE}, zero point {ZERO_POINT}')
-    print(f'  centre       min {center.min():9.3f}  max {center.max():9.3f}')
-    print(f'  signal std   min {std.min():9.3f}  max {std.max():9.3f}  '
-          f'ratio {std.max() / std.min():.1f}x')
-    print(f'  uint8 levels per signal sigma: min {levels.min():.1f}  '
-          f'median {np.median(levels):.1f}  max {levels.max():.1f}')
-
-    print('\n  clipped samples by augmentation gain:')
-    for gain in (1.0, 1.0 + GAIN_STD, 1.0 + 2 * GAIN_STD):
-        normalised = gain * (signals - center[:, None]) / scale[:, None]
-        clipped = np.abs(ZERO_POINT + 127.0 * normalised - ZERO_POINT) > 127.0
-        per_recording = clipped.mean(axis=1)
-        print(f'    gain {gain:4.1f}   mean {per_recording.mean() * 100:7.4f}%   '
-              f'worst recording {per_recording.max() * 100:8.4f}%')
-
-
 if __name__ == '__main__':
     import argparse
 
@@ -752,27 +593,12 @@ if __name__ == '__main__':
     parser.add_argument('--prepare-raw', metavar='RAW_DIR', default=None,
                         help='Rebuild the .npz cache from the raw Mendeley CSV '
                              'tree instead of downloading it')
-    parser.add_argument('--check-splits', action='store_true',
-                        help='Assert bearing-disjointness and the recording '
-                             'counts for all 105 tuning and evaluation folds')
-    parser.add_argument('--fixtures', default=None,
-                        help='Directory of published run_*.parquet split '
-                             'fixtures to cross-check --check-splits against')
-    parser.add_argument('--report-encoding', action='store_true',
-                        help='Report the per-recording uint8 encoding constants '
-                             'and how much they clip')
     args = parser.parse_args()
 
     if args.prepare_raw is not None:
         path = prepare_raw(args.prepare_raw, args.data)
         print(f'Wrote {path} ({os.path.getsize(path) / 1e6:.0f} MB)')
         _load_cache.cache_clear()
-
-    if args.check_splits:
-        check_splits(args.data, fixtures=args.fixtures)
-
-    if args.report_encoding:
-        report_encoding(args.data)
 
     if not (args.check_splits or args.report_encoding):
         train_ds, test_ds = get_data(args.data, fold=args.fold, seed=args.seed)

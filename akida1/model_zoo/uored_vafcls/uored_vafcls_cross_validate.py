@@ -46,7 +46,6 @@ import time
 import numpy as np
 import tensorflow as tf
 from cnn2snn import AkidaVersion, convert, quantize, set_akida_version
-from local_utils import quantize_until
 from tqdm import tqdm
 
 from uored_vafcls_data import (BATCH_SIZE, EVAL_FOLDS, FIXED_FOLD,
@@ -101,8 +100,7 @@ def run_fold(fold, seed=0, data_path='./data/uored_vafcls', epochs=30,
     """
     started = time.time()
 
-    with set_akida_version(AkidaVersion.v1):
-        model = build_uored_vafcls_model(seed=seed)
+    model = build_uored_vafcls_model(seed=seed)
     # model.summary()
     train_ds, test_ds = get_data(data_path, model.input_shape[1:], batch_size,
                                  fold=fold, seed=seed)
@@ -115,10 +113,7 @@ def run_fold(fold, seed=0, data_path='./data/uored_vafcls', epochs=30,
     # ---------------------------------------------------------------------------
     # Full precision
     # ---------------------------------------------------------------------------
-    if verbose>0:
-        train_uored_vafcls(model, train_ds, test_ds, epochs, learning_rate, seed=seed)
-    else:
-        train_uored_vafcls(model, train_ds, None, epochs, learning_rate, seed=seed)
+    train_uored_vafcls(model, train_ds, epochs, learning_rate, seed=seed)
     float_scores = auroc_scores(*predict_keras_model(model, test_ds))
     row['float_auroc'] = f'{float_scores["macro"]:.6f}'
     for name in LABEL_COLUMNS:
@@ -138,16 +133,8 @@ def run_fold(fold, seed=0, data_path='./data/uored_vafcls', epochs=30,
             qmodel = quantize(model, input_weight_quantization=8,
                               weight_quantization=4, activ_quantization=4)
 
-            # qmodel = quantize_until(model, 'fc_relu')
-            # qmodel = quantize_until(model, 'block6_relu')
-            
-            # qmodel.summary()
-            if verbose>0:
-                train_uored_vafcls(qmodel, train_ds, test_ds, qat_epochs,
-                                qat_learning_rate, seed=seed)
-            else:
-                train_uored_vafcls(qmodel, train_ds, None, qat_epochs,
-                                               qat_learning_rate, seed=seed)
+            train_uored_vafcls(qmodel, train_ds, qat_epochs,
+                                            qat_learning_rate, seed=seed)
             qat_scores = auroc_scores(*predict_keras_model(qmodel, test_ds))
             row['qat_auroc'] = f'{qat_scores["macro"]:.6f}'
 

@@ -16,35 +16,22 @@ tensor directly. Row j is samples [35j, 35j+35), so the row axis is coarse time
 much like the framing of a speech signal. The 7x7 stem therefore correlates 7
 consecutive samples across 7 consecutive frames: a lag/phase view.
 
-(The source repo's docstring claimed this stem was equivalent to a (49, 1)
-kernel at stride 7. That was true only of an earlier variant which transposed
-the two axes before framing; that transpose is not applied here, and the
-equivalence does not hold for this layout.)
-
-Input scaling is part of the model: a Rescaling layer inverts the data
-pipeline's uint8 encoding, mapping [0, 255] back to the roughly [-1, 1] range
-the network trains on. Keeping it in the graph means float training, quantized
-training and Akida inference all see identical values, and cnn2snn folds the
-layer into the first convolution at conversion time.
+Input scaling is part of the model: a Rescaling layer normalizes the data from 
+the uint8 range furnished by the data preprocessing pipeline down to the roughly
+[-1, 1] range the network trains on. Defining this Rescaling within the model 
+graph means float training, quantized training and Akida inference all see 
+identical values input values. The actual rescaling op itself is folded into the
+weights of the first convolution layer by the cnn2snn package at conversion time.
 
 Hardware constraints that fixed the geometry
 --------------------------------------------
-Two AKD1500 constraints drove the design, and both are load-bearing:
+Some AKD1500 constraints drove the design:
+* Most layers on Akida 1 only accept 4-bit inputs; only the specialised Input 
+  Convolutional layer takes uint8 inputs, and we definitely want to use that
+  here. However, that layer has some hard size constraints, as follow
+* The second input dimension on that layer has a hard limit (256 on Akida 1).
+  Thus the long input dimension has to go first, (1200, 35) rather than (35, 1200).
 
-* The long dimension has to come first, hence (1200, 35) rather than (35, 1200).
-* Every layer's second spatial dimension must stay above 1, which is why the
-  last two blocks omit their max-pool: the height runs 35 -> 29 -> 14 -> 7 -> 4
-  -> 2 -> 1, and a sixth pool would take it to 0.
-
-Initializers
-------------
-The source repo used custom initializers that reproduced PyTorch's defaults, to
-keep a Keras port numerically comparable with a PyTorch reference. That
-reference is not part of this example, and the custom bias initializer is what
-forced a custom_object_scope workaround around every quantize and convert call
-(Keras resolves initializers by name when it clones a model, including inside
-the `cnn2snn convert` CLI where no scope can be installed). Keras defaults are
-used here instead, which removes that whole class of problem.
 
 Example
 -------
@@ -53,51 +40,13 @@ Example
 
 import argparse
 
-from cnn2snn import AkidaVersion, set_akida_version
 from tf_keras import Model
-from tf_keras.layers import (BatchNormalization, Conv2D, Dense, Flatten, Input,
+from tf_keras.layers import (BatchNormalization, Conv2D, Dense, Input,
                              MaxPooling2D, ReLU, Rescaling, GlobalAveragePooling2D)
 from tf_keras.utils import set_random_seed
 
-from uored_vafcls_data import INPUT_SHAPE, NUM_LABELS, ZERO_POINT
 
-# BatchNorm settings carried over from the source model.
-BN_MOMENTUM = 0.9
-BN_EPSILON = 1e-5
-
-# Filters per block, and whether the block pools. The last two do not: the
-# height is already 1 by then (see the module docstring).
-BLOCK_FILTERS = (32, 64, 64, 64, 96)
-BLOCK_POOLING = (True, True, True, True, True)
-# BLOCK_FILTERS = (32, 64, 64, 64, 96, 128)
-# BLOCK_POOLING = (True, True, True, True, True, False)
-
-STEM_FILTERS = 16
-STEM_KERNEL = (7, 7)
-DENSE_UNITS = 512
-RELU_MAX = 6.0
-
-
-def _conv_block(x, filters, name, kernel=(3, 3), padding='same', pool=True,
-                pool_padding='same'):
-    """Conv -> BatchNorm -> ReLU6 [-> MaxPool], with no convolution bias.
-
-    The bias is omitted because the BatchNorm that follows immediately
-    reintroduces a per-channel offset, so a conv bias would be redundant, and
-    cnn2snn folds the BatchNorm into the convolution at conversion.
-    """
-    x = Conv2D(filters, kernel, padding=padding, use_bias=False,
-               name=f'{name}_conv')(x)
-    x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
-                           name=f'{name}_bn')(x)
-    x = ReLU(max_value=RELU_MAX, name=f'{name}_relu')(x)
-    if pool:
-        x = MaxPooling2D((2, 2), strides=(2, 2), padding=pool_padding,
-                         name=f'{name}_pool')(x)
-    return x
-
-
-def build_uored_vafcls_model(seed=0):
+def build_uored_vafcls_model(input_shape=(1200, 35, 1), fault_classes=4, seed=0):
     """Build the untrained akdcnn model.
 
     Args:
@@ -105,40 +54,74 @@ def build_uored_vafcls_model(seed=0):
 
     Returns:
         tf_keras.Model: the model, expecting uint8 inputs of shape INPUT_SHAPE
-        and returning NUM_LABELS raw logits (one per fault mode; a healthy
+        and returning fault_classes raw logits (one per fault mode; a healthy
         bearing is all four logits low, not a fifth class).
     """
     set_random_seed(seed)
 
-    inputs = Input(shape=INPUT_SHAPE, name='input')
+    # Model definition parameters
+    STEM_FILTERS = 16
+    STEM_KERNEL_SIZE = 7
+
+    BLOCK_FILTERS = (32, 64, 64, 64, 96, 128)
+    BLOCK_POOLING = (True, True, True, True, True, False)
+
+    DENSE_UNITS = 512
+
+    # BatchNorm settings
+    # Important in this case - unusually, we find that the tf_keras 
+    # default values (0.99, 0.001) cause problems when the model is quantized
+    BN_MOMENTUM = 0.9
+    BN_EPSILON = 1e-5
+
+    def _conv_block(x, filters, name, kernel=(3, 3), padding='same', pool=True,
+                pool_padding='same'):
+        """Re-usable block with
+        Conv -> BatchNorm -> ReLU6 [-> MaxPool]
+        """
+        x = Conv2D(filters, kernel, padding=padding, use_bias=False,
+                name=f'{name}_conv')(x)
+        x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
+                            name=f'{name}_bn')(x)
+        x = ReLU(max_value=6.0, name=f'{name}_relu')(x)
+        if pool:
+            x = MaxPooling2D((2, 2), strides=(2, 2), padding=pool_padding,
+                            name=f'{name}_pool')(x)
+        return x
+
+
+    inputs = Input(shape=input_shape, name='input')
 
     # Normalize incoming data from the uint8 range to [-1, 1]
-    # Folded into stem_conv at conversion
-    x = Rescaling(1.0 / 127.0, -1.0, name='rescaling')(inputs)
+    # Folded into stem_conv weights at conversion
+    x = Rescaling(1.0 / 128.0, -1.0, name='rescaling')(inputs)
 
     # Stem: a dense convolution with no padding
-    x = _conv_block(x, STEM_FILTERS, 'stem', kernel=STEM_KERNEL,
+    x = _conv_block(x, STEM_FILTERS, 'stem', kernel=STEM_KERNEL_SIZE,
                     padding='valid', pool=True, pool_padding='valid')
 
-    for i, (filters, pool) in enumerate(zip(BLOCK_FILTERS, BLOCK_POOLING),
+    # Blocks
+    for i, (filters, pool) in enumerate(zip(BLOCK_FILTERS[:-1], BLOCK_POOLING[:-1]),
                                         start=1):
         x = _conv_block(x, filters, f'block{i}', pool=pool)
 
+    # Final block with Global Average Pooling
+    # Note that for Akida 1, it needs to be placed before the neighbouring ReLU
     x = Conv2D(128, 3, padding='same', use_bias=False,
                     name='block6_conv')(x)
     x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
                             name='block6_bn')(x)
     x = GlobalAveragePooling2D(name='gap')(x)
-    x = ReLU(max_value=RELU_MAX, name='block6_relu')(x)
+    x = ReLU(max_value=6.0, name='block6_relu')(x)
 
+    # Dense Classifier Ending
     x = Dense(DENSE_UNITS, name='fc')(x)
     x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
                             name='fc_bn')(x)
-    x = ReLU(name='fc_relu')(x)
-    outputs = Dense(NUM_LABELS, name='predictions')(x)
+    x = ReLU(max_value=6.0, name='fc_relu')(x)
+    outputs = Dense(fault_classes, name='predictions')(x)
 
     model = Model(inputs, outputs, name='akdcnn_uored_vafcls')
-
     return model
 
 
