@@ -1,0 +1,4 @@
+akida_accuracy,float_accuracy,latency_ms,qat_accuracy,reg,reg_type,sparsity
+0.9948,0.9978,,0.9939,1e-07,l1l2,0.601
+0.9803,0.9912,,0.9801,1e-06,l1l2,0.7327
+0.9055,0.9884,,0.9197,3e-06,l1l2,0.7755
