@@ -153,7 +153,7 @@ SEGMENT_BOUNDARY = int(SIGNAL_LENGTH * SEGMENT_SPLIT_FRACTION)   # 252_000
 # Windowing
 # ---------------------------------------------------------------------------
 WINDOW_LENGTH = 42_000          # 1.0 s
-FRAME_WIDTH = 35                # samples per frame; 42000 / 35 = 1200 frames
+FRAME_WIDTH = 140                # samples per frame; 42000 / 35 = 1200 frames
 INPUT_SHAPE = (WINDOW_LENGTH // FRAME_WIDTH, FRAME_WIDTH, 1)   # (1200, 35, 1)
 
 TRAIN_WINDOWS_PER_RECORDING = 20   # 36 recordings x 20 = 720 windows per epoch

@@ -42,11 +42,15 @@ import argparse
 
 from tf_keras import Model
 from tf_keras.layers import (BatchNormalization, Conv2D, Dense, Input,
-                             MaxPooling2D, ReLU, Rescaling, GlobalAveragePooling2D)
+                             MaxPooling2D, ReLU, Rescaling, GlobalAveragePooling2D, Flatten)
 from tf_keras.utils import set_random_seed
 
+import akida
+from cnn2snn import quantize, convert
 
-def build_uored_vafcls_model(input_shape=(1200, 35, 1), fault_classes=4, seed=0):
+from uored_vafcls_data import INPUT_SHAPE
+
+def build_uored_vafcls_model(input_shape=INPUT_SHAPE, fault_classes=4, seed=0):
     """Build the untrained akdcnn model.
 
     Args:
@@ -97,8 +101,13 @@ def build_uored_vafcls_model(input_shape=(1200, 35, 1), fault_classes=4, seed=0)
     x = Rescaling(1.0 / 128.0, -1.0, name='rescaling')(inputs)
 
     # Stem: a dense convolution with no padding
-    x = _conv_block(x, STEM_FILTERS, 'stem', kernel=STEM_KERNEL_SIZE,
-                    padding='valid', pool=True, pool_padding='valid')
+    x = Conv2D(STEM_FILTERS, STEM_KERNEL_SIZE, padding='valid', use_bias=False,
+                    name='stem_conv')(x)
+    x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
+                        name='stem_bn')(x)
+    x = ReLU(max_value=6.0, name='stem_relu')(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), padding='valid',
+                        name='stem_pool')(x)
 
     # Blocks
     for i, (filters, pool) in enumerate(zip(BLOCK_FILTERS[:-1], BLOCK_POOLING[:-1]),
@@ -108,7 +117,7 @@ def build_uored_vafcls_model(input_shape=(1200, 35, 1), fault_classes=4, seed=0)
     # Final block with Global Average Pooling
     # Note that for Akida 1, it needs to be placed before the neighbouring ReLU
     x = Conv2D(128, 3, padding='same', use_bias=False,
-                    name='block6_conv')(x)
+               name='block6_conv')(x)
     x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
                             name='block6_bn')(x)
     x = GlobalAveragePooling2D(name='gap')(x)
@@ -138,3 +147,10 @@ if __name__ == '__main__':
     model.summary()
     model.save(args.savepath, include_optimizer=False)
     print(f'Model saved to {args.savepath}')
+
+    qmodel = quantize(model, weight_quantization=4, activ_quantization=4, input_weight_quantization=8)
+    ak_model = convert(qmodel)
+    device = akida.AKD1500()
+
+    ak_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
+    ak_model.summary()

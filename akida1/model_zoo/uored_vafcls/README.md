@@ -32,18 +32,18 @@ The interesting part of this example is not the model. It is the evaluation: thi
     </tr>
     <tr>
       <td>Bearing-level <em>(protocol)</em></td>
-      <td align="center">0.9237</td>
-      <td align="center">0.9197</td>
-      <td align="center">0.9192</td>
+      <td align="center">0.8950</td>
+      <td align="center">0.8939</td>
+      <td align="center">0.8939</td>
       <td align="center">335,444</td>
-      <td align="center">36.52%</td>
+      <td align="center">37.81%</td>
     </tr>
   </tbody>
 </table>
 
 > **The gap between those two rows is the point of this example.** The naive row is what this dataset hands you if you split it the obvious way — by time within each recording, so the same bearing appears on both sides. It is not a result, and it is not quoted anywhere else in this README. The bearing-level row is lower because it is honest, not because the model is worse.
 >
-> Read the bearing-level row as a distribution, not a number. Individual folds range from 0.7408 to 0.9963 — a spread many times larger than the difference between any two architectures anyone would want to compare. Quoting one fold's score as a model's performance is quoting noise. See [Why cross-validation is not optional](#why-cross-validation-is-not-optional).
+> Read the bearing-level row as a distribution, not a number. Individual folds range from 0.6989 to 0.9892 — a spread many times larger than the difference between any two architectures anyone would want to compare. Quoting one fold's score as a model's performance is quoting noise. See [Why cross-validation is not optional](#why-cross-validation-is-not-optional).
 
 <img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
 
@@ -103,8 +103,8 @@ The model maps entirely to hardware — 1 HRC input convolution, 41 CNP1 convolu
 
 This dataset has 60 recordings from **20 physical bearings**. A fold trains on 12 bearings and is tested on the 8 held out. That is a small enough test set that the choice of which bearings are held out matters more than almost anything about the model:
 
-- The **across-fold** standard deviation is 0.0546, and folds range from 0.7408 to 0.9963 with the architecture, the recipe and the seed all held fixed.
-- The **within-fold** standard deviation across random seeds is 0.0184 (measured over 25 folds at 3 seeds each) — comparable to the entire across-fold spread.
+- The **across-fold** standard deviation is 0.0666, and folds range from 0.6989 to 0.9892 with the architecture, the recipe and the seed all held fixed.
+- The **within-fold** standard deviation across random seeds is 0.0186 (measured over 25 folds at 3 seeds each) — comparable to the entire across-fold spread.
 
 So a single-fold, single-seed AUROC cannot distinguish two architectures on this dataset. For scale: the WDCNN network this model descends from and this model itself differ by about 0.03 in their 100-fold means, which is *less* than one fold's seed-to-seed noise. Any comparison made on one fold is a coin toss dressed up as a result.
 
