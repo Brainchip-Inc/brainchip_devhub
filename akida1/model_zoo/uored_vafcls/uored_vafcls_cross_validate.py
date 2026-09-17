@@ -239,17 +239,22 @@ def _per_fold(rows, column):
     return {fold: float(np.mean(values)) for fold, values in sorted(by_fold.items())}
 
 
-def summarise(rows, fixed_fold=FIXED_FOLD, quiet=False):
+def summarise(rows, quiet=False):
     """Report the fold distribution for each stage and return the cv_* metrics.
+
+    What is printed and what is returned are deliberately different. The console
+    gets the full distribution - standard error, per-stage min/median/max, and
+    the within-fold seed spread - because that is what tells whoever ran the
+    sweep whether to trust it. The returned dict is only what the README
+    template reads: the three stage means, plus the Akida spread that the
+    'Why cross-validation is not optional' section argues from.
 
     Args:
         rows (list): result rows, as read from the CSV.
-        fixed_fold (int): the fold the pretrained models come from, reported so
-            the README can say where it sits in the distribution.
         quiet (bool): suppress printing.
 
     Returns:
-        dict: the cv_* metrics keys.
+        dict: the cv_* metrics keys the README template reads.
     """
     seeds = {int(row['seed']) for row in rows}
     folds = {int(row['fold']) for row in rows}
@@ -264,15 +269,12 @@ def summarise(rows, fixed_fold=FIXED_FOLD, quiet=False):
         sem = std / len(values) ** 0.5
 
         metrics[f'cv_{stage}_auroc_mean'] = f'{mean:.4f}'
-        metrics[f'cv_{stage}_auroc_std'] = f'{std:.4f}'
-        if stage in ('float', 'akida'):
-            metrics[f'cv_{stage}_auroc_min'] = f'{values.min():.4f}'
-            metrics[f'cv_{stage}_auroc_max'] = f'{values.max():.4f}'
         if stage == 'akida':
-            metrics['cv_akida_auroc_sem'] = f'{sem:.4f}'
-            if fixed_fold in per_fold:
-                metrics['cv_fixed_fold_akida_auroc'] = \
-                    f'{per_fold[fixed_fold]:.4f}'
+            # Only the deployed stage's spread is published, and only because
+            # the README argues from it in prose.
+            metrics['cv_akida_auroc_std'] = f'{std:.4f}'
+            metrics['cv_akida_auroc_min'] = f'{values.min():.4f}'
+            metrics['cv_akida_auroc_max'] = f'{values.max():.4f}'
 
         if not quiet:
             print(f'\n{stage} macro AUROC over {len(values)} folds x '
@@ -285,7 +287,6 @@ def summarise(rows, fixed_fold=FIXED_FOLD, quiet=False):
                                   _by_fold_values(rows, f'{stage}_auroc')])
                 print(f'  mean within-fold seed std {within:.4f}  '
                       f'<- the spread a single seed hides')
-                metrics[f'cv_{stage}_auroc_seed_std'] = f'{within:.4f}'
 
     return metrics
 

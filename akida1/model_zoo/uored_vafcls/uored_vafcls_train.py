@@ -34,7 +34,8 @@ from tf_keras.optimizers.legacy import Adam
 from tf_keras.optimizers.schedules import CosineDecay
 from tf_keras.utils import set_random_seed
 
-from uored_vafcls_data import get_data
+from uored_vafcls_data import (DEFAULT_SPLIT_MODE, FIXED_FOLD, SPLIT_MODES,
+                               get_data)
 
 # Must be called before any TF ops to make GPU ops deterministic.
 tf.config.experimental.enable_op_determinism()
@@ -101,10 +102,15 @@ if __name__ == '__main__':
                         help='Peak learning rate for the cosine schedule')
     parser.add_argument('-reg', '--regularization', type=float, default=None,
                         help='Activity Regularization to increase sparsity')
-    parser.add_argument('--fold', type=int, default=5,
+    parser.add_argument('--fold', type=int, default=FIXED_FOLD,
                         help='Bearing-disjoint fold index.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed for reproducibility')
+    parser.add_argument('--split-mode', choices=SPLIT_MODES,
+                        default=DEFAULT_SPLIT_MODE,
+                        help="'bearing' is the leakage-free protocol; "
+                             "'segment' is the naive time-wise split within "
+                             'each recording, for comparison only')
     args = parser.parse_args()
 
     # Model
@@ -113,7 +119,7 @@ if __name__ == '__main__':
     # Dataset
     train_ds, test_ds = get_data(args.data, model.input_shape[1:],
                                  args.batch_size, fold=args.fold,
-                                 seed=args.seed)
+                                 seed=args.seed, split_mode=args.split_mode)
 
     # Run Training
     train_uored_vafcls(model=model, train_ds=train_ds,

@@ -42,7 +42,7 @@ cnn2snn quantize -m models/akdcnn_uored_vafcls.h5 -i 8 -w 4 -a 4
 # 5 - Quantization-aware tuning. Larger than this repository's usual 2 epochs:
 #     at 6 steps per epoch, 2 epochs is 12 optimizer steps and recovers nothing.
 python uored_vafcls_train.py -l models/akdcnn_uored_vafcls_iq8_wq4_aq4.h5 \
-    -s models/akdcnn_uored_vafcls_qat.h5 -e 10 -lr 1e-5 -b 120 $COMMON
+    -s models/akdcnn_uored_vafcls_qat.h5 -e 10 -lr 5e-5 -b 120 $COMMON
 
 # 6 - Evaluate the tuned quantized model
 python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_qat.h5 $COMMON

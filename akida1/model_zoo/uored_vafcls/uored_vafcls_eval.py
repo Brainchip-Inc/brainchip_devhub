@@ -32,8 +32,8 @@ from tqdm import tqdm
 from akida_models.sparsity import compute_sparsity
 from brainchip_utils.hardware_utils import get_akida_device
 from brainchip_utils.plot_utils import pretty_print_sparsity
-from uored_vafcls_data import (FIXED_FOLD, LABEL_COLUMNS, BATCH_SIZE,
-                               get_samples, get_data)
+from uored_vafcls_data import (DEFAULT_SPLIT_MODE, FIXED_FOLD, LABEL_COLUMNS,
+                               BATCH_SIZE, SPLIT_MODES, get_samples, get_data)
 
 tf.config.experimental.enable_op_determinism()
 
@@ -126,9 +126,15 @@ if __name__ == '__main__':
                         help='Bearing-disjoint fold to evaluate on')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed for the sparsity sample draw')
+    parser.add_argument('--split-mode', choices=SPLIT_MODES,
+                        default=DEFAULT_SPLIT_MODE,
+                        help="'bearing' is the leakage-free protocol; "
+                             "'segment' is the naive time-wise split within "
+                             'each recording, for comparison only')
     parser.add_argument('--save-metrics', action='store_true',
                         help='Write AUROC (and param count for .h5) to '
-                             'metrics.json. Only valid on the fixed fold')
+                             'metrics.json. Only valid on the fixed fold of '
+                             'the bearing-disjoint split')
     args = parser.parse_args()
 
     # ---------------------------------------------------------------------------
@@ -149,7 +155,7 @@ if __name__ == '__main__':
     # Data loading
     # ---------------------------------------------------------------------------
     _, test_ds = get_data(args.data, imsize, batch_size=args.batch_size,
-                            fold=args.fold)
+                            fold=args.fold, split_mode=args.split_mode)
 
     # ---------------------------------------------------------------------------
     # Evaluation
@@ -160,7 +166,10 @@ if __name__ == '__main__':
         logits, labels = predict_keras_model(model, test_ds)
 
     scores = auroc_scores(logits, labels)
-    report(scores, f'Fold {args.fold} held-out')
+    if args.split_mode == 'segment':
+        report(scores, 'Naive segment split (LEAKY, for comparison only)')
+    else:
+        report(scores, f'Fold {args.fold} held-out')
 
     # ---------------------------------------------------------------------------
     # Activation sparsity
@@ -169,7 +178,8 @@ if __name__ == '__main__':
     if isakida:
         samples = get_samples(args.data, imsize,
                               num_samples=NUM_SPARSITY_SAMPLES,
-                              fold=args.fold, seed=args.seed)
+                              fold=args.fold, seed=args.seed,
+                              split_mode=args.split_mode)
         sparsity_dict = compute_sparsity(model, samples=samples)
         pretty_print_sparsity(sparsity_dict)
         sparsity = float(np.mean(list(sparsity_dict.values())))
@@ -185,29 +195,58 @@ if __name__ == '__main__':
         # This should only be used for code maintenance, when the model or training
         # pipeline is updated and a new trained model integrated.
         #
-        # Guarded on the fold: the README's reference table is specifically the
-        # fixed fold, and a stray --fold would otherwise silently replace it
-        # with a number from a different held-out set.
-        if args.fold != FIXED_FOLD:
-            raise SystemExit(
-                f'--save-metrics writes the README reference table, which is '
-                f'fold {FIXED_FOLD}; refusing to write results from fold '
-                f'{args.fold}.')
-
+        # What this script may publish depends on the split, and the two cases
+        # are deliberately not symmetric.
+        #
+        # Under the naive split it writes the Model Card's top row outright: one
+        # train-and-evaluate run is the whole of that row, because the segment
+        # split is singular and its score is stable to about 0.001.
+        #
+        # Under the protocol it writes no AUROC at all. The bottom row is the
+        # 100-fold mean from uored_vafcls_cross_validate.py, and a single-fold
+        # number presented beside it is exactly the error this example exists to
+        # argue against. All that is taken from here is what a single model can
+        # honestly supply: the parameter count and the measured sparsity.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
         auroc_str = f'{scores["macro"]:.4f}'
-        metrics['fixed_fold'] = str(args.fold)
-        if isakida:
-            metrics['akida_auroc'] = auroc_str
-            metrics['sparsity'] = f'{sparsity * 100:.2f}%'
-            # The per-label breakdown is only reported for the deployed model.
-            for name in LABEL_COLUMNS:
-                metrics[f'akida_auroc_{name}'] = f'{scores[name]:.4f}'
-        elif 'qat' in pathlib.Path(args.loadmodel).stem:
-            metrics['qat_auroc'] = auroc_str
+        written = []
+
+        if args.split_mode == 'segment':
+            if isakida:
+                metrics['segment_akida_auroc'] = auroc_str
+                metrics['segment_sparsity'] = f'{sparsity * 100:.2f}%'
+                written = ['segment_akida_auroc', 'segment_sparsity']
+            elif 'qat' in pathlib.Path(args.loadmodel).stem:
+                metrics['segment_qat_auroc'] = auroc_str
+                written = ['segment_qat_auroc']
+            else:
+                metrics['segment_float_auroc'] = auroc_str
+                metrics['segment_params'] = f'{model.count_params():,}'
+                written = ['segment_float_auroc', 'segment_params']
         else:
-            metrics['float_auroc'] = auroc_str
-            metrics['params'] = f'{model.count_params():,}'
+            # Guarded on the fold: the hardware table and the sparsity figure
+            # are specifically the fixed fold, and a stray --fold would
+            # otherwise silently replace them with a different model's. The
+            # guard is meaningless under 'segment', which has only one split.
+            if args.fold != FIXED_FOLD:
+                raise SystemExit(
+                    f'--save-metrics writes README figures measured on fold '
+                    f'{FIXED_FOLD}; refusing to write results from fold '
+                    f'{args.fold}.')
+
+            metrics['fixed_fold'] = str(args.fold)
+            written = ['fixed_fold']
+            if isakida:
+                metrics['sparsity'] = f'{sparsity * 100:.2f}%'
+                written.append('sparsity')
+            elif 'qat' not in pathlib.Path(args.loadmodel).stem:
+                metrics['params'] = f'{model.count_params():,}'
+                written.append('params')
+
         metrics_path.write_text(json.dumps(metrics, indent=4) + '\n')
-        print(f'Metrics saved to {metrics_path}')
+        print(f'Metrics saved to {metrics_path}: {", ".join(written)}')
+        if args.split_mode != 'segment' and written == ['fixed_fold']:
+            print('Note: nothing else to write. The README reports no '
+                  'single-model AUROC for the bearing-disjoint split - that '
+                  'row is the cross-validated mean.')

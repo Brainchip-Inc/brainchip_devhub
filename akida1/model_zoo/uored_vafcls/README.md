@@ -8,73 +8,44 @@ The interesting part of this example is not the model. It is the evaluation: thi
 
 ## Model Card
 
-**Cross-validated performance** — TBD bearing-disjoint folds × TBD seed. **This is the model's performance.**
+**The same model, the same recipe, two ways of splitting the data.** The top row is a single train-and-evaluate run under a deliberately naive split; the bottom row is the mean over 100 bearing-disjoint folds × 1 seed. Identical architecture, identical training budget — 720 training and 240 held-out windows either way — so the only thing separating the two rows is whether the split was allowed to leak. **The bottom row is the model's performance.**
 
 <table>
   <thead>
     <tr>
-      <th>Stage</th>
-      <th>Macro AUROC (mean ± std)</th>
-      <th>Worst fold</th>
-      <th>Best fold</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Full precision</td>
-      <td align="center">TBD ± TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-    </tr>
-    <tr>
-      <td>Quantized + tuned (4-bit)</td>
-      <td align="center">TBD ± TBD</td>
-      <td align="center">&mdash;</td>
-      <td align="center">&mdash;</td>
-    </tr>
-    <tr>
-      <td>Akida</td>
-      <td align="center">TBD ± TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-    </tr>
-  </tbody>
-</table>
-
-Standard error of the mean on the Akida figure is TBD. Parameters: TBD. Activation sparsity: TBD.
-
-> **Read the table above, not the one below.** Individual folds range from TBD to TBD — a spread many times larger than the difference between any two architectures anyone would want to compare. Quoting one fold's score as a model's performance is quoting noise. See [Why cross-validation is not optional](#why-cross-validation-is-not-optional).
-
-<img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
-
-**Reference model** — fold TBD only, the weights shipped in `pretrained_models/`.
-
-<table>
-  <thead>
-    <tr>
+      <th>Split</th>
       <th>Float AUROC</th>
       <th>QAT AUROC</th>
       <th>Akida AUROC</th>
-      <th>inner</th>
-      <th>outer</th>
-      <th>ball</th>
-      <th>cage</th>
+      <th>Params</th>
+      <th>Activation sparsity</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td>Naive segment-level <em>(leaky)</em></td>
+      <td align="center">0.9990</td>
+      <td align="center">0.9958</td>
+      <td align="center">0.9963</td>
+      <td align="center">335,444</td>
+      <td align="center">38.08%</td>
+    </tr>
+    <tr>
+      <td>Bearing-level <em>(protocol)</em></td>
+      <td align="center">0.9237</td>
+      <td align="center">0.9197</td>
+      <td align="center">0.9192</td>
+      <td align="center">335,444</td>
+      <td align="center">36.52%</td>
     </tr>
   </tbody>
 </table>
 
-Fold TBD is the *first* of the 100 evaluation folds. It was picked because it is first, not because of its score. It scores TBD against the TBD mean above. Every hardware number below comes from this one model on this one fold — **it is not the model's performance**, it is a fixed, reproducible artefact to benchmark.
+> **The gap between those two rows is the point of this example.** The naive row is what this dataset hands you if you split it the obvious way — by time within each recording, so the same bearing appears on both sides. It is not a result, and it is not quoted anywhere else in this README. The bearing-level row is lower because it is honest, not because the model is worse.
+>
+> Read the bearing-level row as a distribution, not a number. Individual folds range from 0.7408 to 0.9963 — a spread many times larger than the difference between any two architectures anyone would want to compare. Quoting one fold's score as a model's performance is quoting noise. See [Why cross-validation is not optional](#why-cross-validation-is-not-optional).
+
+<img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
 
 **AKD1500 hardware benchmark**
 
@@ -118,6 +89,8 @@ Fold TBD is the *first* of the 100 evaluation folds. It was picked because it is
   </tbody>
 </table>
 
+*Measured on the model trained on the bearing-level split at fold 5 — the weights shipped in `pretrained_models/` — which is a fixed, reproducible artefact rather than a performance claim. The architecture, the input shape and the quantization are identical under either split, so these latency, power and mapping figures apply to both rows of the Model Card.*
+
 <img src="docs/ref_benchmark_results_full.png" alt="Full model benchmark" width="700">
 
 `Minimal` mapping uses the fewest neural processors that will hold the model; `AllNPs` spreads it over everything available, which usually trades power for latency. This model is an unusual case: it already saturates the device in `Minimal` mode, so the two mappings are nearly identical.
@@ -130,16 +103,16 @@ The model maps entirely to hardware — 1 HRC input convolution, 41 CNP1 convolu
 
 This dataset has 60 recordings from **20 physical bearings**. A fold trains on 12 bearings and is tested on the 8 held out. That is a small enough test set that the choice of which bearings are held out matters more than almost anything about the model:
 
-- The **across-fold** standard deviation is TBD, and folds range from TBD to TBD with the architecture, the recipe and the seed all held fixed.
-- The **within-fold** standard deviation across random seeds is TBD (measured over TBD folds at 3 seeds each) — comparable to the entire across-fold spread.
+- The **across-fold** standard deviation is 0.0546, and folds range from 0.7408 to 0.9963 with the architecture, the recipe and the seed all held fixed.
+- The **within-fold** standard deviation across random seeds is 0.0184 (measured over 25 folds at 3 seeds each) — comparable to the entire across-fold spread.
 
 So a single-fold, single-seed AUROC cannot distinguish two architectures on this dataset. For scale: the WDCNN network this model descends from and this model itself differ by about 0.03 in their 100-fold means, which is *less* than one fold's seed-to-seed noise. Any comparison made on one fold is a coin toss dressed up as a result.
 
 The practical rules this example follows:
 
-1. **The reported number is the mean over all TBD evaluation folds**, produced by `uored_vafcls_cross_validate.py`. The per-fold results are committed in [`docs/cv_results.csv`](docs/cv_results.csv) so the mean is auditable without re-running anything.
+1. **The reported number is the mean over all 100 evaluation folds**, produced by `uored_vafcls_cross_validate.py`. The per-fold results are committed in [`docs/cv_results.csv`](docs/cv_results.csv) so the mean is auditable without re-running anything.
 2. **Folds 0–4 are the tuning budget.** Every hyperparameter — epochs, learning rate, the QAT schedule, the input encoding constants — was chosen there. Folds 5–104 are never tuned on.
-3. **Single-fold artefacts are labelled as such.** The pretrained weights and every hardware measurement come from fold TBD, and are presented as a fixed reference point, not a performance claim.
+3. **Single-fold artefacts are labelled as such.** The pretrained weights and every hardware measurement come from fold 5, and are presented as a fixed reference point, not a performance claim.
 
 ## Requirements
 
@@ -266,7 +239,7 @@ Run the full pipeline on one fold — build, train, quantize, tune, convert, eva
 bash uored_vafcls_train.sh [DATADIR] [FOLD] [SEED]
 ```
 
-`FOLD` defaults to TBD and `SEED` to 0. It takes about a minute on a single GPU, plus benchmarking. The nine steps are the standard Akida 1 sequence; see the script for the exact commands.
+`FOLD` defaults to 5 and `SEED` to 0. It takes about a minute on a single GPU, plus benchmarking. The nine steps are the standard Akida 1 sequence; see the script for the exact commands.
 
 ### Cross-validation
 
@@ -283,16 +256,25 @@ It runs the whole chain on each of the 100 evaluation folds, appending to `docs/
 `README.md` in this folder is **generated** — edit [`docs/README.md.template`](docs/README.md.template), never `README.md` directly. The performance tables are filled from `docs/metrics.json`, which is written by the `--save-metrics` flags:
 
 ```bash
-python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls.h5 --save-metrics
-python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls_qat.h5 --save-metrics
-python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics
-python uored_vafcls_benchmark.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics
-python uored_vafcls_cross_validate.py --save-metrics                       # 30-60 min
+# Bearing-level split (the protocol) - the Model Card's bottom row.
+# Its AUROCs come from the sweep, never from a single model.
+python uored_vafcls_cross_validate.py --save-metrics                        # 30-60 min
 python uored_vafcls_cross_validate.py --first-fold 5 --last-fold 29 --seeds 3 \
-    -o docs/cv_seed_std.csv --save-seed-std                                # the seed-noise figure
+    -o docs/cv_seed_std.csv --save-seed-std                                 # the seed-noise figure
+python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls.h5 --save-metrics       # params
+python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics  # sparsity
+python uored_vafcls_benchmark.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics
+
+# Naive segment-level split (the comparator) - the Model Card's top row.
+# One model, one run: the split is singular and its score is stable to ~0.001.
+bash uored_vafcls_naive_split.sh
+python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_segment.h5 --split-mode segment --save-metrics
+python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_segment_qat.h5 --split-mode segment --save-metrics
+python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_segment_qat.fbz --split-mode segment --save-metrics
+
 python update_readme.py
 ```
 
-Each key in `metrics.json` has exactly one writer, so the scripts can be run in any order without racing.
+Each key in `metrics.json` has exactly one writer, so the scripts can be run in any order without racing. There is deliberately no bearing-level single-model AUROC: nothing in the README reports one, because reporting one is the mistake this example is about.
 
 **The standing rule:** any change to the architecture, the training recipe or the `ENCODE_*` constants invalidates the cross-validated table, and requires a fresh 100-fold sweep. Re-running the fixed fold is *not* a substitute — that is the whole point of this example.

@@ -8,73 +8,44 @@ The interesting part of this example is not the model. It is the evaluation: thi
 
 ## Model Card
 
-**Cross-validated performance** — {cv_folds} bearing-disjoint folds × {cv_seeds} seed. **This is the model's performance.**
+**The same model, the same recipe, two ways of splitting the data.** The top row is a single train-and-evaluate run under a deliberately naive split; the bottom row is the mean over {cv_folds} bearing-disjoint folds × {cv_seeds} seed. Identical architecture, identical training budget — 720 training and 240 held-out windows either way — so the only thing separating the two rows is whether the split was allowed to leak. **The bottom row is the model's performance.**
 
 <table>
   <thead>
     <tr>
-      <th>Stage</th>
-      <th>Macro AUROC (mean ± std)</th>
-      <th>Worst fold</th>
-      <th>Best fold</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Full precision</td>
-      <td align="center">{cv_float_auroc_mean} ± {cv_float_auroc_std}</td>
-      <td align="center">{cv_float_auroc_min}</td>
-      <td align="center">{cv_float_auroc_max}</td>
-    </tr>
-    <tr>
-      <td>Quantized + tuned (4-bit)</td>
-      <td align="center">{cv_qat_auroc_mean} ± {cv_qat_auroc_std}</td>
-      <td align="center">&mdash;</td>
-      <td align="center">&mdash;</td>
-    </tr>
-    <tr>
-      <td>Akida</td>
-      <td align="center">{cv_akida_auroc_mean} ± {cv_akida_auroc_std}</td>
-      <td align="center">{cv_akida_auroc_min}</td>
-      <td align="center">{cv_akida_auroc_max}</td>
-    </tr>
-  </tbody>
-</table>
-
-Standard error of the mean on the Akida figure is {cv_akida_auroc_sem}. Parameters: {params}. Activation sparsity: {sparsity}.
-
-> **Read the table above, not the one below.** Individual folds range from {cv_akida_auroc_min} to {cv_akida_auroc_max} — a spread many times larger than the difference between any two architectures anyone would want to compare. Quoting one fold's score as a model's performance is quoting noise. See [Why cross-validation is not optional](#why-cross-validation-is-not-optional).
-
-<img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
-
-**Reference model** — fold {fixed_fold} only, the weights shipped in `pretrained_models/`.
-
-<table>
-  <thead>
-    <tr>
+      <th>Split</th>
       <th>Float AUROC</th>
       <th>QAT AUROC</th>
       <th>Akida AUROC</th>
-      <th>inner</th>
-      <th>outer</th>
-      <th>ball</th>
-      <th>cage</th>
+      <th>Params</th>
+      <th>Activation sparsity</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td align="center">{float_auroc}</td>
-      <td align="center">{qat_auroc}</td>
-      <td align="center">{akida_auroc}</td>
-      <td align="center">{akida_auroc_inner}</td>
-      <td align="center">{akida_auroc_outer}</td>
-      <td align="center">{akida_auroc_ball}</td>
-      <td align="center">{akida_auroc_cage}</td>
+      <td>Naive segment-level <em>(leaky)</em></td>
+      <td align="center">{segment_float_auroc}</td>
+      <td align="center">{segment_qat_auroc}</td>
+      <td align="center">{segment_akida_auroc}</td>
+      <td align="center">{segment_params}</td>
+      <td align="center">{segment_sparsity}</td>
+    </tr>
+    <tr>
+      <td>Bearing-level <em>(protocol)</em></td>
+      <td align="center">{cv_float_auroc_mean}</td>
+      <td align="center">{cv_qat_auroc_mean}</td>
+      <td align="center">{cv_akida_auroc_mean}</td>
+      <td align="center">{params}</td>
+      <td align="center">{sparsity}</td>
     </tr>
   </tbody>
 </table>
 
-Fold {fixed_fold} is the *first* of the 100 evaluation folds. It was picked because it is first, not because of its score. It scores {cv_fixed_fold_akida_auroc} against the {cv_akida_auroc_mean} mean above. Every hardware number below comes from this one model on this one fold — **it is not the model's performance**, it is a fixed, reproducible artefact to benchmark.
+> **The gap between those two rows is the point of this example.** The naive row is what this dataset hands you if you split it the obvious way — by time within each recording, so the same bearing appears on both sides. It is not a result, and it is not quoted anywhere else in this README. The bearing-level row is lower because it is honest, not because the model is worse.
+>
+> Read the bearing-level row as a distribution, not a number. Individual folds range from {cv_akida_auroc_min} to {cv_akida_auroc_max} — a spread many times larger than the difference between any two architectures anyone would want to compare. Quoting one fold's score as a model's performance is quoting noise. See [Why cross-validation is not optional](#why-cross-validation-is-not-optional).
+
+<img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
 
 **AKD1500 hardware benchmark**
 
@@ -117,6 +88,8 @@ Fold {fixed_fold} is the *first* of the 100 evaluation folds. It was picked beca
     </tr>
   </tbody>
 </table>
+
+*Measured on the model trained on the bearing-level split at fold {fixed_fold} — the weights shipped in `pretrained_models/` — which is a fixed, reproducible artefact rather than a performance claim. The architecture, the input shape and the quantization are identical under either split, so these latency, power and mapping figures apply to both rows of the Model Card.*
 
 <img src="docs/ref_benchmark_results_full.png" alt="Full model benchmark" width="700">
 
@@ -283,16 +256,25 @@ It runs the whole chain on each of the 100 evaluation folds, appending to `docs/
 `README.md` in this folder is **generated** — edit [`docs/README.md.template`](docs/README.md.template), never `README.md` directly. The performance tables are filled from `docs/metrics.json`, which is written by the `--save-metrics` flags:
 
 ```bash
-python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls.h5 --save-metrics
-python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls_qat.h5 --save-metrics
-python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics
-python uored_vafcls_benchmark.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics
-python uored_vafcls_cross_validate.py --save-metrics                       # 30-60 min
+# Bearing-level split (the protocol) - the Model Card's bottom row.
+# Its AUROCs come from the sweep, never from a single model.
+python uored_vafcls_cross_validate.py --save-metrics                        # 30-60 min
 python uored_vafcls_cross_validate.py --first-fold 5 --last-fold 29 --seeds 3 \
-    -o docs/cv_seed_std.csv --save-seed-std                                # the seed-noise figure
+    -o docs/cv_seed_std.csv --save-seed-std                                 # the seed-noise figure
+python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls.h5 --save-metrics       # params
+python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics  # sparsity
+python uored_vafcls_benchmark.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics
+
+# Naive segment-level split (the comparator) - the Model Card's top row.
+# One model, one run: the split is singular and its score is stable to ~0.001.
+bash uored_vafcls_naive_split.sh
+python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_segment.h5 --split-mode segment --save-metrics
+python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_segment_qat.h5 --split-mode segment --save-metrics
+python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_segment_qat.fbz --split-mode segment --save-metrics
+
 python update_readme.py
 ```
 
-Each key in `metrics.json` has exactly one writer, so the scripts can be run in any order without racing.
+Each key in `metrics.json` has exactly one writer, so the scripts can be run in any order without racing. There is deliberately no bearing-level single-model AUROC: nothing in the README reports one, because reporting one is the mistake this example is about.
 
 **The standing rule:** any change to the architecture, the training recipe or the `ENCODE_*` constants invalidates the cross-validated table, and requires a fresh 100-fold sweep. Re-running the fixed fold is *not* a substitute — that is the whole point of this example.

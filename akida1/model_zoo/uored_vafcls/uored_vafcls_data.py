@@ -33,6 +33,32 @@ fixed seed and indexed by fold number. Folds 0-4 are the tuning budget; folds
 5-104 are the 100 evaluation folds. FIXED_FOLD (5) is the one the pretrained
 models and the hardware benchmark use.
 
+A NAIVE COMPARATOR
+
+Read on its own, the bearing-disjoint score invites the wrong conclusion: that
+the model is weak. It is not - the evaluation is honest, and honest numbers on
+this dataset are lower than the ones usually published. To make that visible,
+`split_mode='segment'` implements the naive split the protocol exists to rule
+out, so the two can be run side by side and the *gap* reported.
+
+The segment split divides each recording by time - the first 60% of every
+10 s recording trains, the last 40% tests - and keeps all 60 recordings on both
+sides. Windows minutes apart from the same bearing, the same fault and the same
+run therefore land on both sides. It is the most severe form of leakage in
+Vieira et al's taxonomy, and the most commonly committed.
+
+Both modes yield identical budgets - 720 training windows (6 steps per epoch)
+and 240 test windows - so a score difference between them is attributable to the
+split and nothing else. 'segment' is for comparison only: it must never be the
+source of a published metric, and uored_vafcls_eval.py --save-metrics refuses it.
+
+Unlike the protocol, the naive split needs no cross-validation. It has no folds
+to average over - there is one time cut, the same for every run - and its score
+is stable to about 0.001 where the bearing-disjoint folds span 0.04-0.05. One run
+is the whole story; re-run uored_vafcls_naive_split.sh with a different seed to
+confirm that for yourself. uored_vafcls_cross_validate.py is therefore reserved
+for the protocol and has no notion of split mode.
+
 Labels are multi-label, not one-of-N: [inner, outer, ball, cage], with healthy
 encoded as the all-zero vector rather than a fifth class. The reported metric is
 macro AUROC (see uored_vafcls_eval.py) - there is no argmax prediction here, so
@@ -52,8 +78,15 @@ Usage:
 
     train_ds, test_ds = get_data('./data/uored_vafcls', (1200, 35, 1),
                                  batch_size=120, fold=5, seed=0)
-    test_ds = get_test_data('./data/uored_vafcls', (1200, 35, 1), fold=5)
     samples = get_samples('./data/uored_vafcls', (1200, 35, 1), num_samples=100)
+
+    # The naive comparator, for contrast only:
+    train_ds, test_ds = get_data('./data/uored_vafcls', (1200, 35, 1),
+                                 split_mode='segment')
+
+Summarise either split without training anything:
+    python uored_vafcls_data.py --fold 5
+    python uored_vafcls_data.py --split-mode segment
 
 Rebuild the cache from the raw Mendeley CSVs:
     python uored_vafcls_data.py --prepare-raw /path/to/1_CSV_Raw_Data_Files
@@ -62,6 +95,7 @@ Rebuild the cache from the raw Mendeley CSVs:
 import functools
 import os
 import random
+from collections import namedtuple
 from itertools import combinations, product
 
 import numpy as np
@@ -105,6 +139,16 @@ TUNING_FOLDS = range(0, 5)      # the only folds a hyperparameter may be chosen 
 EVAL_FOLDS = range(5, 105)      # the 100 folds the reported mean comes from
 FIXED_FOLD = 5                  # pretrained models + hardware benchmark
 
+# 'bearing' is the protocol. 'segment' is the naive comparator described in the
+# module docstring - a time-wise split within each recording, which leaks badly
+# by construction. Anything that publishes a number must reject 'segment'.
+SPLIT_MODES = ('bearing', 'segment')
+DEFAULT_SPLIT_MODE = 'bearing'
+
+# The segment split cuts each recording at 60% of its length.
+SEGMENT_SPLIT_FRACTION = 0.6
+SEGMENT_BOUNDARY = int(SIGNAL_LENGTH * SEGMENT_SPLIT_FRACTION)   # 252_000
+
 # ---------------------------------------------------------------------------
 # Windowing
 # ---------------------------------------------------------------------------
@@ -116,6 +160,15 @@ TRAIN_WINDOWS_PER_RECORDING = 20   # 36 recordings x 20 = 720 windows per epoch
 EVAL_WINDOWS_PER_RECORDING = 10    # 24 recordings x 10 = 240 windows, tiled
 GAIN_STD = 0.7                     # random scalar gain, N(1, GAIN_STD)
 BATCH_SIZE = 120                   # exact divisor of 720 -> 6 steps per epoch
+
+# The segment split trains on all 60 recordings rather than 36, so it needs its
+# own per-recording count to land on the same 720 windows per epoch: 60 x 12.
+# Matching the budget is what makes the two modes comparable - at 20 windows per
+# recording the naive split would get 1200 windows and 10 steps per epoch, and
+# its higher score would confound leakage with 67% more gradient steps. The test
+# side needs no such adjustment: the last 40% of a recording holds exactly 4
+# whole windows, and 60 x 4 = 240, the same as 24 held-out recordings x 10.
+SEGMENT_TRAIN_WINDOWS_PER_RECORDING = 12
 
 # ---------------------------------------------------------------------------
 # uint8 input encoding
@@ -186,6 +239,65 @@ def fold_rows(bearing_id, fold, n_per_mode=N_BEARINGS_PER_FAULT_MODE,
     test_bearings = held_out_bearings_for_fold(fold, n_per_mode, seed)
     is_test = np.isin(bearing_id, test_bearings)
     return np.flatnonzero(~is_test), np.flatnonzero(is_test)
+
+
+# ---------------------------------------------------------------------------
+# The naive comparator
+# ---------------------------------------------------------------------------
+# A time region is a half-open (start, stop) in samples. Every window drawn for
+# a split comes from one of these, which is the whole of what separates the two
+# modes: 'bearing' draws from the full recording on both sides and separates the
+# rows instead, 'segment' shares every row and separates the time.
+FULL_REGION = (0, SIGNAL_LENGTH)
+SEGMENT_TRAIN_REGION = (0, SEGMENT_BOUNDARY)
+SEGMENT_TEST_REGION = (SEGMENT_BOUNDARY, SIGNAL_LENGTH)
+
+SplitPlan = namedtuple('SplitPlan', ['mode', 'train_rows', 'test_rows',
+                                     'train_region', 'test_region',
+                                     'train_windows_per_recording'])
+
+
+def check_split_mode(split_mode):
+    """Validate a split mode, returning it unchanged.
+
+    Args:
+        split_mode (str): one of SPLIT_MODES.
+
+    Returns:
+        str: `split_mode`.
+    """
+    if split_mode not in SPLIT_MODES:
+        raise ValueError(f'split_mode must be one of {SPLIT_MODES}, got '
+                         f'{split_mode!r}')
+    return split_mode
+
+
+def split_plan(bearing_id, fold, split_mode=DEFAULT_SPLIT_MODE):
+    """Resolve one split into rows, time regions and a training window budget.
+
+    Both modes are described in the module docstring. This is the only place
+    that branches on the mode; everything downstream consumes the plan.
+
+    Args:
+        bearing_id (np.ndarray): per-recording bearing id, shape (N_RECORDINGS,).
+        fold (int): fold index. Ignored by 'segment', which has one split.
+        split_mode (str): one of SPLIT_MODES.
+
+    Returns:
+        SplitPlan: rows and time regions for each side, plus the number of
+        training windows to draw per recording.
+    """
+    check_split_mode(split_mode)
+
+    if split_mode == 'segment':
+        rows = np.arange(len(bearing_id))
+        return SplitPlan(split_mode, rows, rows, SEGMENT_TRAIN_REGION,
+                         SEGMENT_TEST_REGION,
+                         SEGMENT_TRAIN_WINDOWS_PER_RECORDING)
+
+    train_rows, test_rows = fold_rows(bearing_id, fold)
+    return SplitPlan(split_mode, train_rows, test_rows, FULL_REGION,
+                     FULL_REGION, TRAIN_WINDOWS_PER_RECORDING)
 
 
 # ---------------------------------------------------------------------------
@@ -281,25 +393,58 @@ def _labels(cache, rows):
     return cache['labels'][rows].astype(np.float32)
 
 
-def _describe(name, cache, rows):
+def _describe(name, cache, rows, region=FULL_REGION):
     """Print what a set of recordings contains, by bearing and fault mode."""
     bearings = sorted(set(cache['bearing_id'][rows].tolist()))
     counts = {}
     for fault_type in cache['fault_type'][rows]:
         counts[str(fault_type)] = counts.get(str(fault_type), 0) + 1
     breakdown = ', '.join(f'{k} {v}' for k, v in sorted(counts.items()))
+    span = ''
+    if tuple(region) != FULL_REGION:
+        span = (f', t = {region[0] / SAMPLE_RATE:.1f}-'
+                f'{region[1] / SAMPLE_RATE:.1f} s')
     print(f'{name}: {len(rows)} recordings from {len(bearings)} bearings '
-          f'{bearings} ({breakdown})')
+          f'{bearings} ({breakdown}{span})')
+
+
+def _describe_split(cache, plan, fold):
+    """Print the split, and how much of it leaks."""
+    if plan.mode == 'segment':
+        print(f'Naive segment split: every recording contributes both sides, '
+              f'cut at {SEGMENT_SPLIT_FRACTION:.0%} '
+              f'({SEGMENT_BOUNDARY / SAMPLE_RATE:.1f} s). There is only one '
+              f'such split, so the fold index is ignored.')
+    else:
+        print(f'Fold {fold}: holding out bearings '
+              f'{held_out_bearings_for_fold(fold)}')
+
+    _describe('Train', cache, plan.train_rows, plan.train_region)
+    _describe('Held out', cache, plan.test_rows, plan.test_region)
+
+    # The diagnostic that distinguishes the two modes at a glance. A protocol
+    # split shares nothing; the naive one shares everything.
+    train_bearings = set(cache['bearing_id'][plan.train_rows].tolist())
+    test_bearings = set(cache['bearing_id'][plan.test_rows].tolist())
+    shared = train_bearings & test_bearings
+    verdict = 'LEAKS' if shared else 'leakage-free'
+    print(f'Train and held out share {len(shared)} of '
+          f'{len(train_bearings | test_bearings)} bearings -> {verdict}')
 
 
 # ---------------------------------------------------------------------------
 # Window generation
 # ---------------------------------------------------------------------------
-def _train_dataset(cache, rows, batch_size, dtype, seed):
-    """Random 1 s crops with a random gain, re-drawn every epoch."""
+def _train_dataset(cache, rows, batch_size, dtype, seed, region=FULL_REGION,
+                   windows_per_recording=TRAIN_WINDOWS_PER_RECORDING):
+    """Random 1 s crops with a random gain, re-drawn every epoch.
+
+    Crops start anywhere in `region` that leaves a whole window inside it.
+    """
     signals = cache['signals']
     labels = _labels(cache, rows)
-    n_items = len(rows) * TRAIN_WINDOWS_PER_RECORDING
+    n_items = len(rows) * windows_per_recording
+    region_start, region_stop = region
 
     # An independent generator, not the global Keras RNG. The shell pipeline
     # re-seeds in a fresh process between building and training, so only an
@@ -311,7 +456,7 @@ def _train_dataset(cache, rows, batch_size, dtype, seed):
         for idx in range(n_items):
             i = idx % len(rows)
             row = rows[i]
-            start = rng.integers(0, SIGNAL_LENGTH - WINDOW_LENGTH)
+            start = rng.integers(region_start, region_stop - WINDOW_LENGTH)
             window = np.array(signals[row, start:start + WINDOW_LENGTH],
                               dtype=np.float32)
             # Gain is applied to the float waveform
@@ -334,17 +479,22 @@ def _train_dataset(cache, rows, batch_size, dtype, seed):
     )
 
 
-def _eval_arrays(cache, rows):
-    """Deterministic contiguous tiling: EVAL_WINDOWS_PER_RECORDING per recording.
+def _eval_arrays(cache, rows, region=FULL_REGION):
+    """Deterministic contiguous tiling of `region`, as many whole windows as fit.
+
+    That is EVAL_WINDOWS_PER_RECORDING (10) over a full recording, or 4 over the
+    segment split's test region and 6 over its training region.
 
     Small enough to materialise (240 x 1200 x 35 uint8 is about 10 MB).
     """
     signals = cache['signals']
     labels = _labels(cache, rows)
+    region_start, region_stop = region
+    n_windows = (region_stop - region_start) // WINDOW_LENGTH
     windows, targets = [], []
     for i, row in enumerate(rows):
-        for j in range(EVAL_WINDOWS_PER_RECORDING):
-            start = j * WINDOW_LENGTH
+        for j in range(n_windows):
+            start = region_start + j * WINDOW_LENGTH
             window = np.array(signals[row, start:start + WINDOW_LENGTH],
                               dtype=np.float32)
             windows.append(encode_uint8(window))
@@ -352,8 +502,8 @@ def _eval_arrays(cache, rows):
     return frame_window(np.stack(windows)), np.stack(targets)
 
 
-def _eval_dataset(cache, rows, batch_size, dtype):
-    x, y = _eval_arrays(cache, rows)
+def _eval_dataset(cache, rows, batch_size, dtype, region=FULL_REGION):
+    x, y = _eval_arrays(cache, rows, region)
     return (
         tf.data.Dataset.from_tensor_slices((x, y))
         .batch(batch_size)
@@ -366,8 +516,9 @@ def _eval_dataset(cache, rows, batch_size, dtype):
 # Public API
 # ---------------------------------------------------------------------------
 def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
-             batch_size=BATCH_SIZE, dtype=tf.uint8, fold=FIXED_FOLD, seed=0):
-    """Load the training and held-out datasets for one bearing-disjoint fold.
+             batch_size=BATCH_SIZE, dtype=tf.uint8, fold=FIXED_FOLD, seed=0,
+             split_mode=DEFAULT_SPLIT_MODE):
+    """Load the training and held-out datasets for one fold.
 
     There is deliberately no validation split. With 36 training recordings,
     carving one out would cost about a sixth of the data and would itself have to
@@ -385,8 +536,11 @@ def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
         dtype (tf.dtypes.DType, optional): input data type. Defaults to tf.uint8.
         fold (int): bearing-disjoint fold index. Folds 0-4 are the tuning
             budget; 5-104 are the evaluation folds. Defaults to FIXED_FOLD.
+            Ignored when `split_mode` is 'segment', which has one split.
         seed (int): seed for the crop positions, the gains and the shuffle
             order. The split itself does not depend on it.
+        split_mode (str): 'bearing' for the protocol, 'segment' for the naive
+            comparator. See the module docstring. Defaults to 'bearing'.
 
     Returns:
         tf.data.Dataset, tf.data.Dataset: training dataset, held-out dataset.
@@ -394,14 +548,14 @@ def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
     _check_input_shape(input_shape)
     cache = _load_cache(data_path)
 
-    train_rows, test_rows = fold_rows(cache['bearing_id'], fold)
-    print(f'Fold {fold}: holding out bearings '
-          f'{held_out_bearings_for_fold(fold)}')
-    _describe('Train', cache, train_rows)
-    _describe('Held out', cache, test_rows)
+    plan = split_plan(cache['bearing_id'], fold, split_mode)
+    _describe_split(cache, plan, fold)
 
-    return (_train_dataset(cache, train_rows, batch_size, dtype, seed),
-            _eval_dataset(cache, test_rows, batch_size, dtype))
+    return (_train_dataset(cache, plan.train_rows, batch_size, dtype, seed,
+                           plan.train_region,
+                           plan.train_windows_per_recording),
+            _eval_dataset(cache, plan.test_rows, batch_size, dtype,
+                          plan.test_region))
 
 
 # def get_test_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
@@ -432,27 +586,31 @@ def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
 
 
 def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
-                num_samples=1024, fold=FIXED_FOLD, seed=0):
+                num_samples=1024, fold=FIXED_FOLD, seed=0,
+                split_mode=DEFAULT_SPLIT_MODE):
     """Load a block of training windows as a plain uint8 numpy array.
 
     Used for activation-sparsity measurement and hardware benchmarking, both of
     which need uint8 numpy input rather than a dataset. The draw is over the
-    fold's *training* recordings: Akida timings depend on input activity, so the
+    fold's *training* data: Akida timings depend on input activity, so the
     windows have to be real, but to avoid data leakage at quantization, they must
-    not come from held-out data.
+    not come from held-out data. Under 'segment' that means the training side of
+    the time cut, since every recording appears on both sides.
 
-    Up to EVAL_WINDOWS_PER_RECORDING per training recording (360 for a standard
-    fold) are the deterministic tiled windows; beyond that the remainder are
-    seeded random crops.
+    The deterministic tiled windows of the training region come first - 360 of
+    them either way, 36 recordings x 10 under 'bearing' and 60 x 6 under
+    'segment'; beyond that the remainder are seeded random crops.
 
     Args:
         data_path (str): directory holding the .npz cache.
         input_shape (tuple): model input shape; must be INPUT_SHAPE.
         num_samples (int): number of windows to return. Defaults to 1024.
         fold (int): bearing-disjoint fold index. Defaults to FIXED_FOLD.
+            Ignored when `split_mode` is 'segment'.
         seed (int): seed for the draw order and for any random crops. Akida
             timings and sparsity depend on input activity, so varying this
             varies the measurement.
+        split_mode (str): 'bearing' or 'segment'. Defaults to 'bearing'.
 
     Returns:
         np.ndarray: shape (num_samples,) + INPUT_SHAPE, dtype uint8.
@@ -461,10 +619,12 @@ def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
     cache = _load_cache(data_path)
     signals = cache['signals']
 
-    train_rows, _ = fold_rows(cache['bearing_id'], fold)
+    plan = split_plan(cache['bearing_id'], fold, split_mode)
+    train_rows = plan.train_rows
+    region_start, region_stop = plan.train_region
     rng = np.random.default_rng(seed)
 
-    tiled, _ = _eval_arrays(cache, train_rows)
+    tiled, _ = _eval_arrays(cache, train_rows, plan.train_region)
     idx = rng.permutation(len(tiled))[:num_samples]
     samples = tiled[idx]
 
@@ -473,7 +633,7 @@ def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
         extra = np.empty((shortfall, WINDOW_LENGTH), dtype=np.uint8)
         for k in range(shortfall):
             row = train_rows[rng.integers(0, len(train_rows))]
-            start = rng.integers(0, SIGNAL_LENGTH - WINDOW_LENGTH)
+            start = rng.integers(region_start, region_stop - WINDOW_LENGTH)
             window = np.array(signals[row, start:start + WINDOW_LENGTH],
                               dtype=np.float32)
             extra[k] = encode_uint8(window)
@@ -590,6 +750,11 @@ if __name__ == '__main__':
                         help='Bearing-disjoint fold to summarise')
     parser.add_argument('--seed', type=int, default=0,
                         help='Seed for the crop positions, gains and shuffle')
+    parser.add_argument('--split-mode', choices=SPLIT_MODES,
+                        default=DEFAULT_SPLIT_MODE,
+                        help="'bearing' is the leakage-free protocol; "
+                             "'segment' is the naive time-wise split within "
+                             'each recording, for comparison only')
     parser.add_argument('--prepare-raw', metavar='RAW_DIR', default=None,
                         help='Rebuild the .npz cache from the raw Mendeley CSV '
                              'tree instead of downloading it')
@@ -600,10 +765,12 @@ if __name__ == '__main__':
         print(f'Wrote {path} ({os.path.getsize(path) / 1e6:.0f} MB)')
         _load_cache.cache_clear()
 
-    if not (args.check_splits or args.report_encoding):
-        train_ds, test_ds = get_data(args.data, fold=args.fold, seed=args.seed)
-        samples = get_samples(args.data, num_samples=100, fold=args.fold,
-                              seed=args.seed)
-        print(f'\nBatches: train {len(train_ds)}, held out {len(test_ds)}')
-        print(f'Samples for benchmarking: {samples.shape} {samples.dtype} '
-              f'range [{samples.min()}, {samples.max()}]')
+    train_ds, test_ds = get_data(args.data, fold=args.fold, seed=args.seed,
+                                 split_mode=args.split_mode)
+    samples = get_samples(args.data, num_samples=100, fold=args.fold,
+                          seed=args.seed, split_mode=args.split_mode)
+    print(f'\nBatches: train {len(train_ds)}, held out {len(test_ds)}')
+    print(f'Windows: train {len(train_ds) * BATCH_SIZE}, '
+          f'held out {sum(1 for _ in test_ds.unbatch())}')
+    print(f'Samples for benchmarking: {samples.shape} {samples.dtype} '
+          f'range [{samples.min()}, {samples.max()}]')
