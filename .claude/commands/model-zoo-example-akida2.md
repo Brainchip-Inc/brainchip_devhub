@@ -120,6 +120,38 @@ examples. Import and use it rather than hardcoding clock values (see 3e).
 Create `TARGET_DIR` and the files below. For each, the VWW file is the direct structural
 template — preserve every pattern and only substitute `NAME`-specific content.
 
+### Prose and naming (applies to every file below)
+
+The reference example's *code structure* is the template, but its *prose* (docstrings, inline
+comments, notebook markdown) describes the reference's own model and dataset. Renaming
+identifiers is **not** enough — descriptive text copied verbatim carries facts that are wrong
+for this example. This is a common, high-impact failure: automated checks (syntax,
+`nbformat.validate`, the metrics bijection) all pass while the prose still describes the wrong
+model. Follow these rules for every generated file:
+
+- **Rewrite all prose for this example.** Every docstring, comment, and notebook markdown cell
+  must describe *this* model, dataset, input shape, class count, epoch count, and scheduler.
+  Do not carry over the reference's architecture description (e.g. "MobileNet", "ImageNet
+  pretrained weights"), its dataset name or path (e.g. `vw_coco2014_96`), or its training
+  details (e.g. "20 epochs", "step-decay") — substitute the real values for this example.
+- **No process or meta references in comments.** Comments are for a developer reading the file
+  cold, never about how it was generated or how it relates to other examples. Do NOT write:
+  "skill", "lifted from", "model-zoo naming convention", "the reference", "mirror the
+  reference", or cross-generation framing such as "Differences from the Akida 1 benchmark",
+  "as in the Akida 1 example", or "same scheme as vww_eval.py". State the fact directly
+  instead (e.g. "Benchmark details:" not "Differences from the Akida 1 benchmark:").
+- **Purge reference artifact names.** After generating, grep every file for the reference's
+  model-name prefixes (`mobilenet_vww`, `akidanet_vww`, `vww_`, and the like). These do not
+  match `<NAME>_` rename patterns and slip through — especially in `.save()` filenames and
+  model paths inside notebook cells. Zero occurrences should remain except genuine external
+  API names (e.g. the `akida_models` factory function the source uses).
+- **Titles match the Akida 1 counterpart.** If this task has an Akida 1 example, read its
+  README/notebook title and match it verbatim (minus the version qualifier). For example, use
+  "Speech Commands Keyword Spotting (KWS)", not a shortened "Keyword Spotting". Do not invent
+  a new title style.
+- **Spelling: American English** (e.g. `normalization`, `optimizer`, `color`), matching the
+  existing examples.
+
 ### 3a. `<NAME>_model.py`
 
 The model definition is **ported from the source example, not designed or derived**. The
@@ -315,7 +347,8 @@ Follow `akida2/model_zoo/vww/docs/README.md.template` exactly (same sections, sa
 rewriting content for this dataset/model. Sections in order:
 
 1. Logo image line — copy verbatim.
-2. `# <DISPLAY_NAME>` — readable title.
+2. `# <DISPLAY_NAME>` — readable title. If this task has an Akida 1 example, match its
+   README title verbatim (e.g. "Speech Commands Keyword Spotting (KWS)"), not a shortened form.
 3. `## Model Card` — the model card and benchmark tables:
    - **Model card**: rows-per-variant. One row per stored quantized variant (8-bit,
      4-bit QAT), columns `Variant | Weights/Acts | QAT | Quantized acc. | Akida acc. | Sparsity`.
@@ -388,7 +421,26 @@ Generate two notebooks plus a Jupytext mirror, following the `akida2/model_zoo/v
 notebooks:
 
 - **`<NAME>_notebook_training.ipynb`** — the training walkthrough. Cell structure:
-  1. Markdown: logo (absolute `raw.githubusercontent.com` URL) + title + overview.
+  1. Markdown: logo (absolute `raw.githubusercontent.com` URL) + title + **house-style intro**.
+     Match the Akida 1 examples' intro format exactly:
+     - Title (matching the Akida 1 counterpart, e.g. "Speech Commands Keyword Spotting (KWS) — Akida 2 Training").
+     - A `Run Time:` line (plain, left-aligned): `Run Time: ~<N> minutes with training included / <T> with training skipped`. Use the **measured** training time; if the training-skipped path can't be measured yet (no committed pretrained models), write `TBD` for that half rather than inventing a number.
+     - A one-line summary: "This notebook walks through the complete pipeline to train, quantize, convert, and evaluate a `<MODEL>` model on the **`<Dataset>`** dataset for Akida 2 hardware."
+     - A one-line dataset description (e.g. class count and class names).
+     - The numbered "standard Akida workflow" list, adapted to the two-variant v2 pipeline:
+       `1. Train a float model  2. 8-bit quantization (PTQ)  3. 4-bit quantization with QAT fine-tuning  4. Conversion to Akida .fbz format  5. Evaluation on Akida`.
+     - **Every explanatory cell must explain the *why*, not just restate the code**, whether
+       or not this task has an Akida 1 counterpart notebook to compare against. For each of
+       Model, Float Training, Quantization, QAT, Conversion, Evaluation, and Sparsity, give
+       the reasoning: architecture rationale (e.g. why this width multiplier / alpha), the
+       loss/scheduler choice and why, why 8-bit needs no QAT but 4-bit does, what the
+       tensor-shape squeeze in the Akida eval loop does and why it's needed, why sparsity
+       matters for Akida efficiency. A one- or two-sentence restatement of the code is
+       insufficient even when the section header is correct. **If an Akida 1 counterpart
+       notebook exists, also read it cell-by-cell and match or exceed its depth** — do not
+       settle for a thinner version of the same sections. If no counterpart exists, the
+       standard above (explain the why for each concept) still applies in full; there is
+       nothing to relax just because there is nothing to compare against.
   2. Code: the Colab-only setup cell — `if 'google.colab' in sys.modules:` → `wget`
      `colab_setup.py` (from `akida2/model_zoo/<NAME>/`) if absent → `import colab_setup;
      colab_setup.setup()`.
@@ -431,6 +483,23 @@ notebooks:
   (`get_akida_device` → `None` when absent → skip latency, still compute sparsity on the
   software backend). Latency-only, `MEASURED_CLOCK = 25e6` + provisional `PROJECTED_CLOCK`.
   This notebook is **not** Colab-fied (needs hardware) — no setup cell, no badge.
+  - **House-style intro** (cell 0): logo, title (matching the Akida 1 counterpart, e.g.
+    "Speech Commands Keyword Spotting (KWS) — Akida 2 Benchmark"), a `Run Time: ~<N> minutes`
+    line, a one-line summary ("This notebook walks through evaluating and benchmarking a model
+    on the **`<Dataset>`** dataset, targeting Akida 2 hardware."), a "For details on the dataset
+    and preparation of the model, see the neighbouring README.md and
+    `<NAME>_notebook_training.ipynb`." line, and a **Note callout** that the hardware benchmark
+    needs a physical Akida 2 FPGA device, that everything is guarded so it runs end-to-end
+    without a board (hardware cells skip), and that it will not produce hardware numbers in
+    Colab. Explain the reasoning behind each step here too — e.g. why real (not synthetic)
+    samples are used, why per-layer sparsity and latency are correlated — not just a
+    restatement of what each cell does. If an Akida 1 counterpart exists, match or exceed its
+    depth; if not, the explain-the-why standard still applies in full.
+  - **Loads the model from `pretrained_models/`, not `models/`** (house style). Include a
+    "## Model" markdown section explaining the pretrained `.fbz` is committed via `git-lfs` at
+    `pretrained_models/<model>_<NAME>_i8_w4_a4_qat.fbz`, pointing to the top-level README's
+    Trained models section, and noting that a user who trained their own can point `MODELS_DIR`
+    at `./models/`. Set `MODELS_DIR = './pretrained_models/'` and a `MODEL_FILENAME` variable.
 - **`<NAME>_notebook.py`** — the Jupytext `py:percent` mirror of the training notebook.
   Generate with `jupytext --to py:percent --opt comment_magics=false` (so the `!wget` magic
   stays uncommented), then remove the `comment_magics: false` line from the header for
@@ -469,7 +538,26 @@ Summarise:
    Also confirm the `--save-metrics` key set matches the template exactly (extract `{...}`
    placeholders from the template, compare against the union of keys the eval + benchmark
    scripts write — the two sets must be equal).
-4. A reminder that the pipeline was never executed — all accuracy/latency numbers in
+4. **Prose audit (separate from the structural checks above — those all pass even when the
+   prose is wrong).** The commands above verify structure, not correctness of descriptions.
+   Run these and fix any hit:
+   ```bash
+   cd TARGET_DIR
+   # reference artifact/model names must not survive anywhere (incl. notebook .save() paths):
+   grep -rn "mobilenet\|akidanet_vww\|vww\|vw_coco2014_96" *.py *.sh *.ipynb docs/* \
+       | grep -v "<the source's genuine akida_models factory name>"
+   # process / meta / cross-generation references must not appear:
+   grep -rn "skill\|lifted from\|model-zoo naming\|Differences from the Akida 1\|as in the Akida 1\|same scheme as vww" *.py *.sh *.ipynb
+   ```
+   Both greps should return nothing. Then **read every notebook markdown cell and every file
+   docstring** and confirm each names the correct model, dataset, dataset path, input shape,
+   class count, epoch count, and scheduler for *this* example — automated validation does not
+   catch prose that describes the wrong model. Confirm titles match the Akida 1 counterpart.
+   Also confirm markdown **depth**, not just correctness: thin one-line cells that don't
+   explain reasoning are a failure even if factually accurate, regardless of whether this task
+   has an Akida 1 counterpart. If a counterpart exists, compare cell-by-cell against it; if
+   not, judge depth against the explain-the-why standard in 3m directly.
+5. A reminder that the pipeline was never executed — all accuracy/latency numbers in
    `docs/metrics.json` and the README are `"TBD"` until the user runs the real pipeline and
    the `--save-metrics` maintenance commands.
 
@@ -504,3 +592,16 @@ Summarise:
   fully real regardless.
 - The metrics.json / template / `--save-metrics` key sets must be in exact three-way bijection
   (variant-prefixed keys). Verify programmatically, not by eye.
+- Prose is a first-class deliverable, verified separately from structure. All docstrings,
+  comments, and notebook markdown must describe *this* example (correct model, dataset, path,
+  epochs, scheduler) — the reference's prose describes the reference's model and must be
+  rewritten, not copied. No process/meta references ("skill", "lifted from") or
+  cross-generation framing ("Differences from the Akida 1 X", "as in the reference"). Titles
+  match the Akida 1 counterpart. A structurally-valid example can still have entirely wrong
+  prose; the Step 4 prose audit is mandatory.
+- **Notebook markdown depth matters as much as its correctness.** A notebook that is
+  structurally valid and factually accurate can still fail the standard if its explanatory
+  cells only restate the code instead of explaining the reasoning (the *why*) behind each
+  step. Where an Akida 1 counterpart exists, match or exceed its depth; where none exists
+  (e.g. a task with no Akida 1 version), the explain-the-why standard in 3m still applies in
+  full — there is no counterpart to fall back on, and none is needed to know what "thin" means.
