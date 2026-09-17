@@ -66,25 +66,25 @@ The interesting part of this example is not the model. It is the evaluation: thi
   <tbody>
     <tr>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">17</td>
+      <td align="center">1</td>
+      <td align="center">3947210</td>
+      <td align="center">9.868</td>
+      <td align="center">178.5</td>
+      <td align="center">1.784</td>
+      <td align="center">66.6</td>
+      <td align="center">0.666</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">27</td>
+      <td align="center">1</td>
+      <td align="center">2932072</td>
+      <td align="center">7.330</td>
+      <td align="center">201.4</td>
+      <td align="center">1.502</td>
+      <td align="center">88.8</td>
+      <td align="center">0.662</td>
     </tr>
   </tbody>
 </table>
