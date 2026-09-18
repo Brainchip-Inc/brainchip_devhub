@@ -24,11 +24,11 @@ The interesting part of this example is not the model. It is the evaluation: thi
   <tbody>
     <tr>
       <td>Naive segment-level <em>(leaky)</em></td>
-      <td align="center">0.9990</td>
-      <td align="center">0.9958</td>
+      <td align="center">0.9983</td>
       <td align="center">0.9963</td>
+      <td align="center">0.9973</td>
       <td align="center">335,444</td>
-      <td align="center">38.08%</td>
+      <td align="center">39.06%</td>
     </tr>
     <tr>
       <td>Bearing-level <em>(protocol)</em></td>

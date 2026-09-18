@@ -1,9 +1,9 @@
 {
-    "segment_float_auroc": "0.9990",
-    "segment_qat_auroc": "0.9958",
-    "segment_akida_auroc": "0.9963",
+    "segment_float_auroc": "0.9983",
+    "segment_qat_auroc": "0.9963",
+    "segment_akida_auroc": "0.9973",
     "segment_params": "335,444",
-    "segment_sparsity": "38.08%",
+    "segment_sparsity": "39.06%",
     "cv_folds": "100",
     "cv_seeds": "1",
     "cv_float_auroc_mean": "0.8950",
