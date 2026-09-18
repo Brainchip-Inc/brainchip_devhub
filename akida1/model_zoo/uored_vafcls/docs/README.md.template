@@ -90,8 +90,11 @@ Measured on the model provided in the `pretrained_models/` folder, trained on th
 <img src="docs/ref_benchmark_results_full.png" alt="Full model benchmark" width="700">
 
 `Minimal` mapping uses the fewest neural processors (NPs) that will hold the model; `AllNPs` spreads it over the available 
-NPs without increasing the number of passes: in this case, because the model almost fills the device anyway, there is minimal
-difference between these modes.
+NPs without increasing the number of passes: in this case, because the model almost fills the device anyway, there is only
+a slight difference between these modes. 'HwPr' mode tries to accelerate the model even further, by splitting the model
+over more passes (effectively increasing the number of NPs available per layer). That strategy is effective for a 
+majority of models, but not in this case: that's because the model is small, and fits in a single pass by default; any 
+gain per-layer is outweighed by the need to reload model weights on every inference.
 
 The model maps entirely to hardware in a single sequence, single pass.
 

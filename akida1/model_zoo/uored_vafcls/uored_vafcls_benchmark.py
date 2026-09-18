@@ -114,7 +114,7 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # Full-model benchmark (latency + optional power)
     # -------------------------------------------------------------------------
-    map_modes = ['Minimal', 'AllNps']
+    map_modes = ['Minimal', 'AllNps', 'HwPr']
     POWER_REPEATS = 10
     full_results = dict()
     for mm in map_modes:

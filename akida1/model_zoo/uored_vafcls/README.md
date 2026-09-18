@@ -64,23 +64,23 @@ This example tries to convey two different points:
       <td>Minimal</td>
       <td align="center">17</td>
       <td align="center">1</td>
-      <td align="center">3947210</td>
-      <td align="center">9.868</td>
-      <td align="center">178.5</td>
-      <td align="center">1.784</td>
-      <td align="center">66.6</td>
-      <td align="center">0.666</td>
+      <td align="center">3930879</td>
+      <td align="center">9.827</td>
+      <td align="center">179.2</td>
+      <td align="center">1.782</td>
+      <td align="center">67.5</td>
+      <td align="center">0.671</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">27</td>
       <td align="center">1</td>
-      <td align="center">2932072</td>
-      <td align="center">7.330</td>
-      <td align="center">201.4</td>
-      <td align="center">1.502</td>
-      <td align="center">88.8</td>
-      <td align="center">0.662</td>
+      <td align="center">2932933</td>
+      <td align="center">7.332</td>
+      <td align="center">201.9</td>
+      <td align="center">1.506</td>
+      <td align="center">89.0</td>
+      <td align="center">0.664</td>
     </tr>
   </tbody>
 </table>
@@ -90,8 +90,11 @@ Measured on the model provided in the `pretrained_models/` folder, trained on th
 <img src="docs/ref_benchmark_results_full.png" alt="Full model benchmark" width="700">
 
 `Minimal` mapping uses the fewest neural processors (NPs) that will hold the model; `AllNPs` spreads it over the available 
-NPs without increasing the number of passes: in this case, because the model almost fills the device anyway, there is minimal
-difference between these modes.
+NPs without increasing the number of passes: in this case, because the model almost fills the device anyway, there is only
+a slight difference between these modes. 'HwPr' mode tries to accelerate the model even further, by splitting the model
+over more passes (effectively increasing the number of NPs available per layer). That strategy is effective for a 
+majority of models, but not in this case: that's because the model is small, and fits in a single pass by default; any 
+gain per-layer is outweighed by the need to reload model weights on every inference.
 
 The model maps entirely to hardware in a single sequence, single pass.
 
