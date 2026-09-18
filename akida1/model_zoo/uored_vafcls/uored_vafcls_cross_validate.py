@@ -55,9 +55,7 @@ from uored_vafcls_eval import (auroc_scores, evaluate_akida_model,
 from uored_vafcls_model import build_uored_vafcls_model
 from uored_vafcls_train import train_uored_vafcls
 
-# Same reason as in the training and evaluation scripts, and it matters most
-# here: without deterministic ops, a fold's score moves by up to 0.024 between
-# identical runs, which would swamp any recipe comparison this script is used for.
+
 tf.config.experimental.enable_op_determinism()
 
 DEFAULT_OUT = pathlib.Path(__file__).parent / 'docs' / 'cv_results.csv'
@@ -241,14 +239,6 @@ def _per_fold(rows, column):
 
 def summarise(rows, quiet=False):
     """Report the fold distribution for each stage and return the cv_* metrics.
-
-    What is printed and what is returned are deliberately different. The console
-    gets the full distribution - standard error, per-stage min/median/max, and
-    the within-fold seed spread - because that is what tells whoever ran the
-    sweep whether to trust it. The returned dict is only what the README
-    template reads: the three stage means, plus the Akida spread that the
-    'Why cross-validation is not optional' section argues from.
-
     Args:
         rows (list): result rows, as read from the CSV.
         quiet (bool): suppress printing.
@@ -270,8 +260,6 @@ def summarise(rows, quiet=False):
 
         metrics[f'cv_{stage}_auroc_mean'] = f'{mean:.4f}'
         if stage == 'akida':
-            # Only the deployed stage's spread is published, and only because
-            # the README argues from it in prose.
             metrics['cv_akida_auroc_std'] = f'{std:.4f}'
             metrics['cv_akida_auroc_min'] = f'{values.min():.4f}'
             metrics['cv_akida_auroc_max'] = f'{values.max():.4f}'

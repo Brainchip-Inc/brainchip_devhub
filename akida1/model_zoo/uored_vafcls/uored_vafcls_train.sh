@@ -6,8 +6,12 @@
 #
 # Usage:  bash uored_vafcls_train.sh [DATADIR] [FOLD] [SEED]
 #
-# FOLD defaults to 5, the first of the 100 evaluation folds and the fold the
-# pretrained models and the published hardware numbers come from.
+# FOLD defaults to 42
+# This is used as a reference fold, used for the pretrained models 
+# and the published hardware numbers.
+# This fold was picked because performance is very close to the 100-fold 
+# cross-validation mean, thereby avoiding giving a false impression of 
+# model accuracy for readers glancing at e.g. the training notebook.
 #
 # A single fold tells you very little about this model. The across-fold spread
 # is 0.04-0.05 macro AUROC and folds range from about 0.70 to about 0.99 with
@@ -20,7 +24,7 @@
 
 DATADIR="${1:-}"
 DATA_ARG=${DATADIR:+-d "$DATADIR"}
-FOLD="${2:-${FOLD:-5}}"
+FOLD="${2:-${FOLD:-42}}"
 SEED="${3:-${SEED:-0}}"
 COMMON="--fold $FOLD --seed $SEED $DATA_ARG"
 
@@ -39,8 +43,7 @@ python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls.h5 $COMMON
 # 4 - Post-training quantization: 4-bit weights and activations, 8-bit input
 cnn2snn quantize -m models/akdcnn_uored_vafcls.h5 -i 8 -w 4 -a 4
 
-# 5 - Quantization-aware tuning. Larger than this repository's usual 2 epochs:
-#     at 6 steps per epoch, 2 epochs is 12 optimizer steps and recovers nothing.
+# 5 - Quantization-aware tuning.
 python uored_vafcls_train.py -l models/akdcnn_uored_vafcls_iq8_wq4_aq4.h5 \
     -s models/akdcnn_uored_vafcls_qat.h5 -e 10 -lr 5e-5 -b 120 $COMMON
 

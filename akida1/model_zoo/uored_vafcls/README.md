@@ -1,14 +1,16 @@
 <img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
 
-# Bearing Fault Diagnosis (UORED-VAFCLS)
+# Bearing Fault Diagnosis from Vibration data (UORED-VAFCLS)
 
 Multi-label detection of rolling-element bearing faults — inner race, outer race, ball and cage — from one second of raw 42 kHz accelerometer data. The four faults are independent labels rather than classes, and a healthy bearing is the all-zero vector, not a fifth class. The reported metric is therefore macro AUROC, which needs no decision threshold.
 
-The interesting part of this example is not the model. It is the evaluation: this dataset makes it extremely easy to report a number that is far better than the model deserves, in at least two different ways, and most of what follows is about not doing that.
+This example tries to convey two different points:
+- how to prepare and evaluate a model for Akida 1, for single-channel time-series data
+- the particularities of this and related datasets that mean that special care needs to be taken in preparing the training and evaluation splits, and that comparison across published results is extremely difficult
 
 ## Model Card
 
-**The same model, the same recipe, two ways of splitting the data.** The top row is a single train-and-evaluate run under a deliberately naive split; the bottom row is the mean over 100 bearing-disjoint folds × 1 seed. Identical architecture, identical training budget — 720 training and 240 held-out windows either way — so the only thing separating the two rows is whether the split was allowed to leak. **The bottom row is the model's performance.**
+**The table reports results for a single model architecture with only the method used to split the training and evaluation data changed.** See below for full details.
 
 <table>
   <thead>
@@ -23,7 +25,7 @@ The interesting part of this example is not the model. It is the evaluation: thi
   </thead>
   <tbody>
     <tr>
-      <td>Naive segment-level <em>(leaky)</em></td>
+      <td>Segment-level</td>
       <td align="center">0.9983</td>
       <td align="center">0.9963</td>
       <td align="center">0.9973</td>
@@ -31,7 +33,7 @@ The interesting part of this example is not the model. It is the evaluation: thi
       <td align="center">39.06%</td>
     </tr>
     <tr>
-      <td>Bearing-level <em>(protocol)</em></td>
+      <td>Bearing-level</td>
       <td align="center">0.8950</td>
       <td align="center">0.8939</td>
       <td align="center">0.8939</td>
@@ -40,12 +42,6 @@ The interesting part of this example is not the model. It is the evaluation: thi
     </tr>
   </tbody>
 </table>
-
-> **The gap between those two rows is the point of this example.** The naive row is what this dataset hands you if you split it the obvious way — by time within each recording, so the same bearing appears on both sides. It is not a result, and it is not quoted anywhere else in this README. The bearing-level row is lower because it is honest, not because the model is worse.
->
-> Read the bearing-level row as a distribution, not a number. Individual folds range from 0.6989 to 0.9892 — a spread many times larger than the difference between any two architectures anyone would want to compare. Quoting one fold's score as a model's performance is quoting noise. See [Why cross-validation is not optional](#why-cross-validation-is-not-optional).
-
-<img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
 
 **AKD1500 hardware benchmark**
 
@@ -89,97 +85,103 @@ The interesting part of this example is not the model. It is the evaluation: thi
   </tbody>
 </table>
 
-*Measured on the model trained on the bearing-level split at fold 5 — the weights shipped in `pretrained_models/` — which is a fixed, reproducible artefact rather than a performance claim. The architecture, the input shape and the quantization are identical under either split, so these latency, power and mapping figures apply to both rows of the Model Card.*
+Measured on the model provided in the `pretrained_models/` folder, trained on the bearing-level split at fold 5.
 
 <img src="docs/ref_benchmark_results_full.png" alt="Full model benchmark" width="700">
 
-`Minimal` mapping uses the fewest neural processors that will hold the model; `AllNPs` spreads it over everything available, which usually trades power for latency. This model is an unusual case: it already saturates the device in `Minimal` mode, so the two mappings are nearly identical.
+`Minimal` mapping uses the fewest neural processors (NPs) that will hold the model; `AllNPs` spreads it over the available 
+NPs without increasing the number of passes: in this case, because the model almost fills the device anyway, there is minimal
+difference between these modes.
 
-The model maps entirely to hardware — 1 HRC input convolution, 41 CNP1 convolutional processors, one FNP2 and one FNP3 for the two fully-connected layers, in a single sequence over two passes. One caveat worth knowing before reading the per-layer plot: the `fc` layer's 2432 × 100 weight matrix does not fit in on-chip memory and needs 184 kB of external memory, so unlike most examples here there is real DMA traffic on every inference, and `fc` dominates the latency breakdown.
+The model maps entirely to hardware in a single sequence, single pass.
 
 <img src="docs/ref_benchmark_results_layers.png" alt="Per-layer benchmark" width="700">
 
-## Why cross-validation is not optional
-
-This dataset has 60 recordings from **20 physical bearings**. A fold trains on 12 bearings and is tested on the 8 held out. That is a small enough test set that the choice of which bearings are held out matters more than almost anything about the model:
-
-- The **across-fold** standard deviation is 0.0666, and folds range from 0.6989 to 0.9892 with the architecture, the recipe and the seed all held fixed.
-- The **within-fold** standard deviation across random seeds is 0.0186 (measured over 25 folds at 3 seeds each) — comparable to the entire across-fold spread.
-
-So a single-fold, single-seed AUROC cannot distinguish two architectures on this dataset. For scale: the WDCNN network this model descends from and this model itself differ by about 0.03 in their 100-fold means, which is *less* than one fold's seed-to-seed noise. Any comparison made on one fold is a coin toss dressed up as a result.
-
-The practical rules this example follows:
-
-1. **The reported number is the mean over all 100 evaluation folds**, produced by `uored_vafcls_cross_validate.py`. The per-fold results are committed in [`docs/cv_results.csv`](docs/cv_results.csv) so the mean is auditable without re-running anything.
-2. **Folds 0–4 are the tuning budget.** Every hyperparameter — epochs, learning rate, the QAT schedule, the input encoding constants — was chosen there. Folds 5–104 are never tuned on.
-3. **Single-fold artefacts are labelled as such.** The pretrained weights and every hardware measurement come from fold 5, and are presented as a fixed reference point, not a performance claim.
-
 ## Requirements
 
-See the [requirements section](../../../README.md#requirements) of the top-level README for the environment used throughout this repository.
-
-This example additionally uses `scikit-learn` (for `roc_auc_score`, the reported metric), `pooch` (dataset download) and `pandas` (results bookkeeping; also `pyarrow` if you cross-check the split against the published fixtures).
+See the [requirements section](../../../README.md#requirements) of the top-level README for the environment used 
+throughout this repository.
 
 ## Dataset
 
-**UORED-VAFCLS** — the University of Ottawa Rolling-element Dataset, Vibration and Acoustic Faults under Constant Load and Speed. 60 accelerometer recordings, each 10 s at 42 kHz, from 20 bearings. Every bearing contributes three recordings: one healthy, plus two severities of a single fault mode.
+**UORED-VAFCLS** — the University of Ottawa Rolling-element Dataset, Vibration and Acoustic Faults under Constant Load and Speed. 
+
+This dataset comprises 60 accelerometer recordings, each 10 s at 42 kHz, from 20 bearings. Every bearing contributes three recordings:
+one healthy, plus two severities of a single fault mode.
 
 | | |
 |---|---|
 | Recordings | 60 (20 bearings × 3) |
 | Length | 10 s at 42 kHz (420,000 samples) |
-| Model input | 1 s window, framed to 1200 × 35 |
+| Model input | 1 s window |
 | Labels | 4 independent: inner, outer, ball, cage (healthy = all zero) |
 | Windows per fold | 720 training (random crops), 240 held-out (tiled) |
+
+<img src="docs/signal_mosaic.png" alt="Sample recordings from the UORED-VAFCLS dataset" width="1000">
 
 Downloaded from [Mendeley Data, doi:10.17632/y2px5tg92h.5](https://data.mendeley.com/datasets/y2px5tg92h/5), licensed **CC BY 4.0** (https://creativecommons.org/licenses/by/4.0/):
 
 > Sehri, Maryam; Dumond, Patrick (2023), *"University of Ottawa Rolling-element Dataset – Vibration and Acoustic Faults under Constant Load and Speed conditions (UORED-VAFCLS)"*, Mendeley Data, V5, doi: 10.17632/y2px5tg92h.5
 
-*Changes made, as the licence requires us to state:* the `Accelerometer` column of the raw CSVs is repacked unmodified into a single float32 `.npz`; the pipeline in this example then removes a per-recording DC offset and rescales each recording to an 8-bit range (see [Input encoding](#input-encoding)).
+*Changes made, as the licence requires us to state:* for convenience, we make the data required in this example available
+as a single file for download from the BrainChip servers, that is, the `Accelerometer` column of the raw CSVs repacked
+unmodified into a single float32 `.npz`.
 
-The evaluation protocol, and the leakage argument behind it, follow:
+## The Problem of Realistic Evaluation of Bearing Fault Diagnosis Models
+
+This example draws very directly from the following article, which itself builds on a number of related publications that establish a 
+widespread methodological problem in the evaluation of machine learning approaches to the key datasets in the diagnosis of bearing faults
+from vibration data (UORED-VAFCLS used here, but even more strikingly in the key datasets in the domain, CWRU and Paderborn):
 
 > J. P. Vieira, V. A. Bauler, R. K. Rosa, D. Silva, *"Towards a more realistic evaluation of machine learning models for bearing fault diagnosis"*, Mechanical Systems and Signal Processing 258:114640, 2026. doi:10.1016/j.ymssp.2026.114640 ([arXiv:2509.22267](https://arxiv.org/abs/2509.22267), [code](https://github.com/gama-ufsc/bearing-data-leakage))
 
-That work reports 0.9100 ± 0.0553 macro AUROC for a WDCNN on this protocol; a local reimplementation scored 0.9034 ± 0.0528 over the same 100 folds. Those figures are quoted for context only — they were measured on a different input pipeline, and are not comparable line-for-line with the Model Card (see [Input encoding](#input-encoding)).
+The abstract from that article sets the context clearly: *"While recent advances in machine learning (ML), particularly 
+deep learning, have shown strong performance in controlled settings, many studies fail to
+generalize to real-world applications due to methodological flaws, most notably data leakage.
+This paper investigates the issue of data leakage in vibration-based bearing fault diagnosis and
+its impact on model evaluation. We demonstrate that common dataset partitioning strategies,
+such as segment-wise and condition-wise splits, introduce spurious correlations that inflate
+performance metrics."*
 
-## Leakage and the bearing-level split
+The risk is specific and easy to walk into. These datasets are built from a small number of physical bearings, each recorded
+over a short, uninterrupted run under a single load and speed, and the fault mode is a property of the bearing rather than of
+the signal: here, bearings 1–5 carry inner-race faults, 6–10 outer, 11–15 ball, 16–20 cage. Any split that lets windows from
+one recording — or from one bearing — fall on both sides of the train/test boundary therefore hands the model a shortcut. It
+can re-identify the recording from its noise floor, its mounting resonances or its running speed and read the label straight
+off that identity, without learning anything transferable about bearing faults at all. Segment-wise splits (cutting each
+recording in time) and condition-wise splits (holding out load or speed settings while keeping the same bearings) both leak in
+exactly this way, and both are common in the published literature. The consequence is that near-perfect headline accuracies —
+99%+ is routine on CWRU — measure the ease of recognising a recording, not the ability to diagnose an unseen bearing, and they
+collapse as soon as the model meets hardware it has not been recorded on. It also makes cross-paper comparison largely
+meaningless: two results on the same dataset are usually not measuring the same thing.
 
-**In this dataset, fault mode is a property of the bearing.** Bearings 1–5 have inner-race faults, 6–10 outer-race, 11–15 ball, 16–20 cage. No bearing ever exhibits two modes. The consequence is severe: under any split that is not bearing-disjoint, a model that simply re-identifies *which bearing it is listening to* scores near-perfectly without learning anything about faults at all. Near-duplicate slices of the same 10 s recording on both sides of the split are enough to make that trivial.
+The reference citation above sets out a rigorous protocol for each of the datasets explored. The UORED-VAFCLS dataset used here 
+has 60 recordings from **20 physical bearings**. A fold trains on 12 bearings and is tested on the 8 held out, the
+key point being that an individual physical bearing never appears in both train and test data (even data from separate recordings
+is disallowed, e.g. if the 'healthy' recording for bearing 0 is put in the train data, then the 'fault' recordings for that bearing
+must not be in the test split). You can consult the details of the data split preparation in the relevant script, `uored_vafcls_data.py`.
 
-The split here partitions on `bearing_id` **before any windowing**, holding out 2 bearings from each of the 4 fault modes — 8 of 20 bearings, and all three of each held-out bearing's recordings together. Enumerating every such choice gives C(5,2)⁴ = 10,000 folds, shuffled once with a fixed seed and indexed by fold number, so fold *N* here is fold *N* in the reference implementation.
+That rigorous data split has knock-on consequences: the data splits are small enough that the choice of which bearings are held out
+matters more than almost anything about the model:
 
-Verify it yourself, over all 105 tuning and evaluation folds:
+- The **across-fold** standard deviation is 0.0666, and folds range from 0.6989 to 0.9892
+  with the architecture, the recipe and the seed all held fixed. See the plot of below showing performance across folds.
+- The **within-fold** standard deviation across random seeds is 0.0186 (measured over 25 folds at 3 
+  seeds each).
 
-```bash
-python uored_vafcls_data.py --check-splits
-```
+<img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
 
-**There is a second, subtler leak in the raw signals.** Amplitude is partly a recording fingerprint rather than a fault signature. All ten inner-race recordings sit at a mean of 46.6–55.6 while every outer-race and ball recording sits at 0.9–3.1. Used alone, with no model at all, the per-recording *mean* scores 0.776 AUROC on the inner-race label and 0.744 on cage; the per-recording *standard deviation* scores 0.798 on inner-race. A pipeline that feeds unnormalised signals lets the network read a large part of the answer off the DC offset. The input encoding below removes it — which lowers the reported score, and should.
+So a single-fold, single-seed AUROC cannot distinguish two architectures on this dataset. It is absolutely necessary to run multi-fold
+cross-validation to have anything approaching an accurate evaluation. For the bearing-wise split, this example follows the protocol
+set out by the reference paper above:
+1. **The reported number is the mean over all 100 evaluation folds**, produced by `uored_vafcls_cross_validate.py`. The per-fold results are committed in [`docs/cv_results.csv`](docs/cv_results.csv) so the mean is auditable without re-running anything.
+2. **Folds 0–4 are the tuning budget.** Every hyperparameter — epochs, learning rate, the QAT schedule, the input encoding constants — was chosen there. Folds 5–104 are never tuned on.
 
-## Input encoding
-
-Akida takes 8-bit inputs. That is not merely an implementation detail here, because per-recording signal standard deviation spans **69×** across this dataset (1.87 to 129.4) and 8 bits is 256 levels. A single global scale wide enough for the loudest recording puts the quietest one below a single quantisation level. Per-recording scaling is *forced* by the hardware; it is not a modelling choice.
-
-So each window is encoded from its own recording's statistics — the centre and the 99.9th percentile of absolute deviation, both computed once over the whole 10 s trace:
-
-| Headroom | uint8 levels per signal σ (min / median) | clipped at gain 1.0 | at 1.7 | at 2.4 |
-|---|---|---|---|---|
-| 1.0 | 13.4 / 30.3 | 0.0997% | 4.31% | 11.65% |
-| **2.0** (used) | **6.7 / 15.1** | **0.0003%** | **0.026%** | **0.56%** |
-| 3.0 | 4.5 / 10.1 | ~0% | 0.001% | 0.016% |
-
-Regenerate that table for your own cache with `python uored_vafcls_data.py --report-encoding`.
-
-Two details that are easy to get wrong:
-
-- **The statistics are per recording, never per window.** A window-dependent scale — min-max normalisation, say — is scale-invariant, which would silently turn the training pipeline's random gain augmentation into a no-op.
-- **The gain is applied before encoding**, to the float waveform, so it survives the rescale. The zero point sits at mid-scale, so the ~8% of gains that come out negative are a genuine polarity inversion rather than a clamp.
-
-The inverse lives *inside* the model, as a `Rescaling` layer, so full-precision training, quantization-aware tuning and Akida inference all see identical values; `cnn2snn` folds it into the first convolution at conversion.
-
-**This is a deviation from the source pipeline, and it costs accuracy.** The reference implementation applied no normalisation at all and scored 0.9317 ± 0.0436 over these same 100 folds. That number is *not* in the Model Card and could not honestly be put there: it was measured on raw float inputs that still contained the amplitude confound described above. The figures in the Model Card were all re-measured with this encoding. What mitigates the change is that the protocol's own augmentation is a random per-window rescale with σ = 0.7 — the model is *explicitly* trained to be amplitude-invariant, so a fixed per-recording rescale falls inside the augmentation's own hypothesis class.
+### The Comparison: Segment-level Split
+To demonstrate the importance of this rigorous leakage-free split (and, admittedly, to show that the model developed here for 
+Akida is just as good as other published models, that the issue is on the data side, not the model) we present results for 
+a segment-level split (i.e. every 10 second recording split to 6 seconds training, 4 seconds test data). Sure enough, the
+model achieves **>99.5% AUROC**, and that without any further tuning for that version of the task.
 
 ## Dataset setup
 
@@ -189,17 +191,21 @@ The prepared cache downloads automatically on first use, to `--data` (default `.
 python uored_vafcls_data.py -d ./data/uored_vafcls
 ```
 
-If you already hold the raw dataset, rebuild the cache from it instead. Download `1_CSV_Raw_Data_Files (.csv)` from the Mendeley record and point at the directory containing the five `1_Healthy` … `5_Cage_Faults` subfolders:
+If you prefer a different data location to the default (e.g. because your system has a dedicated data drive), you may find it
+easy to set up a symbolic link from the default location. That way you can avoid passing the data path argument to all of the 
+scripts:
+
+```bash
+ln -s /path/to/shared/uored_vafcls ./data/uored_vafcls
+```
+
+If you already hold the raw dataset, rebuild the cache from it instead. Download `1_CSV_Raw_Data_Files (.csv)` from the 
+Mendeley record and point at the directory containing the five `1_Healthy` … `5_Cage_Faults` subfolders:
 
 ```bash
 python uored_vafcls_data.py --prepare-raw /path/to/1_CSV_Raw_Data_Files
 ```
 
-To share one copy between checkouts, symlink it:
-
-```bash
-ln -s /path/to/shared/uored_vafcls ./data/uored_vafcls
-```
 
 ## Pipeline
 
@@ -207,21 +213,24 @@ ln -s /path/to/shared/uored_vafcls ./data/uored_vafcls
 |---|---|
 | Full-precision training | 30 epochs, Adam, batch 120 (6 steps/epoch), cosine decay with 5% warmup to a peak LR of 2e-4 |
 | Post-training quantization | `cnn2snn quantize` reduces to 4-bit weights and activations (8-bit input) |
-| Quantization-aware tuning | 30 epochs at a peak LR of 2e-4, recovering part of the quantization loss |
+| Quantization-aware tuning | 10 epochs at a peak LR of 5e-5, recovering almost all of the quantization loss |
 | Conversion to Akida | `cnn2snn convert` produces the `.fbz` model that runs on hardware |
-
-Two notes on the recipe, both settled on folds 0–4:
-
-- **The learning-rate schedule spans the real step count.** The reference implementation hard-coded it and undershot by a sixth, leaving the last few epochs at a floor of zero — effectively training for fewer epochs than it appeared to. Here `total_steps` is derived from the dataset, so it cannot drift if the batch size or window count changes.
-- **The QAT budget is larger than this repository's usual 2 epochs.** At 6 steps per epoch, 2 epochs is 12 optimizer steps, which recovers nothing. Even so, 4-bit quantization costs real accuracy on this architecture — compare the float and Akida rows of the Model Card. That cost is a property worth reporting, not a bug to tune away.
 
 ## Reference Models
 
 The trained models in `pretrained_models/` are stored with Git LFS. See the [trained models section](../../../README.md#trained-models) of the top-level README if they arrive as text pointer files rather than real weights.
 
+These models are necessarily trained on a specific fold. For that, we've selected fold 42, because performance is close to the 100-fold cross-validation value 
+(obviously, that in itself doesn't make the single-fold accuracy value any more meaningful; rather we hope to avoid any misunderstandings about performance
+if a reader is not following the detail of this example). In any case, the pretrained model is only used for benchmarking on hardware which, since the architecture
+is constant, should be more or less constant across folds (will vary only to the extent that learned sparsity within the model varies across training runs).
+
 ## Usage
 
 ### Notebook
+
+> ⚠️ **Work in progress — the notebooks are not included in this release yet.** The section below describes what they will
+> cover; until they land, use the scripts described under [Script](#script). The links will not resolve.
 
 [`uored_vafcls_notebook_training.ipynb`](uored_vafcls_notebook_training.ipynb) walks through the whole pipeline on a single fold: the dataset and its two leakage traps, how a 1 s waveform becomes a framed uint8 tensor, training, quantization, tuning and conversion. It also loads `docs/cv_results.csv` to show the fold distribution without needing a two-hour run.
 
@@ -249,11 +258,16 @@ bash uored_vafcls_train.sh [DATADIR] [FOLD] [SEED]
 python uored_vafcls_cross_validate.py --save-metrics
 ```
 
-It runs the whole chain on each of the 100 evaluation folds, appending to `docs/cv_results.csv` after every fold, and takes roughly 30–60 minutes. It resumes by default, so an interrupted run picks up where it stopped. Add `--skip-akida` for a roughly 4× faster float-only sweep when comparing recipes, and `--first-fold`/`--last-fold` to split the work across machines.
+It runs the whole chain on each of the 100 evaluation folds, appending to `docs/cv_results.csv` after every fold, and takes roughly 30–60 minutes. 
+It resumes by default, so an interrupted run picks up where it stopped. Add `--skip-akida` for a roughly 4× faster float-only sweep when comparing 
+recipes, and `--first-fold`/`--last-fold` to split the work across machines, or to limit to the first 5 folds (0-4) if working on tuning the model
+or pipeline (remember, folds 5-104 are for the final evaluation only).
 
 ## Contributing and Maintenance
 
-`README.md` in this folder is **generated** — edit [`docs/README.md.template`](docs/README.md.template), never `README.md` directly. The performance tables are filled from `docs/metrics.json`, which is written by the `--save-metrics` flags:
+`README.md` in this folder is **generated** — edit [`docs/README.md.template`](docs/README.md.template), never `README.md` directly. The performance 
+tables are filled from `docs/metrics.json`, which is written by the `--save-metrics` flags (if updating results following changes to the model or
+pipeline, remember to delete the `.csv` files first, or use the `--no-resume` argument on the cross-validation runs):
 
 ```bash
 # Bearing-level split (the protocol) - the Model Card's bottom row.

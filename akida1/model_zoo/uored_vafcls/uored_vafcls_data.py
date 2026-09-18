@@ -66,26 +66,24 @@ an accuracy figure would depend on an arbitrary threshold.
                            
 DATA PREPARATION
 
-The raw input vectors are reshaped to a 2D input, (1200, 35, 1). Note that's a 
-plain reshape, not a spectrogram: row j is samples [35j, 35j+35), so the row axis
-is coarse time (1200 frames, 0.833 ms apart) and the column axis is fine phase 
-within a frame. It happens here rather than in the model because an Akida graph 
+The raw input vectors are reshaped to a 2D input. Note that's a plain reshape,
+not a spectrogram. It happens here rather than in the model because an Akida graph 
 cannot contain a reshape - the deployed model receives the already-framed tensor.
 
 
 Usage:
     from uored_vafcls_data import get_data, get_test_data, get_samples
 
-    train_ds, test_ds = get_data('./data/uored_vafcls', (1200, 35, 1),
+    train_ds, test_ds = get_data('./data/uored_vafcls', (300, 140, 1),
                                  batch_size=120, fold=5, seed=0)
-    samples = get_samples('./data/uored_vafcls', (1200, 35, 1), num_samples=100)
+    samples = get_samples('./data/uored_vafcls', (300, 140, 1), num_samples=100)
 
     # The naive comparator, for contrast only:
-    train_ds, test_ds = get_data('./data/uored_vafcls', (1200, 35, 1),
+    train_ds, test_ds = get_data('./data/uored_vafcls', (300, 140, 1),
                                  split_mode='segment')
 
 Summarise either split without training anything:
-    python uored_vafcls_data.py --fold 5
+    python uored_vafcls_data.py --fold 42
     python uored_vafcls_data.py --split-mode segment
 
 Rebuild the cache from the raw Mendeley CSVs:
@@ -137,7 +135,7 @@ N_BEARINGS_PER_FAULT_MODE = 2   # 2 of 5 held out per mode -> 8 of 20 bearings
 SPLIT_SEED = 42                 # fixes the fold numbering; see the note below
 TUNING_FOLDS = range(0, 5)      # the only folds a hyperparameter may be chosen on
 EVAL_FOLDS = range(5, 105)      # the 100 folds the reported mean comes from
-FIXED_FOLD = 5                  # pretrained models + hardware benchmark
+FIXED_FOLD = 42                  # pretrained models + hardware benchmark
 
 # 'bearing' is the protocol. 'segment' is the naive comparator described in the
 # module docstring - a time-wise split within each recording, which leaks badly
@@ -556,33 +554,6 @@ def get_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
                            plan.train_windows_per_recording),
             _eval_dataset(cache, plan.test_rows, batch_size, dtype,
                           plan.test_region))
-
-
-# def get_test_data(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,
-#                   batch_size=BATCH_SIZE, dtype=tf.uint8, fold=FIXED_FOLD):
-#     """Load only the held-out dataset for one fold.
-
-#     Deterministic: EVAL_WINDOWS_PER_RECORDING contiguous windows per recording.
-#     Evaluation of the dataset at this temporal resolution  is defined by the
-#     reference protocol.
-
-#     Args:
-#         data_path (str): directory holding the .npz cache.
-#         input_shape (tuple): model input shape; must be INPUT_SHAPE.
-#         batch_size (int): the batch size.
-#         dtype (tf.dtypes.DType, optional): input data type. Defaults to tf.uint8.
-#         fold (int): bearing-disjoint fold index. Defaults to FIXED_FOLD.
-
-#     Returns:
-#         tf.data.Dataset: held-out dataset yielding (uint8 windows, float labels).
-#     """
-#     _check_input_shape(input_shape)
-#     cache = _load_cache(data_path)
-
-#     _, test_rows = fold_rows(cache['bearing_id'], fold)
-#     _describe(f'Held out (fold {fold})', cache, test_rows)
-
-#     return _eval_dataset(cache, test_rows, batch_size, dtype)
 
 
 def get_samples(data_path=DEFAULT_DATA_PATH, input_shape=INPUT_SHAPE,

@@ -50,6 +50,10 @@ if __name__ == '__main__':
                              'valid on the fixed fold')
     args = parser.parse_args()
 
+    # Power measurement on the integrated device is rather low frequency
+    # (tens of milliseconds). Ensure that enough samples are used so that
+    # each run is long enough to ensure multiple measurements, ideal about
+    # 1 second per recording
     NUM_SAMPLES = 100
 
     if args.save_metrics and args.fold != FIXED_FOLD:

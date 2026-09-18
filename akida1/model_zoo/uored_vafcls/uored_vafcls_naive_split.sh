@@ -14,7 +14,7 @@
 # The naive split divides each recording by time - the first 60% trains, the
 # last 40% tests - so all 20 bearings appear on both sides, and windows seconds
 # apart from the same bearing, the same fault and the same run are split across
-# train and test. Both splits draw the same 720 training and 240 test windows,
+# train and test. Both splits draw the same total number of training and test windows,
 # so the difference in score is attributable to the leakage and nothing else.
 # See the DATA SPLIT PROTOCOL notes in uored_vafcls_data.py.
 #
