@@ -82,6 +82,17 @@ The table reports results for a **single model architecture**. Only the method u
       <td align="center">{allnps_dyn_P}</td>
       <td align="center">{allnps_dyn_E}</td>
     </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">{hwpr_nps}</td>
+      <td align="center">{hwpr_passes}</td>
+      <td align="center">{hwpr_cycles}</td>
+      <td align="center">{hwpr_latency_ms}</td>
+      <td align="center">{hwpr_total_P}</td>
+      <td align="center">{hwpr_total_E}</td>
+      <td align="center">{hwpr_dyn_P}</td>
+      <td align="center">{hwpr_dyn_E}</td>
+    </tr>
   </tbody>
 </table>
 

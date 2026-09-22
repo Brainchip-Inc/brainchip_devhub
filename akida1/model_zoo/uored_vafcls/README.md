@@ -82,6 +82,17 @@ The table reports results for a **single model architecture**. Only the method u
       <td align="center">89.0</td>
       <td align="center">0.664</td>
     </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">64</td>
+      <td align="center">3</td>
+      <td align="center">3063152</td>
+      <td align="center">7.658</td>
+      <td align="center">216.2</td>
+      <td align="center">1.791</td>
+      <td align="center">103.1</td>
+      <td align="center">0.854</td>
+    </tr>
   </tbody>
 </table>
 
