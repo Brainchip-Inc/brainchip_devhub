@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Copyright 2025 Brainchip Holdings Ltd.  Apache 2.0 License
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 #
 # The naive comparator: the same pipeline as uored_vafcls_train.sh, run under a
 # deliberately leaky split. Build, train, quantize, tune, convert, and evaluate
-# at each stage.
+# This builds the same pipeline as uored_vafcls_train.sh (Build, train, quantize, tune, convert, and evaluate
+), run under a
+# deliberately leaky data split (see uored_vafcls_data.py docstring for more info). 
 #
 # Usage:  bash uored_vafcls_naive_split.sh [DATADIR] [SEED]
 #
@@ -11,10 +13,9 @@
 # exists only to be compared against uored_vafcls_train.sh, which runs the same
 # model and the same recipe under the bearing-disjoint protocol.
 #
-# The naive split divides each recording by time - the first 60% trains, the
-# last 40% tests - so all 20 bearings appear on both sides, and windows seconds
-# apart from the same bearing, the same fault and the same run are split across
-# train and test. Both splits draw the same total number of training and test windows,
+# This naive split approach divides each recording by time: the first 60% is used for training and the
+# last 40% is used for testing. This means that all 20 bearings appear in both train and test, leading to data leakage.
+# Both splits draw the same total number of training and test windows,
 # so the difference in score is attributable to the leakage and nothing else.
 # See the DATA SPLIT PROTOCOL notes in uored_vafcls_data.py.
 #

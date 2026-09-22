@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2025 Brainchip Holdings Ltd.  Apache 2.0 License
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 #
 # Full UORED-VAFCLS pipeline on ONE bearing-disjoint fold: build, train,
 # quantize, tune, convert, evaluate at each stage, and benchmark on hardware.

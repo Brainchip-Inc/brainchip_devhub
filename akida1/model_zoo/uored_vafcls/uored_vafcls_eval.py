@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-# Copyright 2025 Brainchip Holdings Ltd.  Apache 2.0 License
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """
 UORED-VAFCLS evaluation for tf_keras or akida models.
 
-The reported metric is macro AUROC over the four fault labels, not accuracy.
-Healthy bearings are encoded as the all-zero label vector rather than a fifth
-class, so there is no argmax prediction to be right or wrong about: any accuracy
-or F1 figure would depend on a decision threshold nobody has chosen. AUROC is
-threshold-free and is what the protocol this example follows reports.
+The reported metric is macro AUROC (Area Under the Receiver Operating Characteristic Curve)
+over the four fault labels. AUROC is threshold free and measures how well the positive and negative
+class can be separated by the model. 
+Note, healthy bearings are encoded here as the all-zero label vector rather than a fifth
+class.
 
 Scores from a single fold are of limited use on their own - the spread across
 folds is far wider than the difference between models worth comparing. Use

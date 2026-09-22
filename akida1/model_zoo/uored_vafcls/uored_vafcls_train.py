@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-# Copyright 2025 Brainchip Holdings Ltd.  Apache 2.0 License
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """
 UORED-VAFCLS bearing fault training.
 
-The loss is binary cross-entropy over four independent fault labels, not a
-softmax over classes: a machine can in principle show more than one fault, and
+The loss is binary cross-entropy over four independent fault labels, as a machine can in principle show more than one fault (although it is not the case with the present dataset). Thus 
 a healthy bearing is the all-zero label vector rather than a fifth class. The
 model emits raw logits, so `from_logits=True` throughout.
 

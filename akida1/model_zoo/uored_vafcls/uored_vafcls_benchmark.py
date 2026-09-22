@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2025 Brainchip Holdings Ltd.  Apache 2.0 License
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """
 UORED-VAFCLS per-layer hardware benchmark.
 
