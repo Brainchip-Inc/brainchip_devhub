@@ -172,14 +172,14 @@ if __name__ == '__main__':
 
 
     if args.save_metrics:
-        # The is used to update the stored metrics that are used to generate the
+        # The save-metrics argument used to update the stored metrics that are used to generate the
         # performance tables in the README of this folder.
         # This should only be used for code maintenance, when the model or training
         # pipeline is updated and a new trained model integrated.
         #
-        # Note: 'sparsity' is deliberately NOT written here - uored_vafcls_eval.py
-        # owns that key, so that the accuracy table can be regenerated without
-        # hardware and the two scripts never race to set it.
+        # Note: 'sparsity' is deliberately NOT written here, but is created by
+        # uored_vafcls_eval.py. This is so that the accuracy table can be regenerated without
+        # hardware.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
         for mm, res in full_results.items():

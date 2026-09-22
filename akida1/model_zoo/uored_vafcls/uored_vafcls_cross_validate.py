@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2025 Brainchip Holdings Ltd.  Apache 2.0 License
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """
 UORED-VAFCLS cross-validation sweep.
 
@@ -10,13 +10,13 @@ fold, and reports the mean and spread of macro AUROC for each stage.
 This is the script that produces the headline number for this example, and the
 reason it exists is that a single fold does not support a conclusion. There are
 only 20 bearings; a fold trains on 12 of them and is tested on 8. The AUROC
-spread across folds is 0.04-0.05, and individual folds range from about 0.70 to
+spread across folds is 0.04-0.07, and individual folds range from about 0.70 to
 about 0.99 with the model and the seed held fixed. Two architectures differing
 by a couple of AUROC points cannot be distinguished by one fold, and reporting
 one fold's score as a model's performance is reporting noise.
 
-Folds 0-4 are the tuning budget - the only folds a hyperparameter may be chosen
-on. Folds 5-104 are the 100 evaluation folds, and the mean over them is the
+Folds 0-4 are the tuning budget, used to do hyperparameter tuning. 
+Folds 5-104 are the 100 evaluation folds, and the mean over them is the
 number to quote.
 
 Results accumulate in docs/cv_results.csv, one row per (fold, seed), flushed
@@ -25,7 +25,7 @@ interrupted sweep loses at most one fold.
 
 Runtime is roughly 30-60 s per fold, so about 1-2 hours for the default
 100-fold full chain. --skip-akida drops the quantize/convert/Akida stages and is
-about four times faster; use it for recipe sweeps.
+about four times faster; use it for recipe sweeps on the first 5 folds.
 
 Example
 -------
@@ -99,7 +99,6 @@ def run_fold(fold, seed=0, data_path='./data/uored_vafcls', epochs=30,
     started = time.time()
 
     model = build_uored_vafcls_model(seed=seed)
-    # model.summary()
     train_ds, test_ds = get_data(data_path, model.input_shape[1:], batch_size,
                                  fold=fold, seed=seed)
 
@@ -391,7 +390,11 @@ if __name__ == '__main__':
 
     if args.save_metrics:
         import json
-
+        # The save-metrics argument used to update the stored metrics that are used to generate the
+        # performance tables in the README of this folder.
+        # This should only be used for code maintenance, when the model or training
+        # pipeline is updated and a new trained model integrated.
+        #
         # The published aggregate must describe the whole evaluation range, or
         # the README would quote a mean over whichever folds happened to run.
         have = {int(row['fold']) for row in rows}

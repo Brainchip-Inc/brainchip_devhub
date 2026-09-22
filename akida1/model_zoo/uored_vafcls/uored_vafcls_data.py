@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2025 Brainchip Holdings Ltd.  Apache 2.0 License
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """
 UORED-VAFCLS bearing fault data pipeline.
 
@@ -10,9 +10,9 @@ convolutional model can consume directly:
                            -> random gain (training only)
                            -> rescale to uint8-range using a
                               single per-dataset scale factor
-                           -> reshape to (1200, 35, 1)
+                           -> reshape to (300, 140, 1)
 
-DATA SPLIT PROTOCOL
+BEARING LEVEL DATA SPLIT PROTOCOL
 
 The dataset split implemented here is derived from the method proposed by 
 Vieira et al (2026), "Towards a more realistic evaluation of machine learning
@@ -27,42 +27,27 @@ about faults. Each bearing contributes three recordings - its own healthy one
 plus two severities of a single fault mode - and holding a bearing out removes 
 all three.
 
-Folds are enumerated, not tabulated: every way of holding out 2 bearings from
+Folds are enumerated: every way of holding out 2 bearings from
 each of the 4 fault modes gives C(5,2)^4 = 10,000 folds, shuffled once with a
 fixed seed and indexed by fold number. Folds 0-4 are the tuning budget; folds
-5-104 are the 100 evaluation folds. FIXED_FOLD (5) is the one the pretrained
+5-104 are the 100 evaluation folds. FIXED_FOLD (42) is the one the pretrained
 models and the hardware benchmark use.
 
-A NAIVE COMPARATOR
-
-Read on its own, the bearing-disjoint score invites the wrong conclusion: that
-the model is weak. It is not - the evaluation is honest, and honest numbers on
-this dataset are lower than the ones usually published. To make that visible,
-`split_mode='segment'` implements the naive split the protocol exists to rule
-out, so the two can be run side by side and the *gap* reported.
+SEGMENT LEVEL DATA SPLIT
 
 The segment split divides each recording by time - the first 60% of every
 10 s recording trains, the last 40% tests - and keeps all 60 recordings on both
 sides. Windows minutes apart from the same bearing, the same fault and the same
-run therefore land on both sides. It is the most severe form of leakage in
-Vieira et al's taxonomy, and the most commonly committed.
+run therefore land on both sides of the train/test split. It is the most severe 
+form of leakage in Vieira et al's taxonomy, and the most commonly committed.
 
-Both modes yield identical budgets - 720 training windows (6 steps per epoch)
-and 240 test windows - so a score difference between them is attributable to the
-split and nothing else. 'segment' is for comparison only: it must never be the
-source of a published metric, and uored_vafcls_eval.py --save-metrics refuses it.
+CLASS LABELS
 
-Unlike the protocol, the naive split needs no cross-validation. It has no folds
-to average over - there is one time cut, the same for every run - and its score
-is stable to about 0.001 where the bearing-disjoint folds span 0.04-0.05. One run
-is the whole story; re-run uored_vafcls_naive_split.sh with a different seed to
-confirm that for yourself. uored_vafcls_cross_validate.py is therefore reserved
-for the protocol and has no notion of split mode.
-
-Labels are multi-label, not one-of-N: [inner, outer, ball, cage], with healthy
-encoded as the all-zero vector rather than a fifth class. The reported metric is
-macro AUROC (see uored_vafcls_eval.py) - there is no argmax prediction here, so
-an accuracy figure would depend on an arbitrary threshold.
+Labels are potentially multi-label, [inner, outer, ball, cage], not one-of-N: 
+a bearing could in principal suffer from multiple faults (although that case 
+is not represented in any of the relevant datasets). Note that 'healthy' is
+not labelled as a separate class, but is encoded as the all-zero vector. The 
+reported metric is macro AUROC (see uored_vafcls_eval.py).
                            
 DATA PREPARATION
 
@@ -91,12 +76,14 @@ Rebuild the cache from the raw Mendeley CSVs:
 """
 
 import functools
+import glob
 import os
 import random
 from collections import namedtuple
 from itertools import combinations, product
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 # ---------------------------------------------------------------------------
@@ -151,12 +138,12 @@ SEGMENT_BOUNDARY = int(SIGNAL_LENGTH * SEGMENT_SPLIT_FRACTION)   # 252_000
 # Windowing
 # ---------------------------------------------------------------------------
 WINDOW_LENGTH = 42_000          # 1.0 s
-FRAME_WIDTH = 140                # samples per frame; 42000 / 35 = 1200 frames
-INPUT_SHAPE = (WINDOW_LENGTH // FRAME_WIDTH, FRAME_WIDTH, 1)   # (1200, 35, 1)
+FRAME_WIDTH = 140                # samples per frame; 42000 / 140 = 300 frames
+INPUT_SHAPE = (WINDOW_LENGTH // FRAME_WIDTH, FRAME_WIDTH, 1)   # (300, 140, 1)
 
 TRAIN_WINDOWS_PER_RECORDING = 20   # 36 recordings x 20 = 720 windows per epoch
 EVAL_WINDOWS_PER_RECORDING = 10    # 24 recordings x 10 = 240 windows, tiled
-GAIN_STD = 0.7                     # random scalar gain, N(1, GAIN_STD)
+GAIN_STD = 0.7                     # Random augmentation, a scalar gain applied to the signal, N(1, GAIN_STD)
 BATCH_SIZE = 120                   # exact divisor of 720 -> 6 steps per epoch
 
 # The segment split trains on all 60 recordings rather than 36, so it needs its
@@ -240,11 +227,11 @@ def fold_rows(bearing_id, fold, n_per_mode=N_BEARINGS_PER_FAULT_MODE,
 
 
 # ---------------------------------------------------------------------------
-# The naive comparator
+# The Segment-Level Split Comparator
 # ---------------------------------------------------------------------------
 # A time region is a half-open (start, stop) in samples. Every window drawn for
 # a split comes from one of these, which is the whole of what separates the two
-# modes: 'bearing' draws from the full recording on both sides and separates the
+# modes: 'bearing' draws from the full recording and separates the
 # rows instead, 'segment' shares every row and separates the time.
 FULL_REGION = (0, SIGNAL_LENGTH)
 SEGMENT_TRAIN_REGION = (0, SEGMENT_BOUNDARY)
@@ -272,9 +259,6 @@ def check_split_mode(split_mode):
 
 def split_plan(bearing_id, fold, split_mode=DEFAULT_SPLIT_MODE):
     """Resolve one split into rows, time regions and a training window budget.
-
-    Both modes are described in the module docstring. This is the only place
-    that branches on the mode; everything downstream consumes the plan.
 
     Args:
         bearing_id (np.ndarray): per-recording bearing id, shape (N_RECORDINGS,).
@@ -420,8 +404,6 @@ def _describe_split(cache, plan, fold):
     _describe('Train', cache, plan.train_rows, plan.train_region)
     _describe('Held out', cache, plan.test_rows, plan.test_region)
 
-    # The diagnostic that distinguishes the two modes at a glance. A protocol
-    # split shares nothing; the naive one shares everything.
     train_bearings = set(cache['bearing_id'][plan.train_rows].tolist())
     test_bearings = set(cache['bearing_id'][plan.test_rows].tolist())
     shared = train_bearings & test_bearings
@@ -457,9 +439,8 @@ def _train_dataset(cache, rows, batch_size, dtype, seed, region=FULL_REGION,
             start = rng.integers(region_start, region_stop - WINDOW_LENGTH)
             window = np.array(signals[row, start:start + WINDOW_LENGTH],
                               dtype=np.float32)
-            # Gain is applied to the float waveform
+            # Random Augmentation: Gain is applied to the float waveform
             window *= np.float32(rng.normal(1.0, GAIN_STD))
-            # window = encode_uint8(window, center[row], scale[row])
             window = encode_uint8(window)
             yield frame_window(window), labels[i]
 
@@ -467,7 +448,7 @@ def _train_dataset(cache, rows, batch_size, dtype, seed, region=FULL_REGION,
                  tf.TensorSpec(shape=(NUM_LABELS,), dtype=tf.float32))
     return (
         tf.data.Dataset.from_generator(generator, output_signature=signature)
-        # Declared so that len(train_ds) works, which is how the training script
+        # Cardinality is declared so that len(train_ds) works, which is how the training script
         # derives steps_per_epoch for the LR schedule.
         .apply(tf.data.experimental.assert_cardinality(n_items))
         .shuffle(n_items, seed=seed, reshuffle_each_iteration=True)
@@ -483,7 +464,7 @@ def _eval_arrays(cache, rows, region=FULL_REGION):
     That is EVAL_WINDOWS_PER_RECORDING (10) over a full recording, or 4 over the
     segment split's test region and 6 over its training region.
 
-    Small enough to materialise (240 x 1200 x 35 uint8 is about 10 MB).
+    Small enough to materialise (240 x 300 x 140 uint8 is about 10 MB).
     """
     signals = cache['signals']
     labels = _labels(cache, rows)
@@ -650,9 +631,6 @@ def prepare_raw(raw_dir, data_path=DEFAULT_DATA_PATH):
     Returns:
         str: path to the written cache.
     """
-    import glob
-
-    import pandas as pd
 
     signals = np.zeros((N_RECORDINGS, SIGNAL_LENGTH), dtype=np.float32)
     records = []

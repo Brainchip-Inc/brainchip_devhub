@@ -190,7 +190,7 @@ if __name__ == '__main__':
     # Persist metrics
     # ---------------------------------------------------------------------------
     if args.save_metrics:
-        # The is used to update the stored metrics that are used to generate the
+        # The save-metrics argument is used to update the stored metrics that are used to generate the
         # performance tables in the README of this folder.
         # This should only be used for code maintenance, when the model or training
         # pipeline is updated and a new trained model integrated.

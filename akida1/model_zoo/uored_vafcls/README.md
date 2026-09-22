@@ -10,7 +10,7 @@ This example tries to convey two different points:
 
 ## Model Card
 
-**The table reports results for a single model architecture with only the method used to split the training and evaluation data changed.** See below for full details.
+The table reports results for a **single model architecture**. Only the method used to **split the training and evaluation data** is changed. See below for full details.
 
 <table>
   <thead>
@@ -85,20 +85,17 @@ This example tries to convey two different points:
   </tbody>
 </table>
 
-Measured on the model provided in the `pretrained_models/` folder, trained on the bearing-level split at fold 5.
+Measured on the model provided in the `pretrained_models/` folder, trained on the bearing-level split at fold 42.
 
-<img src="docs/ref_benchmark_results_full.png" alt="Full model benchmark" width="700">
+<img src="docs/ref_benchmark_results_full.png" alt="Full model benchmark" width="1050">
 
-`Minimal` mapping uses the fewest neural processors (NPs) that will hold the model; `AllNPs` spreads it over the available 
-NPs without increasing the number of passes: in this case, because the model almost fills the device anyway, there is only
-a slight difference between these modes. 'HwPr' mode tries to accelerate the model even further, by splitting the model
-over more passes (effectively increasing the number of NPs available per layer). That strategy is effective for a 
-majority of models, but not in this case: that's because the model is small, and fits in a single pass by default; any 
-gain per-layer is outweighed by the need to reload model weights on every inference.
-
-The model maps entirely to hardware in a single sequence, single pass.
-
-<img src="docs/ref_benchmark_results_layers.png" alt="Per-layer benchmark" width="700">
+The model is small enough to map entirely to hardware in a single sequence, single pass. The actual mapping depends on the 
+requested mapping mode, as follows. `Minimal` mapping uses the fewest neural processors (NPs) that will hold the model; 
+`AllNPs` spreads it over the available NPs without increasing the number of passes: in this case, because the model almost 
+fills the device anyway, there is only a slight difference between these modes. `HwPr` mode tries to accelerate the model 
+even further, by splitting the model over more passes (effectively increasing the number of NPs available per layer). That 
+strategy is effective for a majority of models, but not in this case: that's because the model is small, and fits in a single
+pass by default; any gain per-layer is outweighed by the need to reload model weights on every inference.
 
 ## Requirements
 
@@ -138,13 +135,14 @@ from vibration data (UORED-VAFCLS used here, but even more strikingly in the key
 
 > J. P. Vieira, V. A. Bauler, R. K. Rosa, D. Silva, *"Towards a more realistic evaluation of machine learning models for bearing fault diagnosis"*, Mechanical Systems and Signal Processing 258:114640, 2026. doi:10.1016/j.ymssp.2026.114640 ([arXiv:2509.22267](https://arxiv.org/abs/2509.22267), [code](https://github.com/gama-ufsc/bearing-data-leakage))
 
-The abstract from that article sets the context clearly: *"While recent advances in machine learning (ML), particularly 
-deep learning, have shown strong performance in controlled settings, many studies fail to
-generalize to real-world applications due to methodological flaws, most notably data leakage.
-This paper investigates the issue of data leakage in vibration-based bearing fault diagnosis and
-its impact on model evaluation. We demonstrate that common dataset partitioning strategies,
-such as segment-wise and condition-wise splits, introduce spurious correlations that inflate
-performance metrics."*
+The abstract from that article sets the context clearly: 
+> *"While recent advances in machine learning (ML), particularly 
+  deep learning, have shown strong performance in controlled settings, many studies fail to
+  generalize to real-world applications due to methodological flaws, most notably data leakage.
+  This paper investigates the issue of data leakage in vibration-based bearing fault diagnosis and
+  its impact on model evaluation. We demonstrate that common dataset partitioning strategies,
+  such as segment-wise and condition-wise splits, introduce spurious correlations that inflate
+  performance metrics."*
 
 The risk is specific and easy to walk into. These datasets are built from a small number of physical bearings, each recorded
 over a short, uninterrupted run under a single load and speed, and the fault mode is a property of the bearing rather than of
@@ -165,26 +163,43 @@ is disallowed, e.g. if the 'healthy' recording for bearing 0 is put in the train
 must not be in the test split). You can consult the details of the data split preparation in the relevant script, `uored_vafcls_data.py`.
 
 That rigorous data split has knock-on consequences: the data splits are small enough that the choice of which bearings are held out
-matters more than almost anything about the model:
+matters more than almost anything about the model, as can be seen from the plot of the distribution of performance across folds
+below:
 
 - The **across-fold** standard deviation is 0.0666, and folds range from 0.6989 to 0.9892
-  with the architecture, the recipe and the seed all held fixed. See the plot of below showing performance across folds.
+  with the architecture, the recipe and the seed all held fixed.
 - The **within-fold** standard deviation across random seeds is 0.0186 (measured over 25 folds at 3 
   seeds each).
 
 <img src="docs/ref_cv_auroc_distribution.png" alt="Distribution of per-fold AUROC" width="700">
 
+*(Note: Fold 42 is flagged because the model trained on this fold is the one set aside in the `pretrained_models` folder.)*
+
 So a single-fold, single-seed AUROC cannot distinguish two architectures on this dataset. It is absolutely necessary to run multi-fold
 cross-validation to have anything approaching an accurate evaluation. For the bearing-wise split, this example follows the protocol
 set out by the reference paper above:
 1. **The reported number is the mean over all 100 evaluation folds**, produced by `uored_vafcls_cross_validate.py`. The per-fold results are committed in [`docs/cv_results.csv`](docs/cv_results.csv) so the mean is auditable without re-running anything.
-2. **Folds 0–4 are the tuning budget.** Every hyperparameter — epochs, learning rate, the QAT schedule, the input encoding constants — was chosen there. Folds 5–104 are never tuned on.
+2. **Folds 0–4** are used for tuning hyperparameters, such as the number of epochs, learning rate, the QAT schedule and the input encoding constants. The remaining **folds (5–104)** are reserved as the test split, and should never be used for tuning.
 
-### The Comparison: Segment-level Split
-To demonstrate the importance of this rigorous leakage-free split (and, admittedly, to show that the model developed here for 
-Akida is just as good as other published models, that the issue is on the data side, not the model) we present results for 
-a segment-level split (i.e. every 10 second recording split to 6 seconds training, 4 seconds test data). Sure enough, the
-model achieves **>99.5% AUROC**, and that without any further tuning for that version of the task.
+### Results for the Segment-level Split
+
+Read on its own, results for the bearing-disjoint score invite the wrong conclusion: that
+the model is weak. It is not - the evaluation is honest, and honest numbers on
+this dataset are lower than the ones usually published. To make that visible,
+we also show results for a segment-level data split (each recording contributes different
+time segments to both the train and test splits). Published results very commonly use 
+this kind of data splitting.
+
+Both modes yield identical budgets - 720 training windows (6 steps per epoch)
+and 240 test windows - so a score difference between them is attributable to the
+split and nothing else. Sure enough, the model achieves **>99.5% AUROC**, and without 
+any further tuning for this version of the task.
+
+Unlike the bearing-level split, the segment-level split needs no cross-validation. It has no folds
+to average over (there is one time cut, the same for every run) and its score
+is stable to about 0.001 where the bearing-disjoint folds span 0.04-0.05. One run
+is sufficient. You can re-run uored_vafcls_naive_split.sh with a different seed to
+confirm that for yourself.
 
 ## Dataset setup
 
@@ -251,11 +266,11 @@ Run the full pipeline on one fold — build, train, quantize, tune, convert, eva
 bash uored_vafcls_train.sh [DATADIR] [FOLD] [SEED]
 ```
 
-`FOLD` defaults to 5 and `SEED` to 0. It takes about a minute on a single GPU, plus benchmarking. The nine steps are the standard Akida 1 sequence; see the script for the exact commands.
+`FOLD` defaults to 42 and `SEED` to 0. It takes about a minute on a single GPU, plus benchmarking. The nine steps are the standard Akida 1 sequence; see the script for the exact commands.
 
 ### Cross-validation
 
-**This is the command that produces the headline number.**
+**Use this command to reproduce the reported cross-validation performance reported above.**
 
 ```bash
 python uored_vafcls_cross_validate.py --save-metrics
@@ -268,12 +283,14 @@ or pipeline (remember, folds 5-104 are for the final evaluation only).
 
 ## Contributing and Maintenance
 
-`README.md` in this folder is **generated** — edit [`docs/README.md.template`](docs/README.md.template), never `README.md` directly. The performance 
-tables are filled from `docs/metrics.json`, which is written by the `--save-metrics` flags (if updating results following changes to the model or
-pipeline, remember to delete the `.csv` files first, or use the `--no-resume` argument on the cross-validation runs):
+`README.md` in this folder is **generated** — edit [`docs/README.md.template`](docs/README.md.template), never `README.md` directly. 
+
+The performance tables are filled from `docs/metrics.json`, which is written by the `--save-metrics` flags (if updating results 
+following changes to the model or pipeline, remember to delete the `.csv` files first, or use the `--no-resume` argument on the
+cross-validation runs):
 
 ```bash
-# Bearing-level split (the protocol) - the Model Card's bottom row.
+# Bearing-level split (Model Card's bottom row).
 # Its AUROCs come from the sweep, never from a single model.
 python uored_vafcls_cross_validate.py --save-metrics                        # 30-60 min
 python uored_vafcls_cross_validate.py --first-fold 5 --last-fold 29 --seeds 3 \
@@ -282,7 +299,7 @@ python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls.h5 --save-m
 python uored_vafcls_eval.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics  # sparsity
 python uored_vafcls_benchmark.py -l pretrained_models/akdcnn_uored_vafcls_qat.fbz --save-metrics
 
-# Naive segment-level split (the comparator) - the Model Card's top row.
+# Naive segment-level split (Model Card's top row).
 # One model, one run: the split is singular and its score is stable to ~0.001.
 bash uored_vafcls_naive_split.sh
 python uored_vafcls_eval.py -l models/akdcnn_uored_vafcls_segment.h5 --split-mode segment --save-metrics

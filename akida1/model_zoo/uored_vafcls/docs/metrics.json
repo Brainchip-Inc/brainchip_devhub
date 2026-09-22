@@ -16,7 +16,7 @@
     "cv_seed_std_folds": "25",
     "params": "335,444",
     "sparsity": "37.81%",
-    "fixed_fold": "5",
+    "fixed_fold": "42",
     "minimal_nps": "17",
     "minimal_passes": "1",
     "minimal_cycles": "3930879",

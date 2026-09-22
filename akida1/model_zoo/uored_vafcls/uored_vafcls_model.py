@@ -105,13 +105,7 @@ def build_uored_vafcls_model(input_shape=INPUT_SHAPE, fault_classes=4, seed=0):
     x = Rescaling(1.0 / 128.0, -1.0, name='rescaling')(inputs)
 
     # Stem: a dense convolution with no padding
-    x = Conv2D(STEM_FILTERS, STEM_KERNEL_SIZE, padding='valid', use_bias=False,
-                    name='stem_conv')(x)
-    x = BatchNormalization(momentum=BN_MOMENTUM, epsilon=BN_EPSILON,
-                        name='stem_bn')(x)
-    x = ReLU(max_value=6.0, name='stem_relu')(x)
-    x = MaxPooling2D((2, 2), strides=(2, 2), padding='valid',
-                        name='stem_pool')(x)
+    x = _conv_block(x, STEM_FILTERS, name='stem', kernel=STEM_KERNEL_SIZE, padding='valid', pool=True, pool_padding='valid')
 
     # Blocks
     for i, (filters, pool) in enumerate(zip(BLOCK_FILTERS[:-1], BLOCK_POOLING[:-1]),
