@@ -97,7 +97,8 @@ CACHE_NAME = 'uored_vafcls_42khz_60rec.npz'
 # not fetchable as a single file; --prepare-raw rebuilds this .npz from them.
 MIRROR_URL = ('https://data.brainchip.com/dataset-mirror/uored_vafcls/'
               + CACHE_NAME)
-MIRROR_HASH = None  # TODO: sha256 once the mirror is uploaded
+MIRROR_HASH = ('sha256:4ba82c0c36a38fb2afc1428c46a84264093da8c6084d4e471db'
+               'f00c9679c9c98')
 
 SAMPLE_RATE = 42_000         # Hz
 SIGNAL_LENGTH = 420_000      # 10 s per recording
@@ -354,9 +355,6 @@ def _download_cache(data_path):
     """Fetch the prepared .npz from the BrainChip dataset mirror."""
     import pooch
 
-    if MIRROR_HASH is None:
-        print('Note: MIRROR_HASH is not set yet, so the download cannot be '
-              'checksum-verified.')
     os.makedirs(data_path, exist_ok=True)
     print(f'Downloading the prepared UORED-VAFCLS cache to {data_path} ...')
     pooch.retrieve(url=MIRROR_URL, known_hash=MIRROR_HASH, path=data_path,

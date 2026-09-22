@@ -135,8 +135,10 @@ Downloaded from [Mendeley Data, doi:10.17632/y2px5tg92h.5](https://data.mendeley
 > Sehri, Maryam; Dumond, Patrick (2023), *"University of Ottawa Rolling-element Dataset – Vibration and Acoustic Faults under Constant Load and Speed conditions (UORED-VAFCLS)"*, Mendeley Data, V5, doi: 10.17632/y2px5tg92h.5
 
 *Changes made, as the licence requires us to state:* for convenience, we make the data required in this example available
-as a single file for download from the BrainChip servers, that is, the `Accelerometer` column of the raw CSVs repacked
-unmodified into a single float32 `.npz`.
+as a single file for download from the BrainChip servers. No sample values are altered: the `Accelerometer` column of each
+raw CSV is repacked verbatim as float32 into a single `.npz`, along with the first row of the `Speed` column as a
+per-recording nominal RPM, and per-recording metadata (bearing id, fault type, severity, waveform id and the multi-label
+targets) derived from the original filenames and folder structure.
 
 ## The Problem of Realistic Evaluation of Bearing Fault Diagnosis Models
 
