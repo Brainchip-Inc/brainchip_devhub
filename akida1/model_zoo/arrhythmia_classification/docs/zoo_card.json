@@ -1,0 +1,15 @@
+{
+    "domain": "Time series",
+    "order": 10,
+    "rows": [
+        {
+            "task": "Heart arrhythmia detection (ECG)",
+            "category": "Classification",
+            "dataset": "MIT-BIH",
+            "metric_key": "akida_f1",
+            "metric_label": "macro F1",
+            "bench_prefix": "",
+            "notes": "Inter-patient split"
+        }
+    ]
+}

@@ -60,6 +60,8 @@ update_readme.py          copied from any sibling example; extend it only to
 colab_setup.py            adapted from vww/colab_setup.py
 docs/README.md.template   README source of truth
 docs/metrics.json         all template keys, measured or "TBD"
+docs/zoo_card.json        row(s) in the akida1/README.md model zoo table; see
+                          model-zoo-example.md 3i-2 (one row per headline variant)
 docs/sample_mosaic.png    dataset figure
 <NAME>_notebook_evaluation.ipynb
 <NAME>_notebook_benchmark.ipynb
@@ -287,6 +289,7 @@ Plus these, which catch the failures that actually happen:
 - [ ] Every model path resolves (loop all variant combinations)
 - [ ] Template placeholders exactly match metrics keys, both directions; rendered README
       contains no unresolved `{`
+- [ ] `akida1/README.md` model zoo table shows the new row(s) with real values, not "—"
 - [ ] Backbone loader weights match the `akida_models` pretrained helper where both exist
 - [ ] `--samples` smoke test gives sensible per-image predictions
 - [ ] Benchmark script exits cleanly with no device attached
