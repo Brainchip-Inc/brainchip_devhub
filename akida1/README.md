@@ -53,8 +53,6 @@ the chip's Neural Processors (NPs), with no host involvement between layers.
 
 ## Chips and boards
 
-<img src="docs/assets/akd1500_m2_card.jpg" alt="AKD1500 M.2 (B+M key) card" width="240" align="right"/>
-
 | Chip | NPs | HWPR enabled<sup>†</sup> | |
 | --- | :---: | :---: | --- |
 | **AKD1000** | 80 | No | The first Akida 1 silicon |
@@ -69,12 +67,18 @@ for each inference.</sub>
 by Neuromorphyx (Arduino Nicla form factor, SPI, on-board power measurement).
 All are available from the [BrainChip Shop](https://shop.brainchipinc.com/).
 
+<p align="center">
+  <img src="docs/assets/akd1500_m2_card.jpg" alt="AKD1500 M.2 (B+M key) card" width="320"/>
+</p>
+
 ---
 
 ## Model zoo
 
 Each task links to its example folder, where you'll find the full model card, the
 benchmarks for every mapping, and the steps to reproduce them.
+
+### Image
 
 <table>
   <thead>
@@ -89,9 +93,6 @@ benchmarks for every mapping, and the steps to reproduce them.
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <th colspan="7" align="left">🖼️ Image</th>
-    </tr>
     <tr>
       <td rowspan="3"><a href="model_zoo/imagenet_akidanet">General image classification</a></td>
       <td rowspan="3">Classification</td>
@@ -131,10 +132,24 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td align="right">45.786</td>
       <td></td>
     </tr>
-    <tr><td colspan="7"></td></tr>
+  </tbody>
+</table>
+
+### Audio
+
+<table>
+  <thead>
     <tr>
-      <th colspan="7" align="left">🔊 Audio</th>
+      <th>Task</th>
+      <th>Category</th>
+      <th>Dataset</th>
+      <th>Performance</th>
+      <th>Energy (mJ/inf)</th>
+      <th>Latency (ms)</th>
+      <th>Notes</th>
     </tr>
+  </thead>
+  <tbody>
     <tr>
       <td><a href="model_zoo/speech_commands">Keyword spotting</a></td>
       <td>Classification</td>
@@ -144,10 +159,24 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td align="right">0.114</td>
       <td>10 keywords + silence + unknown</td>
     </tr>
-    <tr><td colspan="7"></td></tr>
+  </tbody>
+</table>
+
+### Time series
+
+<table>
+  <thead>
     <tr>
-      <th colspan="7" align="left">📈 Time series</th>
+      <th>Task</th>
+      <th>Category</th>
+      <th>Dataset</th>
+      <th>Performance</th>
+      <th>Energy (mJ/inf)</th>
+      <th>Latency (ms)</th>
+      <th>Notes</th>
     </tr>
+  </thead>
+  <tbody>
     <tr>
       <td><a href="model_zoo/arrhythmia_classification">Heart arrhythmia detection (ECG)</a></td>
       <td>Classification</td>

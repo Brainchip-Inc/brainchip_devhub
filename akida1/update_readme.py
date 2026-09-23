@@ -10,7 +10,6 @@ import json
 import pathlib
 
 DOMAINS = ["Image", "Audio", "Time series"]
-DOMAIN_ICONS = {"Image": "🖼️", "Audio": "🔊", "Time series": "📈"}
 MAPPINGS = {"minimal": "Minimal", "allnps": "AllNPs", "hwpr": "HwPr"}
 MISSING = ("", "TBD", None)
 
@@ -72,31 +71,20 @@ def _spans(rows):
     return spans
 
 
-def _html_table(sections):
-    """sections: list of (domain, rows), rows being (example, cells).
-
-    One table, with a full-width separator row per domain. GitHub strips colour
-    and borders (style/bgcolor/border) from README HTML, so domains are marked with a
-    header-style row + icon, preceded by an empty spacer row.
-    """
+def _html_table(rows):
+    """rows: list of (example, cells). Returns an HTML table with repeated leading cells merged."""
     out = ["<table>", "  <thead>", "    <tr>"]
     out += [f"      <th>{h}</th>" for h in HEADERS]
     out += ["    </tr>", "  </thead>", "  <tbody>"]
-    for n, (domain, rows) in enumerate(sections):
-        if n:   # empty spacer row: the only section break GitHub lets us draw
-            out.append(f'    <tr><td colspan="{len(HEADERS)}"></td></tr>')
-        out += ["    <tr>",
-                f'      <th colspan="{len(HEADERS)}" align="left">{DOMAIN_ICONS[domain]} {domain}</th>',
-                "    </tr>"]
-        for (_, cells), row_spans in zip(rows, _spans(rows)):
-            out.append("    <tr>")
-            for col, (cell, span) in enumerate(zip(cells, row_spans)):
-                if span == 0:
-                    continue
-                attrs = f' rowspan="{span}"' if span > 1 else ""
-                attrs += ' align="right"' if col in RIGHT_ALIGNED else ""
-                out.append(f"      <td{attrs}>{cell}</td>")
-            out.append("    </tr>")
+    for (_, cells), row_spans in zip(rows, _spans(rows)):
+        out.append("    <tr>")
+        for col, (cell, span) in enumerate(zip(cells, row_spans)):
+            if span == 0:
+                continue
+            attrs = f' rowspan="{span}"' if span > 1 else ""
+            attrs += ' align="right"' if col in RIGHT_ALIGNED else ""
+            out.append(f"      <td{attrs}>{cell}</td>")
+        out.append("    </tr>")
     out += ["  </tbody>", "</table>"]
     return "\n".join(out)
 
@@ -115,8 +103,11 @@ def build_table():
             key = (card.get("order", 0), example_dir.name, i)
             sections[domain].append((key, (example_dir.name, _cells(example_dir.name, row, metrics))))
 
-    return _html_table([(domain, [r for _, r in sorted(rows)])
-                        for domain, rows in sections.items() if rows])
+    out = []
+    for domain, rows in sections.items():
+        if rows:
+            out += [f"### {domain}", "", _html_table([r for _, r in sorted(rows)]), ""]
+    return "\n".join(out).rstrip()
 
 
 if __name__ == "__main__":

@@ -53,8 +53,6 @@ the chip's Neural Processors (NPs), with no host involvement between layers.
 
 ## Chips and boards
 
-<img src="docs/assets/akd1500_m2_card.jpg" alt="AKD1500 M.2 (B+M key) card" width="240" align="right"/>
-
 | Chip | NPs | HWPR enabled<sup>†</sup> | |
 | --- | :---: | :---: | --- |
 | **AKD1000** | 80 | No | The first Akida 1 silicon |
@@ -68,6 +66,10 @@ for each inference.</sub>
 [BrainBoard 1500](https://brainchip.com/press/brainchip-and-neuromorphyx-announce-an-akd1500-embedded-developer-board-bringing-neuromorphic-ai-to-the-embedded-engineering-community/)
 by Neuromorphyx (Arduino Nicla form factor, SPI, on-board power measurement).
 All are available from the [BrainChip Shop](https://shop.brainchipinc.com/).
+
+<p align="center">
+  <img src="docs/assets/akd1500_m2_card.jpg" alt="AKD1500 M.2 (B+M key) card" width="320"/>
+</p>
 
 ---
 
