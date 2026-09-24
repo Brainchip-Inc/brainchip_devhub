@@ -35,7 +35,7 @@ Everything here targets the Akida 1 platform:
 - **[Model zoo](#model-zoo).** Ready-to-run models:
   - each one covers data, training, quantization, conversion and evaluation
   - each is benchmarked on real **AKD1500** hardware (latency, power, energy per inference)
-  - they're meant mainly as starting points to adapt to your own task
+  - hopefully they provide useful starting points for adaptation to your own tasks
 - **[Tutorials](#tutorials)** *(coming)*. A series that explains how the Akida 1 technology works in depth.
 
 > 🚧 **Work in progress.** Content is being added and refined regularly.
@@ -56,7 +56,7 @@ the chip's Neural Processors (NPs), with no host involvement between layers.
 | Chip | NPs | HWPR enabled<sup>†</sup> | |
 | --- | :---: | :---: | --- |
 | **AKD1000** | 80 | No | The first Akida 1 silicon |
-| **AKD1500** | 32 | Yes | 22nm co-processor that connects to any host CPU/MCU over PCIe or SPI; the chip every benchmark here is measured on |
+| **AKD1500** | 32 | Yes | 22nm co-processor that connects to any host CPU/MCU over PCIe or SPI. Benchmark values reported in this repo are measure on this chip unless otherwise stated |
 
 <sub>† **HWPR** (Hardware Partial Reconfiguration): a model too large to fit on the available NPs
 all at once is split into a series of sub-models ("passes"), which are loaded one after another
@@ -179,7 +179,7 @@ benchmarks for every mapping, and the steps to reproduce them.
   <tbody>
     <tr>
       <td><a href="model_zoo/arrhythmia_classification">Heart arrhythmia detection (ECG)</a></td>
-      <td>Classification</td>
+      <td>Health/Wearables Classification</td>
       <td>MIT-BIH</td>
       <td>0.835 macro F1</td>
       <td align="right">0.185</td>
@@ -188,7 +188,7 @@ benchmarks for every mapping, and the steps to reproduce them.
     </tr>
     <tr>
       <td rowspan="2"><a href="model_zoo/uored_vafcls">Bearing fault diagnosis (vibration)</a></td>
-      <td rowspan="2">Classification</td>
+      <td rowspan="2">Industrial Monitoring / Classification</td>
       <td rowspan="2">UORED-VAFCLS</td>
       <td>0.8939 macro AUROC</td>
       <td align="right">1.506</td>
@@ -217,11 +217,13 @@ Here is what's coming:
 
 | Tutorial | Status |
 | --- | --- |
-| Sparsity in Akida hardware | 🚧 In review |
-| Developing sparse models | 📝 Planned |
-| Mapping modes, and single- vs multi-pass models | 📝 Planned |
-| Quantization with `cnn2snn` | 📝 Planned |
-| Inputs to Akida 1: scaling and the specialised input layer | 📝 Planned |
+| **Preparing Models for Akida** |  |
 | Transfer learning | 📝 Planned |
 | 1D time-series example | 📝 Planned |
+| Inputs to Akida 1: scaling and the specialised input layer | 📝 Planned |
+| Developing sparse models | 🚧 In review |
+| **Under the Hood** |  |
+| Sparsity in Akida hardware | 📝 Planned |
+| Mapping modes, and single- vs multi-pass models | 📝 Planned |
+| Quantization with `cnn2snn` | 📝 Planned |
 | AKD1000 vs AKD1500 | 📝 Planned |

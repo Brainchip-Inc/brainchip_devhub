@@ -80,6 +80,8 @@ Read these files from the VWW example (they are the pattern every target file mu
 - `akida1/model_zoo/vww/update_readme.py`
 - `akida1/model_zoo/vww/docs/README.md.template`
 - `akida1/model_zoo/vww/docs/metrics.json`
+- `akida1/model_zoo/vww/docs/zoo_card.json`
+- `akida1/update_readme.py` (the landing README generator that reads every `zoo_card.json`)
 
 ---
 
@@ -230,7 +232,9 @@ Model naming convention:
 
 Copy the file verbatim from `akida1/model_zoo/vww/update_readme.py`. It has no VWW-specific
 content. Its last line reruns `akida1/update_readme.py`, which refreshes the Akida 1 landing
-README's model zoo table (see 3i-2).
+README's model zoo table (see 3i-2). **Keep that last line.** Without it the landing table
+goes stale every time the example's metrics change, and nothing will warn you. If you
+extend the script (e.g. to redraw figures from metrics), put the extra code above that line.
 
 ### 3h. `docs/README.md.template`
 
@@ -328,19 +332,36 @@ so the table updates itself when the metrics change. Copy `akida1/model_zoo/vww/
 and edit it:
 
 - `domain`: one of `Image`, `Audio`, `Time series`. `order` sets the sort within the domain.
-- `rows[]`: `task` (general terms, e.g. "Person detection"), `category` (short, no class
-  counts: "Classification", "Detection", "Regression"...), `dataset`, `metric_key` + `metric_label`
+- `rows[]`: `task` (general terms, e.g. "Person detection"), `category`, `dataset`, `metric_key` + `metric_label`
   (the headline Akida metric), `bench_prefix` (`""` unless the benchmark keys are prefixed per
   model), and `notes` (usually `""`; use it for detail such as the class set or model variant,
   e.g. "10 keywords + silence + unknown", "AkidaNet &alpha;=0.5").
+- `category` depends on the domain. Keep it short, with no class counts:
+  - **Image and Audio:** just the task type: "Classification", "Detection", "Regression"...
+  - **Time series:** add the application area in front, because this group is so varied:
+    "Health/Wearables Classification", "Industrial Monitoring / Classification". Check the
+    Time series cards already in `akida1/model_zoo/*/docs/zoo_card.json` and reuse an
+    existing area when one fits.
+- **Several rows from one example** (e.g. two evaluation splits, or several model variants)
+  get merged: when consecutive rows share `task`, `category` and `dataset`, those cells span
+  the rows. Keep the three fields identical across the rows so the merge happens, and use
+  `metric_key` / `notes` to tell the rows apart. See `akida1/model_zoo/uored_vafcls/docs/zoo_card.json`.
 - Energy and latency are not in the card. The generator picks the mapping with the lowest
   `{prefix}<mapping>_total_E` and reads latency from that same mapping. `"TBD"` values show as "—".
+- `metric_key` must be a real key in `metrics.json`. A typo won't raise an error, it just shows "—".
+- `akida1/README.md` is generated. Never hand-edit it: change the card, the metrics, or
+  `akida1/docs/README.md.template`, then rerun the generator.
 
 ### 3j. `README.md`
 
-Generate the initial README by running `update_readme.py` inline (read the template and
-format it with the metrics dict). The result will have "TBD" everywhere metrics should be —
-that is correct and expected until training runs are complete.
+Generate the initial README by running `python update_readme.py` from the example
+directory. Run the script itself, not an inline copy, because that also regenerates
+`akida1/README.md`. The result will have "TBD" everywhere metrics should be. That is correct
+and expected until training runs are complete. Check that the new row(s) now appear in the
+right domain section of `akida1/README.md` ("—" in place of numbers for now).
+
+Rerun `python update_readme.py` whenever `metrics.json`, the template or `zoo_card.json`
+changes. One run refreshes both READMEs.
 
 ### 3k. `<NAME>_notebook.ipynb`
 
@@ -523,7 +544,8 @@ After creating all files, print a summary listing:
    python -c "import ast; [ast.parse(open(f).read()) for f in ['<NAME>_model.py','<NAME>_data.py','<NAME>_train.py','<NAME>_eval.py','<NAME>_benchmark.py']]"
    bash -n <NAME>_train.sh
    python -c "import json; json.load(open('<NAME>_notebook.ipynb'))"
-   python update_readme.py
+   python update_readme.py   # also regenerates akida1/README.md
+   git diff ../../README.md  # the new example's row(s) should appear, nothing else should change
    ```
 
 ---
@@ -532,6 +554,8 @@ After creating all files, print a summary listing:
 
 - `update_readme.py` uses `str.format_map(metrics)` — every `{key}` in the template must
   have a matching entry in `docs/metrics.json`, including any new keys you add.
+- `update_readme.py` must end by rerunning `akida1/update_readme.py`, and every example must
+  have a `docs/zoo_card.json`. An example with no card is silently left out of the landing table.
 - The `--save-metrics` flag in `_eval.py` and `_benchmark.py` must write to
   `docs/metrics.json` relative to `__file__` (not CWD), matching the VWW pattern.
 - `brainchip_utils` imports must be exactly:

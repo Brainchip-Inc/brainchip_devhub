@@ -4,7 +4,7 @@
     "rows": [
         {
             "task": "Heart arrhythmia detection (ECG)",
-            "category": "Classification",
+            "category": "Health/Wearables Classification",
             "dataset": "MIT-BIH",
             "metric_key": "akida_f1",
             "metric_label": "macro F1",
