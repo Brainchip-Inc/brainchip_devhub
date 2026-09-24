@@ -186,6 +186,21 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td align="right">0.625</td>
       <td>Inter-patient split</td>
     </tr>
+    <tr>
+      <td rowspan="2"><a href="model_zoo/uored_vafcls">Bearing fault diagnosis (vibration)</a></td>
+      <td rowspan="2">Classification</td>
+      <td rowspan="2">UORED-VAFCLS</td>
+      <td>0.8939 macro AUROC</td>
+      <td align="right">1.506</td>
+      <td align="right">7.332</td>
+      <td>Bearing-level split (mean over 100 CV folds)</td>
+    </tr>
+    <tr>
+      <td>0.9973 macro AUROC</td>
+      <td align="right">1.506</td>
+      <td align="right">7.332</td>
+      <td>Segment-level split</td>
+    </tr>
   </tbody>
 </table>
 
