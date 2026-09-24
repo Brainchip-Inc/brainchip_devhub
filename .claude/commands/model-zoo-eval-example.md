@@ -54,12 +54,17 @@ around them. A five-minute smoke test prevents a day of building on a wrong assu
 <NAME>_eval.py            accuracy (+ activation sparsity) per variant
 <NAME>_benchmark.py       hardware latency/power benchmark
 <NAME>_eval.sh            driver (replaces <NAME>_train.sh)
-update_readme.py          copied from any sibling example; extend it only to
-                          regenerate figures derived from metrics.json
+update_readme.py          copied from vww/update_readme.py; extend it only to
+                          regenerate figures derived from metrics.json, and keep
+                          its final akida1/update_readme.py call as the last line
 <NAME>_summary_plot.py    optional: cross-model summary figure, drawn from metrics
 colab_setup.py            adapted from vww/colab_setup.py
 docs/README.md.template   README source of truth
 docs/metrics.json         all template keys, measured or "TBD"
+docs/zoo_card.json        row(s) in the akida1/README.md model zoo table; see
+                          model-zoo-example.md 3i-2 for fields, category wording
+                          per domain and row merging (one row per headline
+                          variant, bench_prefix set per model)
 docs/sample_mosaic.png    dataset figure
 <NAME>_notebook_evaluation.ipynb
 <NAME>_notebook_benchmark.ipynb
@@ -278,7 +283,8 @@ full-dataset number.**
 python -c "import ast, glob; [ast.parse(open(f).read()) for f in glob.glob('*.py')]"
 bash -n <NAME>_eval.sh
 python -c "import json, glob; [json.load(open(f)) for f in glob.glob('*.ipynb')]"
-python update_readme.py
+python update_readme.py   # also regenerates akida1/README.md
+git diff ../../README.md  # only the new example's row(s) should change
 ```
 
 Plus these, which catch the failures that actually happen:
@@ -287,6 +293,7 @@ Plus these, which catch the failures that actually happen:
 - [ ] Every model path resolves (loop all variant combinations)
 - [ ] Template placeholders exactly match metrics keys, both directions; rendered README
       contains no unresolved `{`
+- [ ] `akida1/README.md` model zoo table shows the new row(s) with real values, not "—"
 - [ ] Backbone loader weights match the `akida_models` pretrained helper where both exist
 - [ ] `--samples` smoke test gives sensible per-image predictions
 - [ ] Benchmark script exits cleanly with no device attached
