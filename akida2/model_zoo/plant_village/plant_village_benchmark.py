@@ -61,6 +61,11 @@ if __name__ == '__main__':
 
     NUM_SAMPLES = 100
 
+    # Model filename stem, used to give each model's plots a unique name so that
+    # benchmarking different models (e.g. the 8-bit and 4-bit variants) doesn't
+    # overwrite the previous run's plots.
+    model_stem = pathlib.Path(args.loadmodel).stem
+
     # -------------------------------------------------------------------------
     # Model
     # -------------------------------------------------------------------------
@@ -137,9 +142,11 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # Plots
     # -------------------------------------------------------------------------
-    # Map without hw_only so ak_model.sequences is available for plot_mapping
+    # Map without hw_only so ak_model.sequences is available for plot_mapping.
+    # Plot filenames include the model stem so benchmarking different models
+    # doesn't overwrite the previous run's plots.
     ak_model.map(device, mode=akida.MapMode.Minimal)
-    perlayer_savepath = 'benchmark_results_layers.png'
+    perlayer_savepath = f'benchmark_results_layers_{model_stem}.png'
     if args.save_metrics:
         perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + perlayer_savepath)
     plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
@@ -147,7 +154,7 @@ if __name__ == '__main__':
                            savepath=perlayer_savepath)
     print('\nPer-layer results plot saved to ' + str(perlayer_savepath))
 
-    full_savepath = 'benchmark_results_full.png'
+    full_savepath = f'benchmark_results_full_{model_stem}.png'
     if args.save_metrics:
         full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + full_savepath)
     plot_full_model_results(full_results, ak_model, device,
@@ -163,10 +170,9 @@ if __name__ == '__main__':
         # The variant is inferred from the loaded .fbz filename (same scheme as
         # plant_village_eval.py). Power keys are intentionally absent: benchmarking is
         # latency-only until the FPGA power path exists.
-        stem = pathlib.Path(args.loadmodel).stem
-        if 'i8_w8_a8' in stem:
+        if 'i8_w8_a8' in model_stem:
             variant = 'w8a8'
-        elif 'i8_w4_a4' in stem:
+        elif 'i8_w4_a4' in model_stem:
             variant = 'w4a4_qat'
         else:
             variant = 'w8a8'  # fallback; benchmarking is only meaningful for a quantized .fbz

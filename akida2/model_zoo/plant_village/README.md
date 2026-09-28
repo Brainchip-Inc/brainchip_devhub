@@ -82,8 +82,8 @@ rescale of the measured cycles.
       <td>AllNPs</td>
       <td align="center">68</td>
       <td align="center">3</td>
-      <td align="center">10819319</td>
-      <td align="center">432.773</td>
+      <td align="center">10819339</td>
+      <td align="center">432.774</td>
       <td align="center">10.819</td>
     </tr>
     <tr>
@@ -91,7 +91,7 @@ rescale of the measured cycles.
       <td>Minimal</td>
       <td align="center">36</td>
       <td align="center">2</td>
-      <td align="center">12249319</td>
+      <td align="center">12249318</td>
       <td align="center">489.973</td>
       <td align="center">12.249</td>
     </tr>
@@ -99,21 +99,36 @@ rescale of the measured cycles.
       <td>AllNPs</td>
       <td align="center">37</td>
       <td align="center">2</td>
-      <td align="center">12235439</td>
-      <td align="center">489.418</td>
+      <td align="center">12235183</td>
+      <td align="center">489.407</td>
       <td align="center">12.235</td>
     </tr>
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Full-model benchmark results" width="700"/>
+### Benchmark plots
 
-The plot above shows the hardware mapping (NPs used per layer, with pass boundaries) for the 4-bit QAT variant under each mapping mode (Minimal, AllNPs and HwPr). Minimal mapping schedules the model onto the fewest NPs required, while AllNPs and HwPr spread it across more NPs. The power panels are empty because power measurement is not yet available on the Akida 2 FPGA platform.
+For each variant, two plots are shown below. The **full-model** plot shows the
+hardware mapping (NPs used per layer, with pass boundaries) under each mapping
+mode (Minimal, AllNPs and HwPr): Minimal mapping schedules the model onto the
+fewest NPs required, while AllNPs and HwPr spread it across more NPs. The
+**per-layer** plot shows per-layer latency, input sparsity and NP mapping under
+Minimal mapping. Akida is event-driven, so a layer's cost depends on how many
+non-zero activations it receives; sparsity is measured on real dataset samples.
+The power panels are empty because power measurement is not yet available on the
+Akida 2 FPGA platform.
 
-<img src="docs/ref_benchmark_results_layers.png" alt="Per-layer benchmark results" width="700"/>
+#### 8-bit (w8 / a8)
 
-The plot above shows per-layer latency, input sparsity and NP mapping for the 4-bit QAT variant (Minimal mapping). Akida is event-driven, so a layer's cost depends on how many non-zero activations it receives; sparsity is measured on real dataset samples.
+<img src="docs/ref_benchmark_results_full_akidanet_plant_village_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="700"/>
 
+<img src="docs/ref_benchmark_results_layers_akidanet_plant_village_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
+
+#### 4-bit (w4 / a4, QAT)
+
+<img src="docs/ref_benchmark_results_full_akidanet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="700"/>
+
+<img src="docs/ref_benchmark_results_layers_akidanet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
 The model is an **AkidaNet** (from `akida_models`) with width multiplier
 **alpha = 0.5** and input resolution **224 × 224**, using transfer learning from

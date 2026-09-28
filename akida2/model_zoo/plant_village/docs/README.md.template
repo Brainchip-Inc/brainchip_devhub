@@ -106,14 +106,29 @@ rescale of the measured cycles.
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Full-model benchmark results" width="700"/>
+### Benchmark plots
 
-The plot above shows the hardware mapping (NPs used per layer, with pass boundaries) for the 4-bit QAT variant under each mapping mode (Minimal, AllNPs and HwPr). Minimal mapping schedules the model onto the fewest NPs required, while AllNPs and HwPr spread it across more NPs. The power panels are empty because power measurement is not yet available on the Akida 2 FPGA platform.
+For each variant, two plots are shown below. The **full-model** plot shows the
+hardware mapping (NPs used per layer, with pass boundaries) under each mapping
+mode (Minimal, AllNPs and HwPr): Minimal mapping schedules the model onto the
+fewest NPs required, while AllNPs and HwPr spread it across more NPs. The
+**per-layer** plot shows per-layer latency, input sparsity and NP mapping under
+Minimal mapping. Akida is event-driven, so a layer's cost depends on how many
+non-zero activations it receives; sparsity is measured on real dataset samples.
+The power panels are empty because power measurement is not yet available on the
+Akida 2 FPGA platform.
 
-<img src="docs/ref_benchmark_results_layers.png" alt="Per-layer benchmark results" width="700"/>
+#### 8-bit (w8 / a8)
 
-The plot above shows per-layer latency, input sparsity and NP mapping for the 4-bit QAT variant (Minimal mapping). Akida is event-driven, so a layer's cost depends on how many non-zero activations it receives; sparsity is measured on real dataset samples.
+<img src="{w8a8_full_plot}" alt="8-bit full-model benchmark results" width="700"/>
 
+<img src="{w8a8_layers_plot}" alt="8-bit per-layer benchmark results" width="700"/>
+
+#### 4-bit (w4 / a4, QAT)
+
+<img src="{w4a4_qat_full_plot}" alt="4-bit QAT full-model benchmark results" width="700"/>
+
+<img src="{w4a4_qat_layers_plot}" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
 The model is an **AkidaNet** (from `akida_models`) with width multiplier
 **alpha = 0.5** and input resolution **224 × 224**, using transfer learning from
