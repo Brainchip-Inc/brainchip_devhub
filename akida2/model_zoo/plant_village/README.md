@@ -30,7 +30,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">-</td>
       <td align="center">99.63%</td>
       <td align="center">99.63%</td>
-      <td align="center">TBD</td>
+      <td align="center">36.00%</td>
     </tr>
     <tr>
       <td>4-bit</td>
@@ -38,7 +38,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">yes</td>
       <td align="center">99.65%</td>
       <td align="center">99.65%</td>
-      <td align="center">TBD</td>
+      <td align="center">39.18%</td>
     </tr>
   </tbody>
 </table>
@@ -72,39 +72,48 @@ rescale of the measured cycles.
     <tr>
       <td rowspan="2">8-bit</td>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">57</td>
+      <td align="center">3</td>
+      <td align="center">11464876</td>
+      <td align="center">458.595</td>
+      <td align="center">11.465</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">68</td>
+      <td align="center">3</td>
+      <td align="center">10819319</td>
+      <td align="center">432.773</td>
+      <td align="center">10.819</td>
     </tr>
     <tr>
       <td rowspan="2">4-bit (QAT)</td>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">36</td>
+      <td align="center">2</td>
+      <td align="center">12249319</td>
+      <td align="center">489.973</td>
+      <td align="center">12.249</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">37</td>
+      <td align="center">2</td>
+      <td align="center">12235439</td>
+      <td align="center">489.418</td>
+      <td align="center">12.235</td>
     </tr>
   </tbody>
 </table>
+
+<img src="docs/ref_benchmark_results_full.png" alt="Full-model benchmark results" width="700"/>
+
+The plot above shows the hardware mapping (NPs used per layer, with pass boundaries) for the 4-bit QAT variant under each mapping mode (Minimal, AllNPs and HwPr). Minimal mapping schedules the model onto the fewest NPs required, while AllNPs and HwPr spread it across more NPs. The power panels are empty because power measurement is not yet available on the Akida 2 FPGA platform.
+
+<img src="docs/ref_benchmark_results_layers.png" alt="Per-layer benchmark results" width="700"/>
+
+The plot above shows per-layer latency, input sparsity and NP mapping for the 4-bit QAT variant (Minimal mapping). Akida is event-driven, so a layer's cost depends on how many non-zero activations it receives; sparsity is measured on real dataset samples.
+
 
 The model is an **AkidaNet** (from `akida_models`) with width multiplier
 **alpha = 0.5** and input resolution **224 × 224**, using transfer learning from
