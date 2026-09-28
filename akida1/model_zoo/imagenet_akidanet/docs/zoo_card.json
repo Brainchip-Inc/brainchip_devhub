@@ -1,0 +1,33 @@
+{
+    "domain": "Image",
+    "order": 5,
+    "rows": [
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "metric_key": "a100_224_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "a100_224_",
+            "notes": "AkidaNet &alpha;=1.0"
+        },
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "metric_key": "a50_224_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "a50_224_",
+            "notes": "AkidaNet &alpha;=0.5"
+        },
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "metric_key": "a25_224_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "a25_224_",
+            "notes": "AkidaNet &alpha;=0.25"
+        }
+    ]
+}

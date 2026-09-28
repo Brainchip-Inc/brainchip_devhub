@@ -1,0 +1,24 @@
+{
+    "domain": "Time series",
+    "order": 20,
+    "rows": [
+        {
+            "task": "Bearing fault diagnosis (vibration)",
+            "category": "Industrial Monitoring / Classification",
+            "dataset": "UORED-VAFCLS",
+            "metric_key": "cv_akida_auroc_mean",
+            "metric_label": "macro AUROC",
+            "bench_prefix": "",
+            "notes": "Bearing-level split (mean over 100 CV folds)"
+        },
+        {
+            "task": "Bearing fault diagnosis (vibration)",
+            "category": "Industrial Monitoring / Classification",
+            "dataset": "UORED-VAFCLS",
+            "metric_key": "segment_akida_auroc",
+            "metric_label": "macro AUROC",
+            "bench_prefix": "",
+            "notes": "Segment-level split"
+        }
+    ]
+}

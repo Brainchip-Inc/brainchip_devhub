@@ -1,0 +1,15 @@
+{
+    "domain": "Audio",
+    "order": 10,
+    "rows": [
+        {
+            "task": "Keyword spotting",
+            "category": "Classification",
+            "dataset": "Google Speech Commands",
+            "metric_key": "akida_acc",
+            "metric_label": "acc.",
+            "bench_prefix": "",
+            "notes": "10 keywords + silence + unknown"
+        }
+    ]
+}

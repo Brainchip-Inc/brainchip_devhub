@@ -1,0 +1,15 @@
+{
+    "domain": "Image",
+    "order": 10,
+    "rows": [
+        {
+            "task": "Person detection",
+            "category": "Classification",
+            "dataset": "Visual Wake Words",
+            "metric_key": "akida_acc",
+            "metric_label": "acc.",
+            "bench_prefix": "",
+            "notes": ""
+        }
+    ]
+}

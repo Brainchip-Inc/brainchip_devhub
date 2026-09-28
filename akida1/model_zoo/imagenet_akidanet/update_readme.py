@@ -7,6 +7,7 @@ metrics file and would otherwise drift away from the tables beneath it.
 """
 import json
 import pathlib
+import runpy
 
 from imagenet_akidanet_summary_plot import plot_summary
 
@@ -19,3 +20,6 @@ print("README.md updated.")
 summary_path = here / "docs" / "ref_benchmark_summary.png"
 plot_summary(metrics, savepath=summary_path)
 print(f"{summary_path.name} updated.")
+
+# Refresh the Akida 1 landing README, whose model zoo table reads this metrics.json.
+runpy.run_path(str(here.parents[1] / "update_readme.py"), run_name="__main__")
