@@ -16,9 +16,9 @@
 # %% [markdown]
 # <img src="https://raw.githubusercontent.com/Brainchip-Inc/brainchip_devhub/main/docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
 #
-# # Cityscapes Semantic Segmentation — Training (Akida 2)
+# # Cityscapes High-Resolution Segmentation via Tiling (Training) — Akida 2
 #
-# Trains a `timm` MobileNetV4 encoder + Akida-friendly UNet decoder for 19-class Cityscapes segmentation, exports to ONNX, quantizes with `quantizeml` (directly on the ONNX graph — this example never touches Keras, see README.md "Why PyTorch?"), and converts to Akida 2 format.
+# Cityscapes images are 2048x1024 — far larger than any practical Akida input size. This example is **tiling-based end to end**: the model only ever sees 384x384 tiles, both during training (random tile crops) and at inference (a dense sliding window over the full image, reconstructed into one full-resolution prediction — see "Tiling strategy" below). A `timm` MobileNetV4 encoder + Akida-friendly UNet decoder is trained, exported to ONNX, quantized with `quantizeml` (directly on the ONNX graph — this example never touches Keras, see README.md "Why PyTorch?"), and converted to Akida 2 format.
 #
 
 # %%
@@ -51,9 +51,23 @@ RUN_FLOAT_TRAINING = False  # set True to train from scratch instead of using th
 
 
 # %% [markdown]
+# ## Tiling strategy
+#
+# Three places in this pipeline are tiling-shaped, and it's worth seeing all three before the code:
+#
+# 1. **Training** (`segmentation_data.py`'s `CityscapesHalfResCrops`): each training step sees one random `384x384` crop (`TILE_SIZE`) of the half-resolution image — the model never sees a full image during training.
+# 2. **Evaluation** (`segmentation_eval.py`'s `predict_tiled`/`eval_cityscapes_set`): a full (half-resolution) image is swept with a dense grid of overlapping `384x384` tiles (`OVERLAP=64`), each run through the model independently, then reassembled into one full-size prediction two ways:
+#    - **mosaic**: each tile's logits simply overwrite that region — fast, but has visible seams at tile boundaries.
+#    - **hann**: overlapping tiles are blended with a 2D Hann window — removes seams, at the cost of ~4x the tile inferences per image.
+# 3. **Akida inference** (same tiling code, `akida_uint8=True`): identical sliding-window reconstruction, just with the Akida-converted model's raw-uint8 tile input instead of the PyTorch/ONNX models' normalized float tiles.
+#
+# This is why `segmentation_model.py` itself has no notion of "the whole image" at all — it is a fixed `384x384`-in/`384x384`-out tile classifier. All of the high-resolution behavior lives in the tiling/reconstruction code exercised below, not in the model architecture.
+#
+
+# %% [markdown]
 # ## Dataset
 #
-# `get_data` returns a training `DataLoader` (random 384x384 crops of the half-resolution image) and the raw validation `Dataset` (full images, for the sliding-window evaluation below — a cropped/batched loader isn't useful for full-resolution mIoU).
+# `get_data` returns a training `DataLoader` of random `384x384` tile crops (see "Tiling strategy" above) and the raw validation `Dataset` — full images, not cropped/batched, since the sliding-window evaluation below needs the original image paths to tile over.
 #
 
 # %%

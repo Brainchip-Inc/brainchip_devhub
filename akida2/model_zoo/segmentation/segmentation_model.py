@@ -13,6 +13,15 @@ example's `<name>_model.py` / `<name>_train.py` contain tf_keras code; the
 file layout (this file, docs/, pretrained_models/, etc.) otherwise follows
 the same convention as vww/eyetracking.
 
+This is a fixed 384x384-in/384x384-out TILE classifier with no notion of
+"the whole image" at all -- Cityscapes images are 2048x1024, far larger
+than any practical Akida input size, so this example is tiling-based end to
+end. Training crops random 384x384 tiles (segmentation_data.py); inference
+slides this same model densely over a full image and reassembles the
+tiles' predictions (segmentation_eval.py's predict_tiled/
+eval_cityscapes_set). See README.md "Tiling strategy" for the full picture
+across training, evaluation, and Akida inference.
+
 Architecture: a `timm` MobileNetV4-conv-small encoder (ImageNet-pretrained),
 patched for Akida compatibility (see patch_mobilenetv4_for_akida below), plus
 a lightweight depthwise-separable UNet-style decoder with skip connections

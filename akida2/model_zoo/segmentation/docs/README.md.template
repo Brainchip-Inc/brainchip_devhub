@@ -1,6 +1,39 @@
 <img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
 
-# Cityscapes Semantic Segmentation — Akida 2
+# Cityscapes High-Resolution Segmentation via Tiling — Akida 2
+
+Cityscapes images are 2048x1024 — far larger than any practical Akida input
+size. This example is **tiling-based end to end**: the model is a fixed
+384x384-in/384x384-out tile classifier with no notion of "the whole image"
+at all. Both training (random tile crops) and inference (a dense sliding
+window over the full image, reassembled into one full-resolution
+prediction) operate on tiles — see "Tiling strategy" below before diving
+into the model/accuracy details.
+
+## Tiling strategy
+
+Three places in this pipeline are tiling-shaped:
+
+1. **Training** (`segmentation_data.py`'s `CityscapesHalfResCrops`): each
+   training step sees one random 384x384 crop (`TILE_SIZE`) of the
+   half-resolution image — the model never sees a full image during
+   training.
+2. **Evaluation** (`segmentation_eval.py`'s `predict_tiled`/
+   `eval_cityscapes_set`): a full (half-resolution) image is swept with a
+   dense grid of overlapping 384x384 tiles (`OVERLAP=64`), each run through
+   the model independently, then reassembled into one full-size prediction
+   two ways — **mosaic** (each tile's logits simply overwrite that region —
+   fast, visible seams) or **hann** (overlapping tiles blended with a 2D
+   Hann window — no seams, ~4x the tile inferences per image).
+3. **Akida inference** (same tiling code, `akida_uint8=True`): identical
+   sliding-window reconstruction, just with the Akida-converted model's
+   raw-uint8 tile input instead of the PyTorch/ONNX models' normalized
+   float tiles.
+
+**Hardware benchmark numbers below are per-tile latency, not per-image
+latency** — full-image latency is roughly `(tiles per image) x (per-tile
+latency)`, higher for Hann-window tiling than mosaic (see the benchmark
+table's note).
 
 ## Model Card
 
