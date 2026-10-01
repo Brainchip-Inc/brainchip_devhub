@@ -1,0 +1,14 @@
+{
+    "float_overall_err_deg": "0.236°",
+    "float_last_err_deg": "0.224°",
+    "params": "3,490",
+    "w8a8_quant_overall_err_deg": "0.351°",
+    "w8a8_quant_last_err_deg": "0.247°",
+    "w8a8_akida_overall_err_deg": "0.345°",
+    "w8a8_akida_last_err_deg": "0.253°",
+    "n_eval_windows": "300",
+    "w8a8_sparsity": "TBD",
+    "w8a8_latency_ms_per_window": "TBD",
+    "w8a8_latency_us_per_frame": "TBD",
+    "w8a8_n_bench_windows": "TBD"
+}

@@ -4,8 +4,8 @@
 
 ## Model Card
 
-Float mean angular error: **0.236°** (last-timestep: **0.224°**)
-&nbsp;|&nbsp; Parameters: **3,490**
+Float mean angular error: **{float_overall_err_deg}** (last-timestep: **{float_last_err_deg}**)
+&nbsp;|&nbsp; Parameters: **{params}**
 
 This is a **regression** task (continuous (x, y) gaze angle in degrees), so
 the table below reports mean angular error, not accuracy — lower is better.
@@ -29,30 +29,30 @@ lower-precision / QAT variant was pursued (unlike the VWW example).
       <td>Float</td>
       <td align="center">-</td>
       <td align="center">-</td>
-      <td align="center">0.236°</td>
-      <td align="center">0.224°</td>
+      <td align="center">{float_overall_err_deg}</td>
+      <td align="center">{float_last_err_deg}</td>
       <td align="center">-</td>
     </tr>
     <tr>
       <td>8-bit (quantized)</td>
       <td align="center">w8 / a8</td>
       <td align="center">-</td>
-      <td align="center">0.351°</td>
-      <td align="center">0.247°</td>
-      <td align="center">TBD</td>
+      <td align="center">{w8a8_quant_overall_err_deg}</td>
+      <td align="center">{w8a8_quant_last_err_deg}</td>
+      <td align="center">{w8a8_sparsity}</td>
     </tr>
     <tr>
       <td>8-bit (Akida-converted)</td>
       <td align="center">w8 / a8</td>
       <td align="center">-</td>
-      <td align="center">0.345°</td>
-      <td align="center">0.253°</td>
-      <td align="center">TBD</td>
+      <td align="center">{w8a8_akida_overall_err_deg}</td>
+      <td align="center">{w8a8_akida_last_err_deg}</td>
+      <td align="center">{w8a8_sparsity}</td>
     </tr>
   </tbody>
 </table>
 
-The Akida row is evaluated on a subsample of **300 windows**
+The Akida row is evaluated on a subsample of **{n_eval_windows} windows**
 (per-window evaluation is sequential — see "Why streaming evaluation" below —
 so the full test set is not practical to run without hardware).
 
@@ -67,9 +67,9 @@ so the full test set is not practical to run without hardware).
 
 | Metric | Value |
 |---|---|
-| Mean latency per window (64 sequential frames) | TBD ms |
-| Mean latency per frame | TBD &micro;s |
-| Benchmarked windows | TBD |
+| Mean latency per window (64 sequential frames) | {w8a8_latency_ms_per_window} ms |
+| Mean latency per frame | {w8a8_latency_us_per_frame} &micro;s |
+| Benchmarked windows | {w8a8_n_bench_windows} |
 
 ### Why streaming evaluation?
 
@@ -150,7 +150,7 @@ mv GazeBase_v2_0.zip data/raw/
 python data/build_dataset_seq.py data/raw/GazeBase_v2_0.zip
 ```
 
-This writes `data/processed/{train,val,test}_seq.npz`, which
+This writes `data/processed/{{train,val,test}}_seq.npz`, which
 `eyetracking_data.get_data()` / `get_samples()` read. Both the raw zip and
 the generated `.npz` files are git-ignored (large, regeneratable).
 
