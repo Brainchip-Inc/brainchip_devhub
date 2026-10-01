@@ -243,10 +243,10 @@ tiling approach here was chosen as the headline result; see
 `docs/original_readme.txt` for the author's own account, including the
 Akida-conversion accuracy regression mentioned there — **resolved** in the
 checkpoint this example uses (see "Model Card" above for the before/after
-numbers). `project_notebook_training.ipynb` and
-`project_notebook_conversion.ipynb` are the original (lightly cleaned)
-notebooks this example was distilled from, kept for reference alongside the
-architecture diagrams in `docs/`.
+numbers). `project_notebook_training.ipynb` is the original (lightly
+cleaned) notebook this example was distilled from — including the
+sliding-window tile-stitching/evaluation logic in full — kept for reference
+alongside the architecture diagrams in `docs/`.
 
 ## Contributing and Maintenance
 
