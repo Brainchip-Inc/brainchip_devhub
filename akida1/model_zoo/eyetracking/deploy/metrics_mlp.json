@@ -1,0 +1,7 @@
+{
+  "test_mean_angular_error_deg": 0.35214266180992126,
+  "n_eval_windows": 301808,
+  "layer_count": 6,
+  "macs": 35360,
+  "statistics": "Average framerate = 94050.48 fps"
+}

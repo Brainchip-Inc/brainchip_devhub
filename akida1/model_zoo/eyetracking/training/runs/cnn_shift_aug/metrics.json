@@ -1,0 +1,10 @@
+{
+  "model": "cnn",
+  "variant": "shift_aug",
+  "params": 3538,
+  "epochs_trained": 21,
+  "test_mae_deg": 0.4156915247440338,
+  "test_rmse_deg": 0.5526425242424011,
+  "test_mean_angular_error_deg": 0.6593854427337646,
+  "test_shifted_mean_angular_error_deg": 1.8756078481674194
+}

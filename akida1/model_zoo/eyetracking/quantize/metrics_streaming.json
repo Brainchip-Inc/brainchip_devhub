@@ -1,0 +1,5 @@
+{
+  "test_overall_mean_angular_error_deg": 0.3507545292377472,
+  "test_last_timestep_mean_angular_error_deg": 0.24665148556232452,
+  "qparams": "w8_a8"
+}

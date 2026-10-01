@@ -1,0 +1,25 @@
+{
+  "window": 64,
+  "stride": 32,
+  "task": "Random_Saccades",
+  "sessions": [
+    "S1",
+    "S2"
+  ],
+  "train": {
+    "n_windows": 1364706,
+    "n_subjects": 225,
+    "path": "/home/akayyam/eyetracking/data/processed/train.npz"
+  },
+  "val": {
+    "n_windows": 292908,
+    "n_subjects": 48,
+    "path": "/home/akayyam/eyetracking/data/processed/val.npz"
+  },
+  "test": {
+    "n_windows": 301808,
+    "n_subjects": 49,
+    "path": "/home/akayyam/eyetracking/data/processed/test.npz"
+  },
+  "skipped": []
+}

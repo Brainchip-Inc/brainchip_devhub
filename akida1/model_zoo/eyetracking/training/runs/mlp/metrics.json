@@ -1,0 +1,8 @@
+{
+  "model": "mlp",
+  "params": 35474,
+  "epochs_trained": 29,
+  "test_mae_deg": 0.1545376479625702,
+  "test_rmse_deg": 0.21729280054569244,
+  "test_mean_angular_error_deg": 0.24322408437728882
+}

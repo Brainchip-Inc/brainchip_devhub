@@ -1,0 +1,17 @@
+{
+  "window": 64,
+  "stride": 32,
+  "target": "per_timestep_sequence",
+  "train": {
+    "n_windows": 1364706,
+    "path": "/home/akayyam/eyetracking/data/processed/train_seq.npz"
+  },
+  "val": {
+    "n_windows": 292908,
+    "path": "/home/akayyam/eyetracking/data/processed/val_seq.npz"
+  },
+  "test": {
+    "n_windows": 301808,
+    "path": "/home/akayyam/eyetracking/data/processed/test_seq.npz"
+  }
+}

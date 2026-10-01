@@ -1,0 +1,8 @@
+{
+  "test_overall_mean_angular_error_deg": 0.34491053223609924,
+  "test_last_timestep_mean_angular_error_deg": 0.25302281975746155,
+  "n_eval_windows": 300,
+  "layer_count": 6,
+  "macs": 3264,
+  "statistics": "Average framerate = N/A"
+}

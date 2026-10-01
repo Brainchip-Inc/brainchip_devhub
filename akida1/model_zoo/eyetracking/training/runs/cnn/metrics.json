@@ -1,0 +1,8 @@
+{
+  "model": "cnn",
+  "params": 3538,
+  "epochs_trained": 30,
+  "test_mae_deg": 0.13561870157718658,
+  "test_rmse_deg": 0.18950973451137543,
+  "test_mean_angular_error_deg": 0.21368123590946198
+}

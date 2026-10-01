@@ -1,0 +1,6 @@
+{
+  "model": "cnn_akida_float",
+  "params": 3490,
+  "epochs_trained": 30,
+  "test_mean_angular_error_deg": 0.2107284814119339
+}

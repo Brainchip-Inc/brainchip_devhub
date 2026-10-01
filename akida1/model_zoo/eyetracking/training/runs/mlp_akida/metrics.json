@@ -1,0 +1,6 @@
+{
+  "model": "mlp_akida_float",
+  "params": 35474,
+  "epochs_trained": 30,
+  "test_mean_angular_error_deg": 0.23816372454166412
+}

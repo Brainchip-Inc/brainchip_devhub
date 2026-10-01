@@ -1,0 +1,12 @@
+{
+  "cnn": {
+    "zero_shift_mean_angular_error_deg": 0.21368123590946198,
+    "shifted_mean_angular_error_deg": 1.9646085500717163,
+    "degradation_ratio": 9.194108963012695
+  },
+  "mlp": {
+    "zero_shift_mean_angular_error_deg": 0.24322541058063507,
+    "shifted_mean_angular_error_deg": 1.9278196096420288,
+    "degradation_ratio": 7.926061630249023
+  }
+}
