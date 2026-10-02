@@ -70,7 +70,7 @@ rescale of the measured cycles.
   </thead>
   <tbody>
     <tr>
-      <td rowspan="2">8-bit</td>
+      <td rowspan="3">8-bit</td>
       <td>Minimal</td>
       <td align="center">57</td>
       <td align="center">3</td>
@@ -87,7 +87,15 @@ rescale of the measured cycles.
       <td align="center">10.819</td>
     </tr>
     <tr>
-      <td rowspan="2">4-bit (QAT)</td>
+      <td>HwPr</td>
+      <td align="center">158</td>
+      <td align="center">8</td>
+      <td align="center">6850359</td>
+      <td align="center">274.014</td>
+      <td align="center">6.850</td>
+    </tr>
+    <tr>
+      <td rowspan="3">4-bit (QAT)</td>
       <td>Minimal</td>
       <td align="center">36</td>
       <td align="center">2</td>
@@ -103,6 +111,14 @@ rescale of the measured cycles.
       <td align="center">489.407</td>
       <td align="center">12.235</td>
     </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">92</td>
+      <td align="center">4</td>
+      <td align="center">8316691</td>
+      <td align="center">332.668</td>
+      <td align="center">8.317</td>
+    </tr>
   </tbody>
 </table>
 
@@ -115,8 +131,6 @@ fewest NPs required, while AllNPs and HwPr spread it across more NPs. The
 **per-layer** plot shows per-layer latency, input sparsity and NP mapping under
 Minimal mapping. Akida is event-driven, so a layer's cost depends on how many
 non-zero activations it receives; sparsity is measured on real dataset samples.
-The power panels are empty because power measurement is not yet available on the
-Akida 2 FPGA platform.
 
 #### 8-bit (w8 / a8)
 

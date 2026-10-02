@@ -159,7 +159,8 @@ if __name__ == '__main__':
         full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + full_savepath)
     plot_full_model_results(full_results, ak_model, device,
                             model_name=args.loadmodel,
-                            savepath=full_savepath)
+                            savepath=full_savepath,
+                            show_power=False)  # power measurement not yet available
     print('Full model results plot saved to ' + str(full_savepath))
 
     if args.save_metrics:
