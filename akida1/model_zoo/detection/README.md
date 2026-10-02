@@ -19,7 +19,7 @@
       <td align="center">TBD</td>
       <td align="center">TBD</td>
       <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">55.26%</td>
       <td align="center">TBD</td>
     </tr>
   </tbody>
@@ -47,30 +47,41 @@ mAP is the mean Average Precision averaged over IoU thresholds from 0.5 to
   <tbody>
     <tr>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">73</td>
+      <td align="center">3</td>
+      <td align="center">46278405</td>
+      <td align="center">115.696</td>
+      <td align="center">166.9</td>
+      <td align="center">20.117</td>
+      <td align="center">54.3</td>
+      <td align="center">6.542</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">83</td>
+      <td align="center">3</td>
+      <td align="center">34052177</td>
+      <td align="center">85.130</td>
+      <td align="center">186.4</td>
+      <td align="center">16.462</td>
+      <td align="center">73.6</td>
+      <td align="center">6.497</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">118</td>
+      <td align="center">5</td>
+      <td align="center">24804769</td>
+      <td align="center">62.012</td>
+      <td align="center">214.4</td>
+      <td align="center">13.677</td>
+      <td align="center">100.7</td>
+      <td align="center">6.421</td>
     </tr>
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="1050">
 
 The plot above shows power measurements captured during inference on hardware.
 In **Minimal** mapping the model is scheduled onto the fewest NPs required,

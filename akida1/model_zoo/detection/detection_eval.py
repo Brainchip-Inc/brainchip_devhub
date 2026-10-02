@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
         device = get_akida_device(target_version=model.ip_version)
         if device is not None:
-            model.map(device, mode=akida.MapMode.Minimal)
+            model.map(device, mode=akida.MapMode.HwPr)
             print('Running inference on Akida hardware device')
             model.summary()
 

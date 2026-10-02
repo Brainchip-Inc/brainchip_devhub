@@ -36,7 +36,7 @@ if __name__ == '__main__':
                         help='Write benchmark values to metrics.json')
     args = parser.parse_args()
 
-    NUM_SAMPLES = 1000
+    NUM_SAMPLES = 50
 
 
     # -------------------------------------------------------------------------
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     # multiprocessing. Also, the power measurement tools are complex and not of
     # interest to most Akida users. For that reason we do not present that code here.
     # If interested, consult the details of the full_model_benchmark function.
-    map_modes = ['Minimal', 'AllNps']
+    map_modes = ['Minimal', 'AllNps', 'HwPr']
     POWER_REPEATS = 10
     full_results = dict()
     for mm in map_modes:
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     ak_model.summary()
 
     # Check sparsity per-layer
-    sparsity_dict = compute_sparsity(ak_model, samples=samples)
+    sparsity_dict = compute_sparsity(ak_model, samples=samples, batch_size=NUM_SAMPLES)
     pretty_print_sparsity(sparsity_dict)
 
     print(f'Running per-layer benchmark ({NUM_SAMPLES} samples)...')
@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
 
     if args.save_metrics:
-        # The is used to update the stored metrics that are used to generate the
+        # This is used to update the stored metrics that are used to generate the
         # performance tables in the README of this folder.
         # This should only be used for code maintenance, when the model or training
         # pipeline is updated and a new trained model integrated.

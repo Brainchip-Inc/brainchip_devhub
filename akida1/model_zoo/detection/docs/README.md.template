@@ -67,10 +67,21 @@ mAP is the mean Average Precision averaged over IoU thresholds from 0.5 to
       <td align="center">{allnps_dyn_P}</td>
       <td align="center">{allnps_dyn_E}</td>
     </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">{hwpr_nps}</td>
+      <td align="center">{hwpr_passes}</td>
+      <td align="center">{hwpr_cycles}</td>
+      <td align="center">{hwpr_latency_ms}</td>
+      <td align="center">{hwpr_total_P}</td>
+      <td align="center">{hwpr_total_E}</td>
+      <td align="center">{hwpr_dyn_P}</td>
+      <td align="center">{hwpr_dyn_E}</td>
+    </tr>
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="1050">
 
 The plot above shows power measurements captured during inference on hardware.
 In **Minimal** mapping the model is scheduled onto the fewest NPs required,
