@@ -30,7 +30,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">-</td>
       <td align="center">95.65%</td>
       <td align="center">95.65%</td>
-      <td align="center">TBD</td>
+      <td align="center">30.26%</td>
     </tr>
     <tr>
       <td>4-bit</td>
@@ -38,7 +38,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">yes</td>
       <td align="center">94.90%</td>
       <td align="center">94.90%</td>
-      <td align="center">TBD</td>
+      <td align="center">33.91%</td>
     </tr>
   </tbody>
 </table>
@@ -70,41 +70,79 @@ rescale of the measured cycles.
   </thead>
   <tbody>
     <tr>
-      <td rowspan="2">8-bit</td>
+      <td rowspan="3">8-bit</td>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">10</td>
+      <td align="center">1</td>
+      <td align="center">249754</td>
+      <td align="center">9.990</td>
+      <td align="center">0.250</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">18</td>
+      <td align="center">1</td>
+      <td align="center">135334</td>
+      <td align="center">5.413</td>
+      <td align="center">0.135</td>
     </tr>
     <tr>
-      <td rowspan="2">4-bit (QAT)</td>
+      <td>HwPr</td>
+      <td align="center">90</td>
+      <td align="center">4</td>
+      <td align="center">125959</td>
+      <td align="center">5.038</td>
+      <td align="center">0.126</td>
+    </tr>
+    <tr>
+      <td rowspan="3">4-bit (QAT)</td>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">10</td>
+      <td align="center">1</td>
+      <td align="center">212213</td>
+      <td align="center">8.489</td>
+      <td align="center">0.212</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">18</td>
+      <td align="center">1</td>
+      <td align="center">120408</td>
+      <td align="center">4.816</td>
+      <td align="center">0.120</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">90</td>
+      <td align="center">4</td>
+      <td align="center">110605</td>
+      <td align="center">4.424</td>
+      <td align="center">0.111</td>
     </tr>
   </tbody>
 </table>
+
+### Benchmark plots
+
+For each variant, two plots are shown below. The **full-model** plot shows the
+hardware mapping (NPs used per layer, with pass boundaries) under each mapping
+mode (Minimal, AllNPs and HwPr): Minimal mapping schedules the model onto the
+fewest NPs required, while AllNPs and HwPr spread it across more NPs. The
+**per-layer** plot shows per-layer latency, input sparsity and NP mapping under
+Minimal mapping. Akida is event-driven, so a layer's cost depends on how many
+non-zero activations it receives; sparsity is measured on real dataset samples.
+
+#### 8-bit (w8 / a8)
+
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="700"/>
+
+<img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
+
+#### 4-bit (w4 / a4, QAT)
+
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="700"/>
+
+<img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
 The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture
 for keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)
