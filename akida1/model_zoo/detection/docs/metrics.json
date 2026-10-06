@@ -1,9 +1,9 @@
 {
-    "float_map": "TBD",
-    "qat_map": "TBD",
-    "akida_map": "TBD",
+    "float_map": "41.18%",
+    "qat_map": "40.12%",
+    "akida_map": "39.69%",
     "sparsity": "55.26%",
-    "params": "TBD",
+    "params": "3,665,965",
     "minimal_cycles": "46278405",
     "minimal_latency_ms": "115.696",
     "minimal_total_P": "166.9",

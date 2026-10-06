@@ -34,7 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--data', default='./data/voc',
                         help='VOC dataset root (directory containing the VOC tar archives)')
     parser.add_argument('--save-metrics', action='store_true',
-                        help='Write mAP (and param count for .h5) to metrics.json')
+                        help='Write mAP@0.5 (and param count for .h5) to metrics.json')
     args = parser.parse_args()
 
     # ---------------------------------------------------------------------------
@@ -76,14 +76,12 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     map_evaluator = MapEvaluation(eval_model, val_data, num_valid, labels, anchors,
                                   is_keras_model=is_keras_model)
-    map_dict, average_precisions = map_evaluator.evaluate_map()
-    mean_ap = sum(map_dict.values()) / len(map_dict)
-
-    print(f'mAP 50: {map_dict[0.5]:.4f}')
-    print(f'mAP 75: {map_dict[0.75]:.4f}')
-    for label, average_precision in average_precisions.items():
-        print(f'{labels[label]}: {average_precision:.4f}')
-    print(f'mAP: {mean_ap:.4f}')
+    # map_dict holds mAP per IoU threshold (0.5 to 0.95). Following the
+    # PASCAL VOC convention, only mAP at IoU 0.5 is reported. The per-class
+    # APs also returned are averaged over all thresholds, so are not shown.
+    map_dict, _ = map_evaluator.evaluate_map()
+    map_50 = map_dict[0.5]
+    print(f'mAP (IoU 0.5): {map_50:.4f}')
 
     # ---------------------------------------------------------------------------
     # Persist metrics
@@ -95,7 +93,7 @@ if __name__ == '__main__':
         # pipeline is updated and a new trained model integrated.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
-        map_str = f'{mean_ap * 100:.2f}%'
+        map_str = f'{map_50 * 100:.2f}%'
         if not is_keras_model:
             metrics['akida_map'] = map_str
         elif 'qat' in pathlib.Path(args.loadmodel).stem:

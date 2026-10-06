@@ -16,17 +16,18 @@
   </thead>
   <tbody>
     <tr>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">41.18%</td>
+      <td align="center">40.12%</td>
+      <td align="center">39.69%</td>
       <td align="center">55.26%</td>
-      <td align="center">TBD</td>
+      <td align="center">3,665,965</td>
     </tr>
   </tbody>
 </table>
 
-mAP is the mean Average Precision averaged over IoU thresholds from 0.5 to
-0.95 (step 0.05), computed across both classes ('car', 'person').
+mAP is the mean Average Precision at an IoU (Intersection over Union)
+threshold of 0.5, averaged across all 20 VOC classes, following the
+standard PASCAL VOC evaluation convention.
 
 **AKD1500 hardware benchmark**
 
@@ -88,6 +89,11 @@ In **Minimal** mapping the model is scheduled onto the fewest NPs required,
 keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs (visible in the lower trace plots), which results in a slight increase
 in power during inference but a proportional reduction in latency.
+**HwPr** also maximizes the NPs used,
+but lets the mapper split the work over more hardware passes instead of
+minimizing them. The extra parallelism within each pass cuts latency further;
+for this model it gives both the lowest latency and the lowest energy per
+inference, despite the highest power draw.
 
 The model is a **YOLOv2** detection head on top of an **AkidaNet** (from
 `akida_models`) backbone, with width multiplier **alpha = 0.5** and input
@@ -110,10 +116,8 @@ section of the top-level README.
 
 ## Dataset
 
-PASCAL VOC (2007 + 2012) is a general-purpose object detection benchmark.
-This example restricts training and evaluation to the **'car'** and
-**'person'** classes (a lightweight 2-class subset), which matches the
-classes used by the AkidaNet/YOLOv2 VOC model already published for Akida 1.
+PASCAL VOC (2007 + 2012) is a general-purpose object detection benchmark,
+featuring 20 object classes. 
 Images are resized to **224 x 224 RGB**. Combining the VOC2007 and VOC2012
 `train+validation` splits gives on the order of 15k training images
 (before filtering to images containing at least one object of interest);
