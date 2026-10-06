@@ -1,7 +1,7 @@
 {
     "float_map": "41.18%",
-    "qat_map": "40.12%",
-    "akida_map": "39.69%",
+    "qat_map": "41.13%",
+    "akida_map": "41.04%",
     "sparsity": "55.26%",
     "params": "3,665,965",
     "minimal_cycles": "46278405",

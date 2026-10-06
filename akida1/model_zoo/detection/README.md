@@ -17,8 +17,8 @@
   <tbody>
     <tr>
       <td align="center">41.18%</td>
-      <td align="center">40.12%</td>
-      <td align="center">39.69%</td>
+      <td align="center">41.13%</td>
+      <td align="center">41.04%</td>
       <td align="center">55.26%</td>
       <td align="center">3,665,965</td>
     </tr>

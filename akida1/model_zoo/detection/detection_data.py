@@ -15,16 +15,17 @@ against the grid/anchor layout the model and loss were built with.
 import pickle
 import threading
 
+import cv2
 import imgaug.random as iarandom
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
+from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 from tf_keras.utils import set_random_seed
 
 from akida_models.utils import fetch_file
-from akida_models.detection.data_augmentation import (augment_sample, build_yolo_aug_pipeline,
-                                                      fix_obj_position_and_size)
+from akida_models.detection.data_augmentation import build_yolo_aug_pipeline
 from akida_models.detection.preprocess_data import preprocess_dataset
 from akida_models.detection.processing import create_yolo_targets, preprocess_image
 
@@ -120,20 +121,14 @@ def get_anchors():
         return pickle.load(handle)
 
 
-def _augment_sample_seeded(image, bbox, label, sample_seed, aug_pipe, labels, input_shape):
-    """ Seeded equivalent of akida_models' training-mode `preprocess`.
-
-    akida_models draws the flip/scale/offset augmentation from an unseeded
-    `np.random.default_rng()`, and the imgaug pipeline from imgaug's global
-    RNG, neither of which `set_random_seed` controls. Both draws here come
-    from a per-sample seed instead, so the augmentation applied to each
-    sample doesn't depend on which parallel map thread happens to run first.
+def _augment_sample_seeded(image, bbox, label, sample_seed, aug_pipe, input_shape):
+    """ Seeded preprocessing and augmentation
     """
     image, bbox, label = image.numpy(), bbox.numpy(), label.numpy()
     rng = np.random.default_rng(int(sample_seed) % 2**64)
 
     h, w, _ = image.shape
-    objects = {'bbox': bbox * np.array([h, w, h, w]), 'label': label}
+    boxes = bbox * np.array([h, w, h, w])
 
     # Same draws as akida_models.detection.data_augmentation.init_random_vars
     flip = rng.choice(a=[False, True])
@@ -154,24 +149,36 @@ def _augment_sample_seeded(image, bbox, label, sample_seed, aug_pipe, labels, in
         augmenter.random_state = sample_aug_rng
     sample_aug_pipe = _thread_local.aug_pipe
 
-    augmented_image, augmented_objects = augment_sample(image, objects, sample_aug_pipe, labels,
-                                                        flip, scale, offx, offy)
-    # As in akida_models: skip augmentation if it removed every bbox
-    if len(augmented_objects['bbox']) != 0:
+    # Zoom in by `scale` and crop back to (h, w), then maybe flip
+    augmented_image = cv2.resize(image, (0, 0), fx=scale, fy=scale)[offy:offy + h, offx:offx + w]
+    augmented_boxes = boxes * scale - np.array([offy, offx, offy, offx])
+    if flip:
+        augmented_image = cv2.flip(augmented_image, 1)
+        augmented_boxes[:, [1, 3]] = augmented_image.shape[1] - augmented_boxes[:, [3, 1]]
+
+    bbs = BoundingBoxesOnImage([BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2, label=obj_label)
+                                for (y1, x1, y2, x2), obj_label in zip(augmented_boxes, label)],
+                               shape=augmented_image.shape)
+    augmented_image, bbs = sample_aug_pipe(image=augmented_image, bounding_boxes=bbs)
+    bbs = bbs.remove_out_of_image().clip_out_of_image()
+
+    # If augmentation moved every box out of the image, keep the sample unaugmented
+    if len(bbs.bounding_boxes) != 0:
         image = augmented_image
-        objects = augmented_objects
+        boxes = np.array([[bb.y1, bb.x1, bb.y2, bb.x2] for bb in bbs.bounding_boxes])
+        label = np.array([bb.label for bb in bbs.bounding_boxes])
 
+    # Boxes are returned relative to the image size, so resizing leaves them unchanged
+    h, w, _ = image.shape
+    bbox = boxes / np.array([h, w, h, w])
     image = preprocess_image(image, input_shape)
-    objects = fix_obj_position_and_size(objects, h, w, input_shape, scale, offx, offy,
-                                        training=True, flip=flip)
-    bbox = objects['bbox'] / np.array([input_shape[0], input_shape[1]] * 2)
 
-    return (image.astype(np.float32), bbox.astype(np.float32),
-            np.asarray(objects['label'], dtype=np.int32))
+    return image.astype(np.float32), bbox.astype(np.float32), label.astype(np.int32)
 
 
 def _preprocess_train_dataset(dataset, input_shape, labels, batch_size, aug_pipe, anchors, seed):
-    """ Reproducible equivalent of akida_models' `preprocess_dataset(training=True)`.
+    """ Reproducible equivalent of akida_models' `preprocess_dataset(training=True)`,
+    with corrected box augmentation (see `_augment_sample_seeded`).
 
     Each sample is paired with its own seed from a seeded random stream
     (re-drawn on every pass through the data), which drives all of its
@@ -179,8 +186,7 @@ def _preprocess_train_dataset(dataset, input_shape, labels, batch_size, aug_pipe
     """
     def preprocess_sample(sample, sample_seed):
         def _apply_transformation(image, bbox, label, sample_seed):
-            return _augment_sample_seeded(image, bbox, label, sample_seed, aug_pipe, labels,
-                                          input_shape)
+            return _augment_sample_seeded(image, bbox, label, sample_seed, aug_pipe, input_shape)
 
         image, bbox, label = tf.py_function(_apply_transformation,
                                             inp=[sample['image'],
