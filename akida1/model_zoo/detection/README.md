@@ -16,9 +16,9 @@
   </thead>
   <tbody>
     <tr>
-      <td align="center">41.18%</td>
-      <td align="center">41.13%</td>
-      <td align="center">41.04%</td>
+      <td align="center">47.41%</td>
+      <td align="center">47.64%</td>
+      <td align="center">47.54%</td>
       <td align="center">55.26%</td>
       <td align="center">3,665,965</td>
     </tr>
@@ -27,7 +27,9 @@
 
 mAP is the mean Average Precision at an IoU (Intersection over Union)
 threshold of 0.5, averaged across all 20 VOC classes, following the
-standard PASCAL VOC evaluation convention.
+standard PASCAL VOC evaluation convention. Detections are ranked by their
+class-specific confidence (objectness x class probability), and all
+detections with a confidence above 0.01 are kept, up to 100 per image.
 
 **AKD1500 hardware benchmark**
 
