@@ -1,0 +1,15 @@
+{
+    "domain": "Image",
+    "order": 30,
+    "rows": [
+        {
+            "task": "Object detection",
+            "category": "Detection",
+            "dataset": "PASCAL VOC",
+            "metric_key": "akida_map",
+            "metric_label": "mAP",
+            "bench_prefix": "",
+            "notes": "YOLOv2, 20 classes, mAP at IoU 0.5"
+        }
+    ]
+}
