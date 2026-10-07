@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """
-Loads the PASCAL VOC (2007 + 2012) dataset, restricted to the 'car' and
-'person' classes, and prepares it for YOLOv2 training/evaluation.
+Loads the PASCAL VOC (2007 + 2012) dataset, covering all 20 VOC classes,
+and prepares it for YOLOv2 training/evaluation.
 
 VOC images and annotations are read through tensorflow_datasets, which
 downloads and prepares the archives itself into data_path on first use
