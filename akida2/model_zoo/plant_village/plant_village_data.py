@@ -41,11 +41,7 @@ def get_data(data_path, input_shape, batch_size, dtype=tf.uint8, seed=42):
         return image, label
 
     tfds.disable_progress_bar()
-    # raw_train, raw_val = tfds.load(
-    #     'plant_village',
-    #     split=['train[:80%]', 'train[80%:90%]'],
-    #     as_supervised=True,
-    #     data_dir=data_path)
+
     raw_train, raw_val, raw_test = tfds.load(
         'plant_village',
         split=['train[:80%]', 'train[80%:90%]', 'train[90%:]'],
