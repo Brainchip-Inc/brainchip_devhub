@@ -48,6 +48,31 @@ from brainchip_utils.hardware_utils import get_akida_device
 # local modifications can be offered back upstream as a clean diff.
 
 
+def _pairwise_iou(coords):
+    """ Computes the IoU between all pairs of boxes at once.
+
+    The arithmetic (float32 intersection, float64 areas) matches
+    `BoundingBox.iou`, so that the results are identical.
+
+    Args:
+        coords (np.ndarray): array of shape (N, 4) of (x1, y1, x2, y2) boxes
+
+    Returns:
+        np.ndarray: (N, N) array of IoUs, as float32
+    """
+    x1, y1, x2, y2 = coords.astype(np.float32).T
+    intersect_w = np.maximum(np.minimum(x2[:, None], x2) - np.maximum(x1[:, None], x1),
+                             np.float32(0))
+    intersect_h = np.maximum(np.minimum(y2[:, None], y2) - np.maximum(y1[:, None], y1),
+                             np.float32(0))
+    intersect = intersect_w * intersect_h
+
+    areas = (coords[:, 2] - coords[:, 0]) * (coords[:, 3] - coords[:, 1])
+    union = (areas[:, None] + areas).astype(np.float32) - intersect
+
+    return intersect / union
+
+
 def decode_output(output, anchors, nb_classes, obj_threshold=0.5, nms_threshold=0.5):
     """ Decodes a YOLO model output.
 
@@ -114,22 +139,26 @@ def decode_output(output, anchors, nb_classes, obj_threshold=0.5, nms_threshold=
         boxes.append(box)
 
     # suppress non-maximal boxes
-    for c in range(nb_classes):
-        sorted_indices = np.argsort([box.classes[c] for box in boxes])[::-1]
-        for ind, index_i in enumerate(sorted_indices):
-            if boxes[index_i].score == 0 or boxes[index_i].classes[c] == 0:
-                continue
+    if boxes:
+        class_scores = np.array([box.classes for box in boxes])
+        labels = np.argmax(class_scores, axis=-1)
+        for box, label in zip(boxes, labels):
+            box.label = label
+        ious = _pairwise_iou(np.array([[box.x1, box.y1, box.x2, box.y2] for box in boxes]))
 
-            for j in range(ind + 1, len(sorted_indices)):
-                index_j = sorted_indices[j]
-                if boxes[index_j].score == 0:
+        # A box can only suppress another box of the same label, so suppression runs
+        # over the boxes of each label separately, by decreasing score for that class
+        for c in range(nb_classes):
+            sorted_indices = np.argsort(class_scores[:, c])[::-1]
+            sorted_indices = sorted_indices[labels[sorted_indices] == c]
+            for ind, index_i in enumerate(sorted_indices):
+                if boxes[index_i].score == 0:
                     continue
 
                 # filter out redundant boxes (same class and overlapping too
                 # much)
-                if (boxes[index_i].iou(boxes[index_j]) >= nms_threshold) and (
-                        c == boxes[index_i].get_label()) and (
-                            c == boxes[index_j].get_label()):
+                later_indices = sorted_indices[ind + 1:]
+                for index_j in later_indices[ious[index_i, later_indices] >= nms_threshold]:
                     boxes[index_j].score = 0
 
     # remove the boxes which are less likely than a obj_threshold
