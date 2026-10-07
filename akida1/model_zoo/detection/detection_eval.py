@@ -44,8 +44,9 @@ from brainchip_utils.hardware_utils import get_akida_device
 # `decode_output` is copied from akida_models/detection/processing.py
 # (Copyright 2020 Brainchip Holdings Ltd., Apache 2.0) and `MapEvaluation`
 # from akida_models/detection/map_evaluation.py (Copyright 2017-2018 Fizyr,
-# Apache 2.0, adapted by Brainchip). Both are copied here unchanged, so that
-# local modifications can be offered back upstream as a clean diff.
+# Apache 2.0, adapted by Brainchip). Both were first copied here unchanged, so
+# that the local modifications (see git history) can be offered back upstream
+# as a clean diff.
 
 
 def _pairwise_iou(coords):
@@ -118,8 +119,9 @@ def decode_output(output, anchors, nb_classes, obj_threshold=0.5, nms_threshold=
 
     x1 = np.maximum(x - w / 2, 0)
     y1 = np.maximum(y - h / 2, 0)
-    x2 = np.minimum(x + w / 2, grid_w)
-    y2 = np.minimum(y + h / 2, grid_h)
+    # Coordinates are relative to the image size, so clip them to [0, 1]
+    x2 = np.minimum(x + w / 2, 1)
+    y2 = np.minimum(y + h / 2, 1)
 
     confidence = output[..., 4]
     classes = output[..., 5:]
@@ -182,10 +184,12 @@ class MapEvaluation(keras.callbacks.Callback):
             anchors (list): list of anchors boxes
             period (int, optional): periodicity the precision is printed,
                 defaults to once per epoch. Defaults to 1.
-            obj_threshold (float, optional): confidence threshold for a box. Defaults to 0.5.
+            obj_threshold (float, optional): confidence threshold for a box. mAP
+                integrates precision over the full range of recall, so this should be
+                low enough to keep low-confidence detections. Defaults to 0.01.
             nms_threshold (float, optional): non-maximal suppression threshold. Defaults to 0.5.
             max_box_per_image (int, optional): maximum number of detections per
-                image, Defaults to 10.
+                image, Defaults to 100.
             preserve_aspect_ratio (bool, optional): Whether aspect ratio is preserved
                 during resizing. Defaults to False.
             is_keras_model (bool, optional): indicated if the model is a Keras
@@ -204,9 +208,9 @@ class MapEvaluation(keras.callbacks.Callback):
                  labels,
                  anchors,
                  period=1,
-                 obj_threshold=0.5,
+                 obj_threshold=0.01,
                  nms_threshold=0.5,
-                 max_box_per_image=10,
+                 max_box_per_image=100,
                  preserve_aspect_ratio=False,
                  is_keras_model=True,
                  decode_output_fn=decode_output):
@@ -339,7 +343,11 @@ class MapEvaluation(keras.callbacks.Callback):
             pred_boxes = self._decode_output(output, self._anchors, self._num_classes,
                                              self._obj_threshold, self._nms_threshold)
 
-            score = np.array([box.get_score() for box in pred_boxes])
+            # Rank detections by their class-specific confidence (objectness x class
+            # probability), rather than by objectness alone. Boxes without per-class
+            # scores (e.g. from CenterNet decoding) already hold a class-specific score.
+            score = np.array([box.get_score() if box.classes is None
+                              else box.classes[box.get_label()] for box in pred_boxes])
             pred_labels = np.array([box.get_label() for box in pred_boxes])
 
             if len(pred_boxes) > 0:
