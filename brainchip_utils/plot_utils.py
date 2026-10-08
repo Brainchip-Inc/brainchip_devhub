@@ -195,10 +195,12 @@ def _power_placeholder(ax):
         spine.set_edgecolor('#cccccc')
 
 
-def plot_full_model_results(full_results, ak_model, device, model_name=None, savepath=None):
+def plot_full_model_results(full_results, ak_model, device, model_name=None, savepath=None,
+                            show_power=True):
     """Plot power trace and hardware mapping for each map mode.
 
-    Layout: rows = plot type (power, mapping); cols = map mode.
+    Layout: rows = plot type (power, mapping); cols = map mode. If show_power is
+    False the power row is omitted and only the mapping row is drawn.
     Axis limits are synchronised across columns so modes are directly comparable.
 
     Args:
@@ -209,13 +211,16 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
         device:       Akida device passed to ak_model.map().
         model_name:   Optional figure suptitle string.
         savepath:     If provided, save the figure to this path (PNG).
+        show_power:   If False, omit the power row (use when power measurement is
+                      not available, so no empty placeholder panels are drawn).
 
     Returns:
         matplotlib Figure.
     """
     modes = list(full_results.keys())
     ncols = len(modes)
-    fig, axs = plt.subplots(2, ncols, figsize=(7 * ncols, 8),
+    nrows = 2 if show_power else 1
+    fig, axs = plt.subplots(nrows, ncols, figsize=(7 * ncols, 8 if show_power else 5),
                             constrained_layout=True, squeeze=False)
 
     if model_name is not None:
@@ -225,11 +230,12 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
         result = full_results[mode_name]
         ak_model.map(device, mode=getattr(akida.MapMode, mode_name))
 
-        ax_pwr = axs[0, i]
-        ax_map = axs[1, i]
+        ax_map = axs[nrows - 1, i]
 
-        power_data = result.get('power')
-        if power_data is not None:
+        if show_power:
+            ax_pwr = axs[0, i]
+            power_data = result.get('power')
+        if show_power and power_data is not None:
             plot_power_trace(power_data, ax_pwr)
             ax_pwr.yaxis.label.set_fontsize(12)
             ax_pwr.xaxis.label.set_fontsize(12)
@@ -238,9 +244,10 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
                 plt.setp(ax_pwr.get_legend().get_texts(), fontsize=11)
             for txt in ax_pwr.texts:
                 txt.set_fontsize(10)
-        else:
+        elif show_power:
             _power_placeholder(ax_pwr)
-        ax_pwr.set_title(f'MapMode: {mode_name}', loc='left', fontsize=12, color='#444444')
+        if show_power:
+            ax_pwr.set_title(f'MapMode: {mode_name}', loc='left', fontsize=12, color='#444444')
 
         plot_mapping(ak_model, ax_map)
         ax_map.yaxis.label.set_fontsize(12)
@@ -252,7 +259,7 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
 
     # Synchronise power axes limits across columns (only for columns with real data)
     pwr_axes = [axs[0, i] for i, mm in enumerate(modes)
-                if full_results[mm].get('power') is not None]
+                if show_power and full_results[mm].get('power') is not None]
     if len(pwr_axes) > 1:
         x_min = min(ax.get_xlim()[0] for ax in pwr_axes)
         x_max = max(ax.get_xlim()[1] for ax in pwr_axes)
@@ -263,7 +270,7 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
             ax.set_ylim(y_min, y_max)
 
     # Synchronise mapping y-axis limits across columns
-    map_axes = [axs[1, i] for i in range(ncols)]
+    map_axes = [axs[nrows - 1, i] for i in range(ncols)]
     y_max_map = max(ax.get_ylim()[1] for ax in map_axes)
     for ax in map_axes:
         ax.set_ylim(0, y_max_map)
