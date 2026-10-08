@@ -137,9 +137,17 @@ global average pooling before versus after ReLU, ReLU6 versus ReLU3.75. The veri
 table is in `.claude/commands/model-zoo-eval-example.md`.
 *Source: that table; akida1/README.md.*
 
-**PyTorch models reach Akida through ONNX and `onnx2akida`.** Used here for Akida 2.
-**(unconfirmed:** whether it also targets Akida 1.)
+**[Akida 2] PyTorch models reach Akida through ONNX and `onnx2akida`.**
 `onnx2akida.convert` returns a hybrid model (Akida parts plus CPU parts) and a
-compatibility report. Version constraints with torch and TensorFlow are in the README,
-under Requirements → "PyTorch and TensorFlow in one environment".
-*Source: measured with onnx2akida 0.7.0 (2026-10-09), PR #82.*
+compatibility report. *Source: measured with onnx2akida 0.7.0 (2026-10-09), PR #82.*
+
+**[Akida 1] The ONNX route is, in practice, Akida 2 only.** In that pipeline the
+quantized model is held in ONNX form, and there is currently no way to run
+quantization-aware training on it. Without QAT, post-training quantization is the only
+option, which in practice means 8 bits, and that is Akida 2. Akida 1's 4-bit weights and
+activations need QAT to recover accuracy. So a PyTorch model targeting Akida 1 would
+have to be rebuilt in Keras and go through `cnn2snn` with QAT.
+*Source: BrainChip engineering, 2026-10-09.*
+
+Version constraints between torch, TensorFlow and `onnx2akida` are in the README, under
+Requirements → "PyTorch and TensorFlow in one environment".
