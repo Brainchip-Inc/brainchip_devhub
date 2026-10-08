@@ -108,13 +108,14 @@ Go from a fresh clone to your first result in four steps.
 
 2. **Create an environment and install.** Python 3.10–3.12 in a fresh venv or
    conda env (details in [Requirements](#requirements)). `pip install -e .` pulls
-   the full Python toolkit — TensorFlow and `akida_models` (which brings in the
-   Akida / MetaTF packages).
+   the Python toolkit — TensorFlow and `akida_models` (which brings in the
+   Akida / MetaTF packages). Add the `cuda` extra if you'll train the examples on
+   a GPU.
 
    ```bash
    conda create -n brainchip_devhub_env python=3.12 -y
    conda activate brainchip_devhub_env
-   pip install -v -e .
+   pip install -v -e ".[cuda]"   # GPU training; plain `pip install -v -e .` is enough to evaluate and benchmark
    ```
 
 3. **(For on-device runs) set up hardware.** You can train, quantize, convert,
@@ -140,6 +141,7 @@ This section covers the *why* and the gotchas.
 
 - **Python 3.10–3.12.** The range is pinned by the TensorFlow 2.19 and `akida_models` 1.14 dependencies; other Python versions won't have matching wheels. Use whatever environment manager you prefer (`venv`, `conda`, or Docker) — the quickstart uses conda.
 - **What `pip install -e .` actually installs.** Beyond TensorFlow, it pulls `akida_models`, which brings in the Akida / MetaTF stack (`akida`, `cnn2snn`, `quantizeml`), plus the helpers the examples need: `pyftdi` (reads power measurements from the board over I²C), `pywavelets` and `wfdb` (used by the ECG example), and `ipykernel` for the notebooks. The full pinned list is in [`pyproject.toml`](pyproject.toml).
+- **Optional extras.** `pip install -e ".[cuda]"` adds the CUDA libraries TensorFlow needs to train on a GPU; evaluation, conversion and benchmarking run fine without them. `pip install -e ".[torch]"` adds PyTorch and its companions for the PyTorch-based examples. **Keep `[cuda]` and `[torch]` in separate environments** (e.g. a second `brainchip_devhub_torch_env`): their CUDA libraries clash and PyTorch stops importing. In a `[torch]` environment PyTorch uses the GPU and TensorFlow runs on the CPU, which is all the Akida steps need.
 - **No separate toolkit install needed.** The Python toolkit comes from that one command; the [official installation guide](https://doc.brainchipinc.com) is only for the on-device runtime and drivers, which you need to run on real silicon — not for simulation.
 
 ### Trained models

@@ -7,7 +7,7 @@ name = "brainchip_utils"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "tensorflow[and-cuda]==2.19.1",
+    "tensorflow==2.19.1",
     "tensorflow-metadata<1.21",
     "akida_models==1.14.0",
     "pyftdi",
@@ -15,6 +15,24 @@ dependencies = [
     "pyyaml",
     "pywavelets",
     "wfdb"
+]
+
+[project.optional-dependencies]
+# GPU training for the Keras/TensorFlow examples. Evaluation, conversion and
+# benchmarking don't need it.
+# Never combine with [torch] in one environment: TensorFlow's CUDA 12 wheels and
+# PyTorch's CUDA 13 wheels install into the same paths, and torch then fails to
+# import (tested 2026-10-08, issue #71).
+cuda = ["tensorflow[and-cuda]==2.19.1"]
+# PyTorch-based examples. Use a separate environment from [cuda]: PyTorch trains
+# on the GPU, and TensorFlow runs on the CPU, which is all the Akida steps need.
+torch = [
+    "torch==2.14.1",
+    "timm",
+    "onnx",
+    "onnxruntime",
+    "torchmetrics",
+    "albumentations",
 ]
 
 [tool.setuptools.packages.find]
