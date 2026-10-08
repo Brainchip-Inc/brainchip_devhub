@@ -79,7 +79,7 @@ Follow it; the canonical references are `akida1/model_zoo/vww` (training),
 
 ```bash
 pip install -v -e .                                   # Python 3.10–3.12, pinned toolchain
-python akida1/model_zoo/<example>/update_readme.py    # regenerate example + akida1 READMEs (needs Python 3.12, see below)
+python akida1/model_zoo/<example>/update_readme.py    # regenerate example + akida1 READMEs
 python akida1/update_readme.py                        # regenerate the akida1 landing page only
 pytest test/test_hardware_utils.py                    # unit tests, no hardware
 pytest test/test_models.py -m "not hardware" --models "<repo-relative model paths>"
@@ -88,10 +88,7 @@ python .claude/skills/review-content/check_content.py  # README drift, links, pi
 ```
 
 There is no site build: GitHub renders the markdown. Markdown lint and link checking are
-not set up yet (tracked in ROADMAP.md, "Agent workflow" theme).
-
-Known issue: `akida1/update_readme.py` uses PEP 701 f-string quoting and only runs on
-Python ≥ 3.12.
+not set up yet (#67).
 
 ## What Claude can and can't do here
 

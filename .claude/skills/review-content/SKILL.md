@@ -46,7 +46,7 @@ name) and pull out its acceptance criteria. Those are part of the review.
 python .claude/skills/review-content/check_content.py --base <base>
 ```
 
-Use Python ≥ 3.12 (the akida1 landing-page check needs it). The script is read-only.
+The script is read-only.
 Findings under "In this change" are blocking. Mention "Pre-existing" ones only if they're
 in files this change touches.
 
