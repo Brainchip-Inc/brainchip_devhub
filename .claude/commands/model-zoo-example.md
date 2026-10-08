@@ -22,8 +22,15 @@ Parse these from `$ARGUMENTS` now. Set:
 - `SOURCE_DIR` = `akida_models/scripts/<NAME>/`
 - `TARGET_DIR` = `brainchip_devhub/akida<AKIDA_VERSION>/model_zoo/<NAME>/`
 
-Working directories are `/mnt/compute/dmclelland/code/brainchip_devhub/` (primary) and
-`/mnt/compute/dmclelland/code/akida_models/` (additional).
+Resolve the `brainchip_devhub` and `akida_models` repo locations before doing anything else,
+in this order:
+1. Environment variables `BRAINCHIP_DEVHUB` / `AKIDA_MODELS`, if set.
+2. Paths passed as `--devhub <path>` / `--akida-models <path>` in `$ARGUMENTS`.
+3. Sibling / ancestor directories of the current working directory (if invoked inside a
+   `brainchip_devhub` checkout, look for a sibling `akida_models`).
+
+If a repo cannot be found, stop and ask rather than guessing. Do not hardcode any absolute
+user path.
 
 ---
 
