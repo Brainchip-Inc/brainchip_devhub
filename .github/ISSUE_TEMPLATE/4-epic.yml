@@ -1,0 +1,43 @@
+name: Epic
+description: A roadmap outcome broken into sub-issues. Maintainers only.
+title: "[epic] <outcome>"
+labels: ["type:epic", "needs-triage"]
+body:
+  - type: input
+    id: theme
+    attributes:
+      label: Roadmap theme
+      description: Must match a theme in ROADMAP.md.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What's true for the reader when this epic is done.
+    validations:
+      required: true
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: breakdown
+    attributes:
+      label: Proposed breakdown
+      description: |
+        One line per sub-issue. Mark each [agent] or [human]. Create them as GitHub
+        sub-issues of this one.
+      value: |
+        - [human] 
+        - [agent] 
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks, dependencies, open questions
