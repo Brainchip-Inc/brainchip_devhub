@@ -64,6 +64,8 @@ priority. -->
 - Model improvement: a sparse variant, trained with activity regularization, alongside the
   existing model in the Akida 1 examples (VWW, PlantVillage, ECG arrhythmia).
 - Tutorials: Developing sparse models (Akida 1).
+- Agent workflow: repo context for Claude, issue templates and labels, the Claude Code
+  GitHub Action, and CI guardrails.
 
 ### Next
 
@@ -73,6 +75,8 @@ priority. -->
 - Tutorials: How Akida differs, Sparsity in Akida hardware, My first Akida workflow.
 - Akida Pico: integrate the examples already developed internally.
 - Deployment: an Arduino + Python route on the BrainBoard 1500.
+- Agent workflow: a weekly routine that proposes issues and posts status; the remaining
+  content skills.
 
 ### Later
 
