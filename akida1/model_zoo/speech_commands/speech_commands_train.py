@@ -25,7 +25,7 @@ from cnn2snn import load_quantized_model
 from cnn2snn.quantization_layers import QuantizedReLU
 
 from speech_commands_data_loader import compute_mfcc_range, get_datasets
-from regularizers_custom import HoyerSquare
+from brainchip_utils.training_utils import HoyerSquare
 
 # Must be called before any TF ops to make GPU ops (conv backward passes,
 # bilinear resize, etc.) deterministic. Has a small throughput cost.
