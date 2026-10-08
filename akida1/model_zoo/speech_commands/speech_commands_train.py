@@ -8,7 +8,7 @@ Example
     python speech_commands_train.py \\
         -l models/speech_commands_untrained.h5 \\
         -s models/speech_commands.h5 \\
-        -d /home/datasets/sc10/ \\
+        -d data/sc10 \\
         --config configs/training_cfg.yml \\
 """
 import argparse

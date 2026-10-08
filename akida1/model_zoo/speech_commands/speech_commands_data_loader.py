@@ -354,7 +354,9 @@ def get_samples(data_path, data_transform=None, num_samples=1024):
 # ---------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    DATA_DIR = '/mnt/data/sc10/'
+    import sys
+    # Optional argument: dataset location (default matches the training scripts).
+    DATA_DIR = sys.argv[1] if len(sys.argv) > 1 else './data/sc10'
     data_transform = compute_mfcc_range(data_dir=DATA_DIR)
     ds_train, ds_test, ds_val = get_datasets(
         data_dir=DATA_DIR, batch_size=100, data_transform=data_transform
