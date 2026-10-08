@@ -40,7 +40,7 @@ def _cells(example, row, metrics):
         energy = _value(metrics, f"{prefix}{mapping}_total_E")
         latency = _value(metrics, f"{prefix}{mapping}_latency_ms")
     return [
-        f'<a href="model_zoo/{example}">{row['task']}</a>',
+        f'<a href="model_zoo/{example}">{row["task"]}</a>',
         row["category"],
         row["dataset"],
         f"{perf} {row['metric_label']}" if perf else "—",
