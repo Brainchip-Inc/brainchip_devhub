@@ -39,10 +39,8 @@ class HoyerSquare(regularizers.Regularizer):
     Raw form is unbounded: for a tensor of N elements the ratio ranges up to N
     itself (dense/uniform case), so the same `factor` exerts more pressure on
     layers with more elements. With `normalize=True`, divides by N so the
-    penalty is bounded in (0, 1] regardless of tensor size -- a prior
-    unrelated project (DPLS) found this normalization is what prevents
-    DeepHoyer from collapsing training (raw penalty on one activation batch
-    measured ~797,000 vs ~0.5 normalized).
+    penalty is bounded in (0, 1] regardless of tensor size, so a single
+    `factor` applies comparable pressure to layers of very different sizes.
     """
 
     def __init__(self, factor, normalize=False):
