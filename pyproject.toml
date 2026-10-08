@@ -22,7 +22,8 @@ dependencies = [
 # benchmarking don't need it. Can't be combined with [torch]: the two pin
 # different versions of the same nvidia-*-cu12 wheels, and pip refuses.
 cuda = ["tensorflow[and-cuda]==2.19.1"]
-# PyTorch examples: models are exported to ONNX and converted with onnx2akida.
+# PyTorch examples (Akida 2 only): models are exported to ONNX and converted with
+# onnx2akida, which supports 8-bit post-training quantization but not QAT.
 # torch is pinned to 2.10.0, the newest release whose default ONNX exporter works
 # with onnx2akida 0.7.0 (which pins onnx_ir==0.1.9); from 2.11 the exporter needs a
 # newer onnx_ir. onnxscript is required by that exporter. Revisit the torch pin
