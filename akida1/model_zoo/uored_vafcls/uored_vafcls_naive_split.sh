@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 #
-# The naive comparator: the same pipeline as uored_vafcls_train.sh, run under a
-# deliberately leaky split. Build, train, quantize, tune, convert, and evaluate
-# This builds the same pipeline as uored_vafcls_train.sh (Build, train, quantize, tune, convert, and evaluate
-), run under a
-# deliberately leaky data split (see uored_vafcls_data.py docstring for more info). 
+# The naive comparator: the same pipeline as uored_vafcls_train.sh (build, train,
+# quantize, tune, convert, and evaluate), run under a deliberately leaky data split
+# (see the uored_vafcls_data.py docstring for more info).
 #
 # Usage:  bash uored_vafcls_naive_split.sh [DATADIR] [SEED]
 #
@@ -20,9 +18,9 @@
 # See the DATA SPLIT PROTOCOL notes in uored_vafcls_data.py.
 #
 # There is no FOLD argument: unlike the protocol, this split is singular, so
-# there is nothing to cross-validate. Its score is stable to about 0.001 where
-# the bearing-disjoint folds span 0.04-0.05. Re-run with a different SEED to
-# confirm that.
+# there is nothing to cross-validate. Its score barely moves between runs, where
+# the bearing-disjoint folds vary widely (the spread is in docs/metrics.json and
+# the README). Re-run with a different SEED to confirm that.
 #
 # Models are written with a _segment suffix so this never overwrites the
 # protocol-trained checkpoints that the README tables describe.
