@@ -210,7 +210,7 @@ any further tuning for this version of the task.
 
 Unlike the bearing-level split, the segment-level split needs no cross-validation. It has no folds
 to average over (there is one time cut, the same for every run) and its score
-is stable to about 0.001, where the bearing-disjoint folds have a standard deviation of
+barely changes between seeds, where the bearing-disjoint folds have a standard deviation of
 0.0666 and range from 0.6989 to 0.9892. One run
 is sufficient. You can re-run uored_vafcls_naive_split.sh with a different seed to
 confirm that for yourself.
