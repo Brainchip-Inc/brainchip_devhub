@@ -87,8 +87,10 @@ python test/discover_models.py --all                  # list the models CI will 
 python .claude/skills/review-content/check_content.py  # README drift, links, pins, LFS, paths (read-only)
 ```
 
-There is no site build: GitHub renders the markdown. Markdown lint and link checking are
-not set up yet (#67).
+There is no site build: GitHub renders the markdown. CI (`.github/workflows/content.yml`)
+runs `check_content.py` and the unit tests on every PR, and checks external links weekly
+(broken ones are reported in a tracking issue). There is no markdown lint: the READMEs use
+inline HTML and long lines on purpose.
 
 ## What Claude can and can't do here
 
