@@ -10,8 +10,8 @@ fold, and reports the mean and spread of macro AUROC for each stage.
 This is the script that produces the headline number for this example, and the
 reason it exists is that a single fold does not support a conclusion. There are
 only 20 bearings; a fold trains on 12 of them and is tested on 8. The AUROC
-spread across folds is 0.04-0.07, and individual folds range from about 0.70 to
-about 0.99 with the model and the seed held fixed. Two architectures differing
+varies widely across folds with the model and the seed held fixed (the spread is
+written to docs/metrics.json and shown in the README). Two architectures differing
 by a couple of AUROC points cannot be distinguished by one fold, and reporting
 one fold's score as a model's performance is reporting noise.
 

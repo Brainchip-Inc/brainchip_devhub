@@ -13,9 +13,9 @@
 # cross-validation mean, thereby avoiding giving a false impression of 
 # model accuracy for readers glancing at e.g. the training notebook.
 #
-# A single fold tells you very little about this model. The across-fold spread
-# is 0.04-0.05 macro AUROC and folds range from about 0.70 to about 0.99 with
-# everything else held fixed. For the number that means something, run:
+# A single fold tells you very little about this model. Macro AUROC varies
+# widely across folds with everything else held fixed (the spread is in
+# docs/metrics.json and the README). For the number that means something, run:
 #
 #     python uored_vafcls_cross_validate.py
 #
