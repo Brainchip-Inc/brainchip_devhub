@@ -75,7 +75,8 @@ Keras but is new to Akida.
    `metrics.json`, a cited paper, or a figure generated from metrics. A hard-coded number
    that duplicates a metrics key is a should-fix: replace it with the `{key}`
    placeholder. An untraceable number is blocking.
-2. **Platform correctness.** Akida 1 text must not describe Akida 2 behaviour or the reverse
+2. **Platform correctness.** Check claims about hardware behaviour against
+   `.claude/knowledge/akida.md`. Akida 1 text must not describe Akida 2 behaviour or the reverse
    (8-bit vs 4-bit defaults, quantizeml vs cnn2snn, fused vs split separable convs,
    HWPR is available on AKD1500 but not AKD1000). Hardware is named wherever a number appears.
 3. **Claims match code.** The README's pipeline table (epochs, learning rates, bit widths)
