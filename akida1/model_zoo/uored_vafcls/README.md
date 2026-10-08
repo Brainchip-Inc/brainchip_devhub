@@ -38,7 +38,7 @@ The table reports results for a **single model architecture**. Only the method u
       <td align="center">0.8939</td>
       <td align="center">0.8939</td>
       <td align="center">335,444</td>
-      <td align="center">37.81%</td>
+      <td align="center">38.47%</td>
     </tr>
   </tbody>
 </table>
@@ -261,10 +261,7 @@ is constant, should be more or less constant across folds (will vary only to the
 
 ### Notebook
 
-> ⚠️ **Work in progress — the notebooks are not included in this release yet.** The section below describes what they will
-> cover; until they land, use the scripts described under [Script](#script). The links will not resolve.
-
-[`uored_vafcls_notebook_training.ipynb`](uored_vafcls_notebook_training.ipynb) walks through the whole pipeline on a single fold: the dataset and its two leakage traps, how a 1 s waveform becomes a framed uint8 tensor, training, quantization, tuning and conversion. It also loads `docs/cv_results.csv` to show the fold distribution without needing a two-hour run.
+[`uored_vafcls_notebook_training.ipynb`](uored_vafcls_notebook_training.ipynb) walks through the whole pipeline on a single fold: the dataset and its two leakage traps, how a 1 s waveform becomes a framed uint8 tensor, training, quantization, tuning and conversion. It then trains the same model on the leaky segment split for comparison, and loads `docs/cv_results.csv` to show the fold distribution without needing a long cross-validation run.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida1/model_zoo/uored_vafcls/uored_vafcls_notebook_training.ipynb)
 
