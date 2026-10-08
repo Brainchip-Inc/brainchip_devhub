@@ -1,0 +1,48 @@
+name: Content update
+description: Refresh, correct or extend existing content (including SDK / toolchain bumps).
+title: "[update] <path>: <change>"
+labels: ["type:update", "needs-triage"]
+body:
+  - type: textarea
+    id: targets
+    attributes:
+      label: Files or examples affected
+      description: Repo paths, one per line.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What's wrong or out of date
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Source of truth for the change
+      description: Release notes, new version pins, corrected numbers (with where they came from), reviewer feedback.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] 
+        - [ ] Meets the Definition of done in CLAUDE.md
+    validations:
+      required: true
+  - type: checkboxes
+    id: human-steps
+    attributes:
+      label: Steps that need a human or specific machine
+      options:
+        - label: Retraining must be run by a human, not Claude
+        - label: Re-benchmarking on hardware
+        - label: Re-executing notebooks with hardware cells
+  - type: input
+    id: parent
+    attributes:
+      label: Parent epic
+      description: e.g. #123 (optional)

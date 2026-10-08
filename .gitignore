@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Claude Code: personal, never shared
+CLAUDE.local.md
+.claude/settings.local.json

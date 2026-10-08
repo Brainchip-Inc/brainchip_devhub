@@ -1,0 +1,83 @@
+name: New content
+description: Propose a new example, tutorial, guide or page. Must be specific enough to execute.
+title: "[new] <platform>: <content title>"
+labels: ["type:new-content", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is the spec. Claude or a contributor should be able to deliver it from
+        what's written here, with no hallway context. If you can't fill in acceptance
+        criteria and source material yet, open an epic or a discussion instead.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Content type
+      options:
+        - Model zoo example (with training)
+        - Model zoo example (eval / benchmark only)
+        - Tutorial notebook
+        - Deployment guide
+        - Landing page / navigation
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - Akida 1
+        - Akida 2
+        - Akida Pico
+        - Platform-independent
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Reader outcome
+      description: Who is this for, and what can they do after reading or running it that they couldn't before?
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Source material
+      description: |
+        Everything needed to build it. Paths in akida_models, branches, papers, internal notes
+        (public-safe summary only), dataset URL **and licence**, pretrained weights location,
+        reference example to mirror.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkable statements. The PR is done when every box can be ticked.
+      value: |
+        - [ ] 
+        - [ ] Meets the Definition of done in CLAUDE.md
+    validations:
+      required: true
+  - type: checkboxes
+    id: human-steps
+    attributes:
+      label: Steps that need a human or specific machine
+      description: Tick any that apply. Each becomes its own needs-human sub-issue.
+      options:
+        - label: Training must be run by a human, not Claude
+        - label: Hardware benchmark (AKD1500 / v2 FPGA, power measurement)
+        - label: Dataset licensing decision
+        - label: Product / positioning sign-off
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this deliberately does not cover.
+  - type: input
+    id: roadmap
+    attributes:
+      label: Roadmap theme / parent epic
+      description: e.g. "Akida 1 tutorials" or #123

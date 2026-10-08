@@ -1,0 +1,47 @@
+name: Problem with an example
+description: Something doesn't run, doesn't reproduce the published numbers, or is wrong.
+title: "[bug] <example>: <what went wrong>"
+labels: ["type:bug", "needs-triage"]
+body:
+  - type: input
+    id: example
+    attributes:
+      label: Example or page
+      description: Path or link, e.g. akida1/model_zoo/vww
+    validations:
+      required: true
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: Exact commands or notebook cells.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened vs. what you expected
+      description: Paste the error, or the numbers you got next to the published ones.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `pip list | grep -iE "akida|cnn2snn|quantizeml|tensorflow"`, Python version, OS.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Hardware
+      options:
+        - None (simulation only)
+        - AKD1500
+        - AKD1000
+        - Akida Cloud
+        - Other
+    validations:
+      required: true

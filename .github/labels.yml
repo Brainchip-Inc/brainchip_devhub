@@ -1,0 +1,77 @@
+# Label scheme for brainchip_devhub issues and PRs.
+# Source of truth for labels; sync to GitHub with a label-sync action or `gh label create --force`.
+#
+# Rules:
+# - Every triaged issue has exactly one type:* and at least one content:* label.
+# - platform:* is set whenever the work is platform-specific.
+# - agent-ready means Claude may pick it up; needs-human means it's blocked on a person.
+#   They are mutually exclusive. An unassigned issue with neither isn't ready. An issue
+#   already assigned to someone and in progress carries neither; its state is on the board.
+# - needs-triage is applied by every issue template and removed once the above are set.
+# - Workflow status (Todo / In progress / In review / Done) lives on the Projects board,
+#   not in labels.
+
+# --- What kind of work ---------------------------------------------------------
+- name: "type:epic"
+  color: "3e4b9e"
+  description: "Parent issue grouping sub-issues toward one roadmap outcome"
+- name: "type:new-content"
+  color: "0e8a16"
+  description: "New example, tutorial, guide or page"
+- name: "type:update"
+  color: "1d76db"
+  description: "Refresh or improve existing content (incl. SDK/toolchain bumps)"
+- name: "type:bug"
+  color: "d73a4a"
+  description: "Something doesn't run, doesn't reproduce, or is wrong"
+- name: "type:tooling"
+  color: "5319e7"
+  description: "CI, scripts, brainchip_utils, Claude config. Not reader-facing."
+
+# --- Which content area --------------------------------------------------------
+- name: "content:model-zoo"
+  color: "fbca04"
+  description: "akida*/model_zoo examples"
+- name: "content:tutorial"
+  color: "fbca04"
+  description: "Tutorial notebooks / concept walkthroughs"
+- name: "content:deployment"
+  color: "fbca04"
+  description: "Deployment and on-device benchmarking guides"
+- name: "content:landing"
+  color: "fbca04"
+  description: "README landing pages, navigation, zoo tables"
+
+# --- Which platform ------------------------------------------------------------
+- name: "platform:akida1"
+  color: "f9d0c4"
+  description: "AKD1000 / AKD1500"
+- name: "platform:akida2"
+  color: "f9d0c4"
+  description: "AKD2500 / v2 FPGA"
+- name: "platform:pico"
+  color: "f9d0c4"
+  description: "Akida Pico"
+
+# --- Who can do it -------------------------------------------------------------
+- name: "agent-ready"
+  color: "0052cc"
+  description: "Fully specified; Claude may pick it up and do it end to end, training and benchmarks included"
+- name: "needs-human"
+  color: "b60205"
+  description: "Blocked on a person: a decision, source material, clarification, or a step reserved for a human"
+- name: "needs-triage"
+  color: "ededed"
+  description: "New; labels, acceptance criteria or source material not yet confirmed"
+
+# --- Community (GitHub surfaces these to outside contributors) ------------------
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers"
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed"
+
+# Default labels to retire (map existing usages first):
+#   bug -> type:bug, enhancement -> type:new-content, documentation -> type:update,
+#   question -> needs-human. duplicate, invalid, wontfix -> use "Close as not planned / duplicate".
