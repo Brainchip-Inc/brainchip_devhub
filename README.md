@@ -57,7 +57,7 @@ Akida 1 and Akida 2 examples are available today; more Akida 2 models can be fou
 | --- | --- | --- | --- |
 | **Chip** | AKD1500 | AKD2500 | — |
 | **Typical use cases** | Image classification, keyword spotting, object detection | Larger models, higher accuracy targets | Always-on sensing, edge inference |
-| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) | 🔜 Coming soon |
+| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) · [ImageNet / MobileNetV1 (PyTorch)](akida2/model_zoo/imagenet_mobilenet) | 🔜 Coming soon |
 
 ---
 
@@ -156,7 +156,7 @@ If you choose versions yourself, these combinations break:
 
 ### Trained models
 
-Pretrained weights (`.h5`, `.fbz`) live in the repo but are tracked with [Git LFS](https://git-lfs.com/) rather than regular git: the binaries are large, so git stores a small text *pointer* in history and fetches the real file on demand, keeping clones fast.
+Pretrained weights (`.h5`, `.fbz`, `.onnx`) live in the repo but are tracked with [Git LFS](https://git-lfs.com/) rather than regular git: the binaries are large, so git stores a small text *pointer* in history and fetches the real file on demand, keeping clones fast.
 
 - **Did LFS actually run?** If a weight file is only a few hundred bytes and opens as text starting with `version https://git-lfs.github.com/spec/v1`, you have a pointer, not a model — LFS didn't fetch it. `git lfs ls-files` shows what LFS is tracking.
 - **Fixing a pointer-only checkout.** Install Git LFS, then pull the real files:

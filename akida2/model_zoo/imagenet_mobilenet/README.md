@@ -1,0 +1,241 @@
+<img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+
+# ImageNet MobileNetV1 (PyTorch/timm → Akida 2)
+
+<!-- GENERATED FILE: edit docs/README.md.template and run update_readme.py -->
+
+## Model Card
+
+This example takes a pretrained **PyTorch/timm** ImageNet classifier to Akida 2:
+load the timm model, export it to ONNX, quantize it with **`quantizeml`** (8-bit
+weights and activations, post-training, no fine-tuning), convert it with
+**`cnn2snn`**, and check top-1 and top-5 accuracy on the ImageNet validation set at
+every step. No Keras conversion is needed, so the same route works for other timm
+models whose layers Akida supports.
+
+Two MobileNetV1 widths are covered, both taking 224 × 224 RGB input.
+
+<table>
+<tr><th rowspan="2">Model</th><th rowspan="2">Width (alpha)</th><th rowspan="2">Params</th><th colspan="2">timm ref.</th><th colspan="2">Float (PyTorch)</th><th colspan="2">Float (ONNX)</th><th colspan="2">Quantized (w8a8)</th><th colspan="2">Akida</th><th rowspan="2">Activation sparsity</th></tr>
+<tr><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th></tr>
+<tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>75.38%</td><td>92.31%</td><td>75.39%</td><td>92.29%</td><td>75.39%</td><td>92.29%</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
+<tr><td><code>mobilenetv1_125</code></td><td>1.25</td><td>TBD</td><td>76.92%</td><td>93.23%</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
+</table>
+
+All accuracies are over the full 50,000-image ImageNet validation set. Values marked
+TBD have not been measured yet. The timm reference is the accuracy timm publishes for
+the same weights at 224 × 224 (`mobilenetv1_100.ra4_e3600_r224_in1k`,
+`mobilenetv1_125.ra4_e3600_r224_in1k`). Activation sparsity is the fraction of zero
+outputs, measured on 100 validation images and averaged over the Akida layers that end
+in a ReLU. In MobileNetV1 that is every convolution; only the classifier is left out.
+
+The quantized models are calibrated on 8,192 images drawn at random from the ImageNet
+train split. The Akida model tracks the quantized ONNX model closely, so the accuracy
+cost comes from 8-bit post-training quantization rather than from conversion. 🚧 That
+cost is under investigation, and this section will explain it.
+
+### Akida 2 hardware benchmark
+
+The Akida 2 reference hardware is an FPGA running at 25 MHz. Latency is measured
+there, and also projected to the 1 GHz AKD2500 target clock: the cycle count does
+not depend on the clock, so the projection is exact. Power is not measured yet,
+because the FPGA power path is still under development. Values marked TBD have not
+been measured on hardware yet.
+
+<details>
+<summary><b>mobilenetv1_100</b> (alpha = 1.0)</summary>
+
+| Mapping mode | NPs | Passes | Cycles / inference | Latency @ 25 MHz (ms) | Projected latency @ 1 GHz (ms) |
+|---|---|---|---|---|---|
+| Minimal | TBD | TBD | TBD | TBD | TBD |
+| AllNps | TBD | TBD | TBD | TBD | TBD |
+| HwPr | TBD | TBD | TBD | TBD | TBD |
+
+</details>
+
+<details>
+<summary><b>mobilenetv1_125</b> (alpha = 1.25)</summary>
+
+| Mapping mode | NPs | Passes | Cycles / inference | Latency @ 25 MHz (ms) | Projected latency @ 1 GHz (ms) |
+|---|---|---|---|---|---|
+| Minimal | TBD | TBD | TBD | TBD | TBD |
+| AllNps | TBD | TBD | TBD | TBD | TBD |
+| HwPr | TBD | TBD | TBD | TBD | TBD |
+
+</details>
+
+## Requirements
+
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README. This example also needs PyTorch and timm, which are
+kept out of the base install for compatibility reasons (see below). From the repository root, please do the following steps:
+
+```bash
+# 1. Base install: TensorFlow 2.19 with its CUDA 12.5 libraries, and the Akida stack
+pip install -v -e .
+
+# 2. PyTorch and timm. This replaces some CUDA libraries with torch's 12.4 versions.
+pip install torch==2.6.0 torchvision==0.21.0 timm==1.0.24
+
+# 3. Put TensorFlow's CUDA libraries back
+pip install "tensorflow[and-cuda]==2.19.1"
+```
+
+TensorFlow (`tensorflow[and-cuda]`) and PyTorch each install NVIDIA's CUDA libraries as
+pip packages, and each pins exact versions: CUDA 12.5 for TensorFlow 2.19, CUDA 12.4 for
+PyTorch 2.6. No PyTorch release is built against CUDA 12.5, so `pip` cannot install both
+in one command. Step 3 keeps TensorFlow's versions, and PyTorch runs on them: it is
+built for CUDA 12.4, and newer minor versions of the CUDA 12 libraries are compatible.
+This is the workaround a PyTorch maintainer suggests on the
+[PyTorch forum](https://discuss.pytorch.org/t/missing-linux-x86-64-large-wheels-cuda-bundled-can-not-install-alongside-tensorflow/197651),
+and the one Kaggle's Docker image uses to ship both frameworks. Afterwards, `pip check`
+lists torch's CUDA requirements as unmet; that is expected.
+
+Only some steps of this example need PyTorch. Without steps 2 and 3, you can still load
+the published ONNX, quantized and Akida models, run the 10-image smoke test and run the
+hardware benchmark. Creating the models, evaluating the float PyTorch model and
+evaluating on the full validation set need PyTorch.
+
+## Dataset
+
+**ImageNet-1k** (ILSVRC 2012): 1000 object categories, 1,281,167 training images and
+50,000 validation images. Accuracy is measured on the full validation split, and
+quantization is calibrated on images from the train split.
+
+> ImageNet is distributed under its own terms, which permit non-commercial
+> research and educational use and do **not** permit redistribution. No ImageNet
+> imagery is included in this repository; you must obtain it yourself.
+>
+> Deng, J., Dong, W., Socher, R., Li, L.-J., Li, K. and Fei-Fei, L.,
+> *"ImageNet: A Large-Scale Hierarchical Image Database"*, CVPR 2009.
+
+Request access at [image-net.org](https://image-net.org/download.php) and lay the
+dataset out as one folder per split, each with one subfolder per class (synset id):
+
+```
+data/imagenet/
+├── train/
+│   ├── n01440764/*.JPEG
+│   └── ...
+└── validation/
+    ├── n01440764/*.JPEG
+    └── ...
+```
+
+The scripts default to `./data/imagenet`; pass `-d /path/to/imagenet` to use
+another location.
+
+Preprocessing is the evaluation transform timm resolves from each model's
+`pretrained_cfg`: a bicubic resize of the shorter side (to 256 for alpha = 1.0, to 248
+for alpha = 1.25, because the two checkpoints use different crop ratios), then a
+224 × 224 centre crop.
+[imagenet_mobilenet_preprocessing.py](imagenet_mobilenet_preprocessing.py) writes it
+out in full, with PIL and numpy only, and gives the same values as timm's own
+transform. PyTorch and ONNX models take float tensors normalised to [-1, 1]. Akida
+models take raw uint8 pixels, because `cnn2snn` folds the normalisation into the
+first layer.
+
+### Sample pack
+
+For the hardware benchmark and a quick smoke test, no ImageNet copy is needed: a
+10-image ImageNet-like sample pack hosted by BrainChip (the same one used by
+`imagenet_akidanet`) is fetched on demand. It is not subject to ImageNet's
+redistribution terms. It is a pipeline check, far too small to measure accuracy with.
+
+## Reference Models
+
+Pretrained models are in the `pretrained_models/` folder and are stored with
+`git-lfs`. For those to be downloaded with the repo, you will need to set up
+`git-lfs`. See the [Trained models](../../../README.md#trained-models) section of the
+top-level README.
+
+| File | Variant |
+|---|---|
+| `<model>.onnx` | float model exported to ONNX |
+| `<model>_quantized.onnx` | 8-bit quantized model (quantizeml) |
+| `<model>.fbz` | Akida model (cnn2snn) |
+
+The float PyTorch weights are not stored here: timm downloads them from the
+Hugging Face hub.
+
+## Files
+
+| File | Purpose |
+|---|---|
+| [imagenet_mobilenet_model.py](imagenet_mobilenet_model.py) | Model selection by width, and the creation pipeline: timm → ONNX → quantizeml → cnn2snn |
+| [imagenet_mobilenet_data.py](imagenet_mobilenet_data.py) | ImageNet loaders, calibration samples, 10-image sample pack |
+| [imagenet_mobilenet_preprocessing.py](imagenet_mobilenet_preprocessing.py) | Evaluation preprocessing, identical to timm's |
+| [imagenet_mobilenet_eval.py](imagenet_mobilenet_eval.py) | Top-1 / top-5 accuracy of one variant, plus Akida activation sparsity |
+| [imagenet_mobilenet_benchmark.py](imagenet_mobilenet_benchmark.py) | Akida 2 hardware latency benchmark |
+| [imagenet_mobilenet_eval.sh](imagenet_mobilenet_eval.sh) | Runs the evaluation and benchmark for one model |
+| [imagenet_mobilenet_notebook_evaluation.ipynb](imagenet_mobilenet_notebook_evaluation.ipynb) | The whole PyTorch → Akida pipeline, step by step |
+| [imagenet_mobilenet_notebook_benchmark.ipynb](imagenet_mobilenet_notebook_benchmark.ipynb) | Hardware benchmark, step by step |
+
+## Usage
+
+Run the commands from this folder, with the repository root on `PYTHONPATH` (for
+`brainchip_utils`). Models are selected by width multiplier: `-a 1.0` or `-a 1.25`.
+
+### Creating the models
+
+Runs the four steps of the pipeline and writes the ONNX, quantized and Akida models.
+It needs the ImageNet train split for calibration:
+
+```bash
+python imagenet_mobilenet_model.py -a 1.0 -d /path/to/imagenet
+```
+
+By default this overwrites the published models in `pretrained_models/`, so pass
+`-s DIR` to write them elsewhere unless you mean to replace them. The calibration
+images are drawn with a fixed seed (`--seed`). The result depends on which images are
+drawn, so a re-created model can score differently from the published one.
+
+### Evaluation
+
+Evaluates one variant (`float`, `onnx`, `quantized` or `akida`) on the validation
+set. The Akida model runs on hardware if a device is present, and on the software
+backend otherwise.
+
+```bash
+python imagenet_mobilenet_eval.py -a 1.0 --variant akida -d /path/to/imagenet
+```
+
+`-n N` evaluates a random subset of N images. `--samples` runs on the 10-image
+sample pack instead, with per-image predictions, and needs no dataset:
+
+```bash
+python imagenet_mobilenet_eval.py -a 1.0 --variant akida --samples
+```
+
+[imagenet_mobilenet_eval.sh](imagenet_mobilenet_eval.sh) evaluates all four variants
+of one model, then benchmarks it. Set `REBUILD=1` to re-create the models first:
+
+```bash
+bash imagenet_mobilenet_eval.sh 1.0 /path/to/imagenet
+```
+
+### Hardware benchmark
+
+Requires an Akida 2 device (it exits cleanly if none is found):
+
+```bash
+python imagenet_mobilenet_benchmark.py -a 1.0
+```
+
+It measures full-model latency in the `Minimal`, `AllNps` and `HwPr` mapping modes,
+and per-layer latency, and saves plots. It uses the 10-image sample pack by default;
+`-d` draws the samples from the validation set instead.
+
+### Notebooks
+
+[imagenet_mobilenet_notebook_evaluation.ipynb](imagenet_mobilenet_notebook_evaluation.ipynb)
+walks through the whole pipeline, evaluating after each step. Without ImageNet it
+falls back to the sample pack and to the published quantized model.
+[imagenet_mobilenet_notebook_benchmark.ipynb](imagenet_mobilenet_notebook_benchmark.ipynb)
+walks through the hardware benchmark.
+
+### Updating this README
+
+This README is generated. Edit `docs/README.md.template`, then run
+`python update_readme.py`. `--save-metrics` on the eval and benchmark scripts
+records their results in `docs/metrics.json`.
