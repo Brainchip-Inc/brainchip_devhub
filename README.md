@@ -141,8 +141,18 @@ This section covers the *why* and the gotchas.
 
 - **Python 3.10–3.12.** The range is pinned by the TensorFlow 2.19 and `akida_models` 1.14 dependencies; other Python versions won't have matching wheels. Use whatever environment manager you prefer (`venv`, `conda`, or Docker) — the quickstart uses conda.
 - **What `pip install -e .` actually installs.** Beyond TensorFlow, it pulls `akida_models`, which brings in the Akida / MetaTF stack (`akida`, `cnn2snn`, `quantizeml`), plus the helpers the examples need: `pyftdi` (reads power measurements from the board over I²C), `pywavelets` and `wfdb` (used by the ECG example), and `ipykernel` for the notebooks. The full pinned list is in [`pyproject.toml`](pyproject.toml).
-- **Optional extras.** `pip install -e ".[cuda]"` adds the CUDA libraries TensorFlow needs to train on a GPU; evaluation, conversion and benchmarking run fine without them. `pip install -e ".[torch]"` is for the PyTorch-based examples: it adds `onnx2akida`, which converts ONNX models exported from PyTorch for Akida, plus PyTorch itself (pinned to 2.10.0, the newest release whose ONNX exporter works with the current `onnx2akida`). **`[cuda]` and `[torch]` need separate environments** (e.g. a second `brainchip_devhub_torch_env`); pip will refuse to install both. A `[torch]` environment still trains on the GPU, using PyTorch's CUDA libraries.
+- **Optional extras.** `pip install -e ".[cuda]"` adds the CUDA libraries TensorFlow needs to train on a GPU; evaluation, conversion and benchmarking run fine without them. `pip install -e ".[torch]"` is for the PyTorch-based examples: it adds `onnx2akida`, which converts ONNX models exported from PyTorch for Akida, plus PyTorch itself (pinned to 2.10.0, the newest release whose ONNX exporter works with the current `onnx2akida`). **`[cuda]` and `[torch]` need separate environments** (e.g. a second `brainchip_devhub_torch_env`); pip will refuse to install both. See [PyTorch and TensorFlow in one environment](#pytorch-and-tensorflow-in-one-environment) below.
 - **No separate toolkit install needed.** The Python toolkit comes from that one command; the [official installation guide](https://doc.brainchipinc.com) is only for the on-device runtime and drivers, which you need to run on real silicon — not for simulation.
+
+#### PyTorch and TensorFlow in one environment
+
+Getting both frameworks onto the GPU in one environment is a common stumbling block, because each installs its own CUDA libraries from pip. With the versions pinned here, the `[torch]` environment manages it: PyTorch 2.10.0 brings CUDA 12.8 libraries, and TensorFlow 2.19.1, installed without `[and-cuda]`, finds and uses them. Both then run on the GPU in the same process, alongside the Akida toolchain (`akida`, `quantizeml`, `cnn2snn`, `onnx2akida`). We tested this on Linux with an RTX 3090 and NVIDIA driver 580. TensorFlow is using newer CUDA libraries there than the ones `[and-cuda]` pins; that worked in our tests, but for long Keras training runs the `[cuda]` environment remains the tested setup.
+
+If you choose versions yourself, these combinations break:
+
+- **`tensorflow[and-cuda]` with PyTorch 2.10.** Both pin `nvidia-*-cu12` packages, at different versions, so pip refuses to install them together. Use plain `tensorflow` alongside PyTorch instead.
+- **`tensorflow[and-cuda]` with PyTorch 2.11 or later.** Newer PyTorch ships CUDA 13 libraries under different package names, so pip installs both without complaint. But the two sets write the same files, and PyTorch then fails to import (`undefined symbol: ncclCommResume`).
+- **PyTorch 2.11 or later with `onnx2akida` 0.7.0.** The default `torch.onnx.export` needs a newer `onnx_ir` than `onnx2akida` allows, so the export fails (`module 'onnx_ir' has no attribute 'schemas'`). Pass `dynamo=False` to use the legacy exporter, or stay on PyTorch 2.10.
 
 ### Trained models
 
