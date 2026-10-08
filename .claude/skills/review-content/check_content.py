@@ -14,8 +14,8 @@ Checks:
 Usage:
   python .claude/skills/review-content/check_content.py [--base origin/main]
 
-Findings in files changed since --base are listed first; the rest are pre-existing.
-Exit status is 1 if any finding is in a changed file.
+Findings on lines changed since --base (committed or not) are listed first; the rest are
+pre-existing. Exit status is 1 if any finding is on a changed line.
 """
 import argparse
 import json
@@ -96,7 +96,7 @@ def check_version_badges():
                     yield "version-badge", f"{rel}:{lineno}", f"badge {badge} != pyproject pin {pin.group(1)}"
 
 
-def check_text(files, changed):
+def check_text(files, added):
     for rel in files:
         path = ROOT / rel
         if path.suffix == ".ipynb":
@@ -110,7 +110,7 @@ def check_text(files, changed):
             if PATH_RE.search(line):
                 where = rel if path.suffix == ".ipynb" else f"{rel}:{lineno}"
                 yield "machine-path", where, PATH_RE.search(line).group(0)
-        is_new_zoo_script = rel in changed and "model_zoo" in rel and path.suffix == ".py"
+        is_new_zoo_script = rel in added and "model_zoo" in rel and path.suffix == ".py"
         if is_new_zoo_script and not any(COPYRIGHT in l for l in lines[:3]):
             yield "copyright", rel, "missing copyright header in first 3 lines"
 
@@ -125,19 +125,44 @@ def check_binaries(files):
                 yield "lfs", rel, "committed as a regular blob, not an LFS pointer"
 
 
+def changed_lines(base):
+    """{path: set of changed line numbers, or None for a new file} vs the merge base,
+    covering committed and uncommitted changes, numbered as in the working tree."""
+    merge_base = git("merge-base", base, "HEAD").strip()
+    changed, current = {}, None
+    for line in git("diff", "-U0", merge_base).splitlines():
+        if line.startswith("+++ "):
+            current = line[6:] if line.startswith("+++ b/") else None
+            if current:
+                changed.setdefault(current, set())
+        elif line.startswith("@@") and current:
+            start, _, count = re.search(r"\+(\d+)(,(\d+))?", line).groups()
+            start, count = int(start), int(count) if count is not None else 1
+            changed[current].update(range(start, start + count))
+    added = set(git("diff", "--name-only", "--diff-filter=A", merge_base).splitlines())
+    added |= set(git("ls-files", "--others", "--exclude-standard").splitlines())
+    changed.update({f: None for f in added})
+    return changed, added
+
+
+def in_change(finding, changed):
+    rel, _, lineno = finding[1].partition(":")
+    if rel not in changed:
+        return False
+    return not lineno or changed[rel] is None or int(lineno) in changed[rel]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--base", default="origin/main", help="ref to diff against (default: origin/main)")
     args = parser.parse_args()
 
     files = repo_files()
-    changed = set(git("diff", "--name-only", f"{args.base}...HEAD").splitlines())
-    changed |= set(git("diff", "--name-only", "HEAD").splitlines())  # uncommitted edits
-    changed |= set(git("ls-files", "--others", "--exclude-standard").splitlines())
+    changed, added = changed_lines(args.base)
 
     findings = [*check_readme_drift(), *check_links(files), *check_version_badges(),
-                *check_text(files, changed), *check_binaries(files)]
-    in_diff = [f for f in findings if f[1].split(":")[0] in changed]
+                *check_text(files, added), *check_binaries(files)]
+    in_diff = [f for f in findings if in_change(f, changed)]
     pre_existing = [f for f in findings if f not in in_diff]
 
     for title, group in (("In this change", in_diff), ("Pre-existing", pre_existing)):
