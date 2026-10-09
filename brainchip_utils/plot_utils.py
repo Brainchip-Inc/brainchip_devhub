@@ -1,11 +1,19 @@
+import pathlib
+
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import matplotlib._color_data as mcd
+from matplotlib.lines import Line2D
 import akida
 
 
-_COLOR_OFFSET = 50
+MAPPING_COLOR = 'steelblue'
+PASS_STYLE = dict(color='gray', linestyle='--', linewidth=1.0)
+SEQUENCE_STYLE = dict(color='firebrick', linestyle='--', linewidth=1.5)
+REPEAT_STYLE = dict(lw=0.6, color='steelblue', alpha=0.25)
+MEAN_STYLE = dict(lw=1.5, color='steelblue')
+INF_START_STYLE = dict(color='seagreen', ls='--', lw=1.2)
+INF_END_STYLE = dict(color='firebrick', ls='--', lw=1.2)
+FLOOR_STYLE = dict(color='gray', ls=':', lw=1.0)
 
 
 def pretty_print_sparsity(sparsity_dict):
@@ -19,8 +27,48 @@ def pretty_print_sparsity(sparsity_dict):
     print(f"{'Mean':<{col_w}} {mean_sparsity:>9.2%}")
 
 
-def _layer_colors(n):
-    return list(mcd.XKCD_COLORS.values())[_COLOR_OFFSET:_COLOR_OFFSET + n]
+def figure_title(model_name, example=None):
+    """Figure title from an example name and a model name or path.
+
+    A path such as './models/akidanet_vww_qat.fbz' is reduced to its stem, so
+    no machine-specific path ends up in a committed figure.
+    """
+    if model_name is None:
+        return example
+    name = str(model_name)
+    if '/' in name or name.endswith(('.fbz', '.h5')):
+        name = pathlib.Path(name).stem
+    return f'{example} · {name}' if example else name
+
+
+def _set_title(fig, model_name, example):
+    title = figure_title(model_name, example)
+    if title:
+        fig.suptitle(title, fontsize=14, fontweight='bold')
+
+
+def _figure_legend(fig, handles):
+    """One legend for the whole figure, below the panels."""
+    if handles:
+        fig.legend(handles=handles, loc='outside lower center', ncols=len(handles),
+                   fontsize=11, frameon=False)
+
+
+def _power_legend_handles():
+    return [Line2D([], [], label='Single repeat', **{**REPEAT_STYLE, 'alpha': 0.5, 'lw': 1.2}),
+            Line2D([], [], label='Mean power', **MEAN_STYLE),
+            Line2D([], [], label='Inference run start', **INF_START_STYLE),
+            Line2D([], [], label='Inference run end', **INF_END_STYLE),
+            Line2D([], [], label='Idle floor', **FLOOR_STYLE)]
+
+
+def _mapping_legend_handles(has_pass, has_seq):
+    handles = []
+    if has_pass:
+        handles.append(Line2D([], [], label='Pass boundary', **PASS_STYLE))
+    if has_seq:
+        handles.append(Line2D([], [], label='Sequence boundary', **SEQUENCE_STYLE))
+    return handles
 
 
 def plot_per_layer_timing(results, ax, colors=None):
@@ -62,7 +110,12 @@ def plot_cumulative_timing(results, ax, colors=None):
     ax.set_xticklabels(layer_names, rotation=45, ha='right', fontsize=8)
 
 
-def plot_mapping(ak_model, ax, colors=None):
+def plot_mapping(ak_model, ax, colors=None, legend=True):
+    """Bar chart of NPs per layer, with pass and sequence boundaries.
+
+    Returns (has_pass_boundary, has_sequence_boundary), so a caller drawing
+    several panels can build one shared legend (pass legend=False).
+    """
     layer_names = []
     layer_nps = []
     pass_ends = []
@@ -83,15 +136,15 @@ def plot_mapping(ak_model, ax, colors=None):
                     pass_ends.append(pass_end_idx)
 
     if colors is None:
-        colors = _layer_colors(len(layer_names))
+        colors = MAPPING_COLOR
 
     x = np.arange(len(layer_names))
     ax.bar(x, layer_nps, color=colors, edgecolor='white')
 
     for pos in pass_ends:
-        ax.axvline(x=pos, color='gray', linestyle='--', linewidth=1.0)
+        ax.axvline(x=pos, **PASS_STYLE)
     for pos in seq_ends:
-        ax.axvline(x=pos, color='firebrick', linestyle='--', linewidth=1.5)
+        ax.axvline(x=pos, **SEQUENCE_STYLE)
 
     ax.set_xticks(list(x))
     ax.set_xticklabels(layer_names, rotation=45, ha='right', fontsize=8)
@@ -99,16 +152,13 @@ def plot_mapping(ak_model, ax, colors=None):
     ax.set_title('Hardware mapping')
     ax.yaxis.get_major_locator().set_params(integer=True)
 
-    legend_handles = []
-    if pass_ends:
-        legend_handles.append(mpatches.Patch(color='gray', label='Pass boundary'))
-    if seq_ends:
-        legend_handles.append(mpatches.Patch(color='firebrick', label='Sequence boundary'))
-    if legend_handles:
-        ax.legend(handles=legend_handles, fontsize=8)
+    handles = _mapping_legend_handles(bool(pass_ends), bool(seq_ends))
+    if legend and handles:
+        ax.legend(handles=handles, fontsize=8)
+    return bool(pass_ends), bool(seq_ends)
 
 
-def plot_power_trace(power_data, ax):
+def plot_power_trace(power_data, ax, legend=True, stats=True):
     """Plot per-repeat power traces with the mean overlaid.
 
     Each repeat is time-normalised so that t=0 coincides with the start of the
@@ -118,6 +168,9 @@ def plot_power_trace(power_data, ax):
     Args:
         power_data: The 'power' dict returned by full_model_benchmark, which
                     must contain 'readings' and 'repeat_meta'.
+        legend:     Draw a legend on the axes. Pass False when the figure has a
+                    shared legend.
+        stats:      Draw the time/power/energy summary box on the axes.
     """
     readings_arr = np.array(power_data['readings'])
     abs_times = readings_arr[:, 0]
@@ -154,10 +207,9 @@ def plot_power_trace(power_data, ax):
     for t_rel, p_sel in repeat_traces:
         p_interp = np.interp(t_grid, t_rel, p_sel)
         interp_powers.append(p_interp)
-        ax.plot(t_grid, p_interp, lw=0.6, color='steelblue', alpha=0.25)
+        ax.plot(t_grid, p_interp, **REPEAT_STYLE)
 
-    ax.plot(t_grid, np.mean(interp_powers, axis=0),
-            lw=1.5, color='steelblue', label='Mean power')
+    ax.plot(t_grid, np.mean(interp_powers, axis=0), label='Mean power', **MEAN_STYLE)
 
     mean_inf_duration = np.mean([
         meta['inf_timestamps'][-1] - meta['inf_timestamps'][0]
@@ -166,14 +218,16 @@ def plot_power_trace(power_data, ax):
     n_inf = len(repeat_meta[0]['inf_timestamps']) - 1
     avg_inf_time_ms = mean_inf_duration / n_inf * 1000
 
-    ax.axvline(0,                  color='seagreen',  ls='--', lw=1.2, label='Inference start')
-    ax.axvline(mean_inf_duration,  color='firebrick', ls='--', lw=1.2, label='Inference end')
-    ax.axhline(avg_floor,          color='gray',      ls=':',  lw=1.0,
-               label=f'Floor: {avg_floor:.1f} mW')
+    ax.axvline(0, label='Inference start', **INF_START_STYLE)
+    ax.axvline(mean_inf_duration, label='Inference end', **INF_END_STYLE)
+    ax.axhline(avg_floor, label=f'Floor: {avg_floor:.1f} mW', **FLOOR_STYLE)
     ax.set_ylabel('Power (mW)')
     ax.set_xlabel('Time relative to inference start (s)')
     ax.set_title('Power timeline')
-    ax.legend(fontsize=8, loc="lower center")
+    if legend:
+        ax.legend(fontsize=8, loc="lower center")
+    if not stats:
+        return
 
     stats_text = (
         f'Avg time per inference: {avg_inf_time_ms:.2f} ms\n'
@@ -195,24 +249,44 @@ def _power_placeholder(ax):
         spine.set_edgecolor('#cccccc')
 
 
+def _mode_summary(result):
+    """One-line summary of a full-model result, shown under the map-mode name."""
+    parts = []
+    if 'num_nps' in result:
+        passes = result.get('num_passes')
+        parts.append(f"{result['num_nps']} NPs, {passes} pass{'es' if passes != 1 else ''}"
+                     if passes is not None else f"{result['num_nps']} NPs")
+    if 'mean_clk_ms' in result:
+        parts.append(f"{result['mean_clk_ms']:.3f} ms/inference")
+    power = result.get('power')
+    if power is not None:
+        parts.append(f"{power['avg_dynamic_mw']:.1f} mW, "
+                     f"{power['avg_dynamic_energy_mj']:.3f} mJ dynamic")
+    return ' · '.join(parts)
+
+
 def plot_full_model_results(full_results, ak_model, device, model_name=None, savepath=None,
-                            show_power=True):
+                            show_power=True, example=None):
     """Plot power trace and hardware mapping for each map mode.
 
     Layout: rows = plot type (power, mapping); cols = map mode. If show_power is
-    False the power row is omitted and only the mapping row is drawn.
-    Axis limits are synchronised across columns so modes are directly comparable.
+    False the power row is omitted and only the mapping row is drawn. Each column
+    is headed by its map mode and a one-line summary; one legend below the panels
+    covers every column. Axis limits are synchronised across columns so modes are
+    directly comparable.
 
     Args:
         full_results: dict mapping mode name (e.g. 'Minimal', 'AllNps') to the
-                      result dict returned by full_model_benchmark().
+                      result dict returned by full_model_benchmark(), optionally
+                      with 'num_nps' and 'num_passes' added.
         ak_model:     akida.Model — re-mapped internally for each mode. Left in
                       the state of the last mode after this call returns.
         device:       Akida device passed to ak_model.map().
-        model_name:   Optional figure suptitle string.
+        model_name:   Model name or path; a path is shown as its file stem.
         savepath:     If provided, save the figure to this path (PNG).
         show_power:   If False, omit the power row (use when power measurement is
                       not available, so no empty placeholder panels are drawn).
+        example:      Optional example name, shown before the model name.
 
     Returns:
         matplotlib Figure.
@@ -220,50 +294,54 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
     modes = list(full_results.keys())
     ncols = len(modes)
     nrows = 2 if show_power else 1
-    fig, axs = plt.subplots(nrows, ncols, figsize=(7 * ncols, 8 if show_power else 5),
-                            constrained_layout=True, squeeze=False)
+    fig, axs = plt.subplots(nrows, ncols, figsize=(7 * ncols, 8.5 if show_power else 5.5),
+                            layout='constrained', squeeze=False)
+    _set_title(fig, model_name, example)
 
-    if model_name is not None:
-        fig.suptitle(model_name, fontsize=14, fontweight='bold')
-
+    has_power = False
+    has_pass = has_seq = False
     for i, mode_name in enumerate(modes):
         result = full_results[mode_name]
         ak_model.map(device, mode=getattr(akida.MapMode, mode_name))
 
+        ax_top = axs[0, i]
         ax_map = axs[nrows - 1, i]
 
         if show_power:
-            ax_pwr = axs[0, i]
             power_data = result.get('power')
-        if show_power and power_data is not None:
-            plot_power_trace(power_data, ax_pwr)
-            ax_pwr.yaxis.label.set_fontsize(12)
-            ax_pwr.xaxis.label.set_fontsize(12)
-            ax_pwr.tick_params(axis='both', labelsize=11)
-            if ax_pwr.get_legend() is not None:
-                plt.setp(ax_pwr.get_legend().get_texts(), fontsize=11)
-            for txt in ax_pwr.texts:
-                txt.set_fontsize(10)
-        elif show_power:
-            _power_placeholder(ax_pwr)
-        if show_power:
-            ax_pwr.set_title(f'MapMode: {mode_name}', loc='left', fontsize=12, color='#444444')
+            if power_data is not None:
+                plot_power_trace(power_data, axs[0, i], legend=False, stats=False)
+                axs[0, i].set_xlabel('Time relative to inference run start (s)', fontsize=12)
+                axs[0, i].yaxis.label.set_fontsize(12)
+                axs[0, i].tick_params(axis='both', labelsize=11)
+                has_power = True
+            else:
+                _power_placeholder(axs[0, i])
 
-        plot_mapping(ak_model, ax_map)
+        p, q = plot_mapping(ak_model, ax_map, legend=False)
+        has_pass, has_seq = has_pass or p, has_seq or q
         ax_map.yaxis.label.set_fontsize(12)
         ax_map.tick_params(axis='y', labelsize=11)
         plt.setp(ax_map.get_xticklabels(), fontsize=11)
-        if ax_map.get_legend() is not None:
-            plt.setp(ax_map.get_legend().get_texts(), fontsize=11)
-        ax_map.set_title(f'MapMode: {mode_name}', loc='left', fontsize=12, color='#444444')
+        if show_power:
+            ax_map.set_title('')
 
-    # Synchronise power axes limits across columns (only for columns with real data)
+        # Column header: map mode, then the summary line
+        ax_top.set_title(_mode_summary(result), fontsize=11, color='#444444', pad=6)
+        ax_top.annotate(f'MapMode.{mode_name}', xy=(0.5, 1.0), xycoords='axes fraction',
+                        xytext=(0, 24), textcoords='offset points', ha='center', va='bottom',
+                        fontsize=13, fontweight='bold')
+
+    # Share the power axes' limits across columns (only for columns with real data).
+    # The y-axis is zoomed to the data rather than starting at 0, so the step from
+    # idle floor to inference power stays visible; a shared range keeps the
+    # columns directly comparable.
     pwr_axes = [axs[0, i] for i, mm in enumerate(modes)
                 if show_power and full_results[mm].get('power') is not None]
     if len(pwr_axes) > 1:
         x_min = min(ax.get_xlim()[0] for ax in pwr_axes)
         x_max = max(ax.get_xlim()[1] for ax in pwr_axes)
-        y_min = 0. 
+        y_min = min(ax.get_ylim()[0] for ax in pwr_axes)
         y_max = max(ax.get_ylim()[1] for ax in pwr_axes)
         for ax in pwr_axes:
             ax.set_xlim(x_min, x_max)
@@ -275,6 +353,9 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
     for ax in map_axes:
         ax.set_ylim(0, y_max_map)
 
+    handles = _power_legend_handles() if has_power else []
+    _figure_legend(fig, handles + _mapping_legend_handles(has_pass, has_seq))
+
     if savepath is not None:
         fig.savefig(savepath, dpi=150)
 
@@ -282,8 +363,8 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
 
 
 def plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
-                           model_name=None, savepath=None):
-    """Plot hardware mapping, per-layer timing, and input sparsity, stacked vertically.
+                           model_name=None, savepath=None, example=None):
+    """Plot per-layer timing, input sparsity and hardware mapping, stacked vertically.
 
     ak_model must already be mapped (without hw_only=True) so that
     ak_model.sequences is populated. This function does not call ak_model.map().
@@ -294,8 +375,9 @@ def plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
         sparsity_dict:     dict[layer_name, float] of output sparsity per layer,
                            as returned by compute_sparsity(). Shifted by one position
                            to derive per-layer input sparsity (first layer = 0).
-        model_name:        Optional figure suptitle string.
+        model_name:        Model name or path; a path is shown as its file stem.
         savepath:          If provided, save the figure to this path (PNG).
+        example:           Optional example name, shown before the model name.
 
     Returns:
         matplotlib Figure.
@@ -308,15 +390,11 @@ def plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
     output_sparsity = [sparsity_dict.get(name, 0) for name in layer_names]
     input_sparsity_pct = [0.0] + [s * 100.0 for s in output_sparsity[:-1]]
 
-    fig, axs = plt.subplots(3, 1, figsize=(14, 10), constrained_layout=True)
-
-    if model_name is not None:
-        fig.suptitle(model_name, fontsize=14, fontweight='bold')
+    fig, axs = plt.subplots(3, 1, figsize=(14, 10), layout='constrained', sharex=True)
+    _set_title(fig, model_name, example)
 
     # Row 0: per-layer timing
     plot_per_layer_timing(per_layer_results, axs[0])
-    axs[0].set_xticklabels([])
-    axs[0].set_xlabel('')
     axs[0].yaxis.label.set_fontsize(12)
     axs[0].title.set_fontsize(12)
     axs[0].tick_params(axis='y', labelsize=11)
@@ -327,19 +405,18 @@ def plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
     axs[1].set_ylim(0, 100)
     axs[1].set_ylabel('Input sparsity (%)', fontsize=12)
     axs[1].set_title('Per-layer input sparsity', fontsize=12)
-    axs[1].set_xticks(x)
-    axs[1].set_xticklabels([])
-    axs[1].set_xlabel('')
     axs[1].tick_params(axis='y', labelsize=11)
 
     # Row 2: hardware mapping (layer name labels only on bottom subplot)
-    plot_mapping(ak_model, axs[2], colors='steelblue')
+    has_pass, has_seq = plot_mapping(ak_model, axs[2], legend=False)
     axs[2].yaxis.label.set_fontsize(12)
     axs[2].title.set_fontsize(12)
     axs[2].tick_params(axis='y', labelsize=11)
     plt.setp(axs[2].get_xticklabels(), fontsize=11)
-    if axs[2].get_legend() is not None:
-        plt.setp(axs[2].get_legend().get_texts(), fontsize=11)
+    for ax in axs[:2]:
+        ax.tick_params(axis='x', labelbottom=False)
+
+    _figure_legend(fig, _mapping_legend_handles(has_pass, has_seq))
 
     if savepath is not None:
         fig.savefig(savepath, dpi=150)
@@ -347,27 +424,19 @@ def plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
     return fig
 
 
-def plot_benchmark_summary(results, ak_model, model_name=None, power_data=None, savepath=None):
-    fig, axs = plt.subplots(2, 2, figsize=(14, 8), constrained_layout=True)
-
-    if model_name is not None:
-        fig.suptitle(model_name, fontsize=13, fontweight='bold')
+def plot_benchmark_summary(results, ak_model, model_name=None, power_data=None, savepath=None,
+                           example=None):
+    fig, axs = plt.subplots(2, 2, figsize=(14, 8), layout='constrained')
+    _set_title(fig, model_name, example)
 
     plot_per_layer_timing(results, axs[0, 0])
     plot_cumulative_timing(results, axs[0, 1])
     plot_mapping(ak_model, axs[1, 0])
 
-    ax_pwr = axs[1, 1]
     if power_data is not None:
-        plot_power_trace(power_data, ax_pwr)
+        plot_power_trace(power_data, axs[1, 1])
     else:
-        ax_pwr.set_facecolor('#f5f5f5')
-        ax_pwr.text(0.5, 0.5, 'Power measurements\n(not yet available)',
-                    ha='center', va='center', transform=ax_pwr.transAxes,
-                    fontsize=11, color='#999999', style='italic')
-        ax_pwr.set_title('Power', color='#999999')
-        for spine in ax_pwr.spines.values():
-            spine.set_edgecolor('#cccccc')
+        _power_placeholder(axs[1, 1])
 
     if savepath is not None:
         fig.savefig(savepath, dpi=150)

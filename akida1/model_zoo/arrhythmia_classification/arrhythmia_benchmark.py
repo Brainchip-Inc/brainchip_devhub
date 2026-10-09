@@ -151,6 +151,7 @@ if __name__ == '__main__':
         perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / (ref_prefix+perlayer_savepath)
     plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
                            model_name=args.loadmodel,
+                           example='ECG arrhythmia',
                            savepath=perlayer_savepath)
     print('\nPer-layer results plot saved to ' + str(perlayer_savepath))
 
@@ -159,6 +160,7 @@ if __name__ == '__main__':
         full_savepath = pathlib.Path(__file__).parent / 'docs' / (ref_prefix+full_savepath)
     plot_full_model_results(full_results, ak_model, device,
                             model_name=args.loadmodel,
+                            example='ECG arrhythmia',
                             savepath=full_savepath)
     print('Full model results plot saved to ' + str(full_savepath))
 
