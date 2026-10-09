@@ -58,6 +58,14 @@ Follow it; the canonical references are `akida1/model_zoo/vww` (training),
 - **No machine-specific paths.** No `/mnt/...` or `/home/...` in committed code or docs.
 - New `.py` files in `model_zoo/` start with `# Copyright <year> Brainchip Holdings Ltd.  Apache 2.0 License`.
 
+## Akida knowledge base
+
+How Akida hardware and its toolchain behave is recorded in `.claude/knowledge/akida.md`,
+imported below. Check claims about hardware behaviour against it. When you're corrected
+about Akida, add an entry (platform, source, confidence) in the same PR as the fix.
+
+@.claude/knowledge/akida.md
+
 ## Style
 
 - Second person, direct, practical. Explain the Akida-specific *why*; skip generic ML
