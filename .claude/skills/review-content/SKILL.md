@@ -46,7 +46,7 @@ name) and pull out its acceptance criteria. Those are part of the review.
 python .claude/skills/review-content/check_content.py --base <base>
 ```
 
-The script is read-only.
+The script is read-only. CI runs the same script on every PR (`content-checks` workflow).
 Findings under "In this change" are blocking. Mention "Pre-existing" ones only if they're
 in files this change touches.
 
