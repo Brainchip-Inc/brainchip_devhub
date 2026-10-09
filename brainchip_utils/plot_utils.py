@@ -332,16 +332,20 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
                         xytext=(0, 24), textcoords='offset points', ha='center', va='bottom',
                         fontsize=13, fontweight='bold')
 
-    # Synchronise power axes limits across columns (only for columns with real data)
+    # Share the power axes' limits across columns (only for columns with real data).
+    # The y-axis is zoomed to the data rather than starting at 0, so the step from
+    # idle floor to inference power stays visible; a shared range keeps the
+    # columns directly comparable.
     pwr_axes = [axs[0, i] for i, mm in enumerate(modes)
                 if show_power and full_results[mm].get('power') is not None]
     if len(pwr_axes) > 1:
         x_min = min(ax.get_xlim()[0] for ax in pwr_axes)
         x_max = max(ax.get_xlim()[1] for ax in pwr_axes)
+        y_min = min(ax.get_ylim()[0] for ax in pwr_axes)
         y_max = max(ax.get_ylim()[1] for ax in pwr_axes)
         for ax in pwr_axes:
             ax.set_xlim(x_min, x_max)
-            ax.set_ylim(0., y_max)
+            ax.set_ylim(y_min, y_max)
 
     # Synchronise mapping y-axis limits across columns
     map_axes = [axs[nrows - 1, i] for i in range(ncols)]
