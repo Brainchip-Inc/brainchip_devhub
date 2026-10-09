@@ -64,16 +64,33 @@
       <td align="center">{allnps_dyn_P}</td>
       <td align="center">{allnps_dyn_E}</td>
     </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">{hwpr_nps}</td>
+      <td align="center">{hwpr_passes}</td>
+      <td align="center">{hwpr_cycles}</td>
+      <td align="center">{hwpr_latency_ms}</td>
+      <td align="center">{hwpr_total_P}</td>
+      <td align="center">{hwpr_total_E}</td>
+      <td align="center">{hwpr_dyn_P}</td>
+      <td align="center">{hwpr_dyn_E}</td>
+    </tr>
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements and hardware mapping in Minimal, AllNps and HwPr mapping modes" width="1050">
 
 The plot above shows power measurements captured during inference on hardware.
 In **Minimal** mapping the model is scheduled onto the fewest NPs required,
 keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs, which results in a slight increase in power during inference but a
 proportional reduction in latency.
+
+**HwPr** goes further: it splits the model over {hwpr_passes} passes so that each layer can
+use more NPs ({hwpr_nps} in total). The weights are reloaded between passes on every
+inference, but for a model this size the extra parallelism more than pays for that: HwPr
+is the fastest mode ({hwpr_latency_ms} ms against {allnps_latency_ms} ms for AllNps) and
+uses the least energy per inference ({hwpr_total_E} mJ against {allnps_total_E} mJ).
 
 The model is a standard **AkidaNet** (from `akida_models`) with
 width multiplier **alpha = 0.5** and input resolution **224 × 224**.

@@ -205,34 +205,34 @@ mapping — the fastest and lowest-energy of the three modes on every model here
       <td>Minimal</td>
       <td align="center">117</td>
       <td align="center">4</td>
-      <td align="center">50512691</td>
-      <td align="center">126.282</td>
-      <td align="center">222.3</td>
-      <td align="center">29.753</td>
-      <td align="center">108.3</td>
-      <td align="center">14.492</td>
+      <td align="center">50501177</td>
+      <td align="center">126.253</td>
+      <td align="center">223.5</td>
+      <td align="center">29.907</td>
+      <td align="center">108.5</td>
+      <td align="center">14.514</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">117</td>
       <td align="center">4</td>
-      <td align="center">50500185</td>
-      <td align="center">126.250</td>
-      <td align="center">222.3</td>
-      <td align="center">29.748</td>
-      <td align="center">108.6</td>
-      <td align="center">14.533</td>
+      <td align="center">50527286</td>
+      <td align="center">126.318</td>
+      <td align="center">223.6</td>
+      <td align="center">29.933</td>
+      <td align="center">108.7</td>
+      <td align="center">14.556</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">132</td>
       <td align="center">5</td>
-      <td align="center">41274237</td>
-      <td align="center">103.186</td>
-      <td align="center">244.7</td>
-      <td align="center">27.102</td>
+      <td align="center">41294196</td>
+      <td align="center">103.235</td>
+      <td align="center">246.0</td>
+      <td align="center">27.250</td>
       <td align="center">130.9</td>
-      <td align="center">14.496</td>
+      <td align="center">14.507</td>
     </tr>
   </tbody>
 </table>
@@ -261,34 +261,34 @@ mapping — the fastest and lowest-energy of the three modes on every model here
       <td>Minimal</td>
       <td align="center">33</td>
       <td align="center">1</td>
-      <td align="center">36261735</td>
-      <td align="center">90.654</td>
-      <td align="center">154.9</td>
-      <td align="center">14.090</td>
-      <td align="center">43.3</td>
-      <td align="center">3.944</td>
+      <td align="center">36269969</td>
+      <td align="center">90.675</td>
+      <td align="center">155.9</td>
+      <td align="center">14.189</td>
+      <td align="center">43.4</td>
+      <td align="center">3.945</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">33</td>
       <td align="center">1</td>
-      <td align="center">36261479</td>
-      <td align="center">90.654</td>
-      <td align="center">154.7</td>
-      <td align="center">14.078</td>
-      <td align="center">43.3</td>
-      <td align="center">3.938</td>
+      <td align="center">36270537</td>
+      <td align="center">90.676</td>
+      <td align="center">156.0</td>
+      <td align="center">14.194</td>
+      <td align="center">43.4</td>
+      <td align="center">3.951</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">130</td>
       <td align="center">5</td>
-      <td align="center">11024084</td>
-      <td align="center">27.560</td>
-      <td align="center">252.7</td>
-      <td align="center">7.304</td>
-      <td align="center">137.9</td>
-      <td align="center">3.985</td>
+      <td align="center">11037462</td>
+      <td align="center">27.594</td>
+      <td align="center">254.2</td>
+      <td align="center">7.356</td>
+      <td align="center">138.7</td>
+      <td align="center">4.014</td>
     </tr>
   </tbody>
 </table>
@@ -317,34 +317,34 @@ mapping — the fastest and lowest-energy of the three modes on every model here
       <td>Minimal</td>
       <td align="center">23</td>
       <td align="center">1</td>
-      <td align="center">14867433</td>
-      <td align="center">37.169</td>
-      <td align="center">143.5</td>
-      <td align="center">5.376</td>
-      <td align="center">32.0</td>
-      <td align="center">1.200</td>
+      <td align="center">14871031</td>
+      <td align="center">37.178</td>
+      <td align="center">144.5</td>
+      <td align="center">5.417</td>
+      <td align="center">32.1</td>
+      <td align="center">1.204</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">33</td>
       <td align="center">1</td>
-      <td align="center">9825823</td>
-      <td align="center">24.565</td>
-      <td align="center">159.9</td>
-      <td align="center">3.976</td>
-      <td align="center">47.9</td>
-      <td align="center">1.192</td>
+      <td align="center">9830046</td>
+      <td align="center">24.575</td>
+      <td align="center">161.0</td>
+      <td align="center">4.004</td>
+      <td align="center">48.0</td>
+      <td align="center">1.193</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">110</td>
       <td align="center">4</td>
-      <td align="center">4613118</td>
-      <td align="center">11.533</td>
-      <td align="center">215.6</td>
-      <td align="center">2.569</td>
-      <td align="center">101.9</td>
-      <td align="center">1.215</td>
+      <td align="center">4619984</td>
+      <td align="center">11.550</td>
+      <td align="center">216.8</td>
+      <td align="center">2.587</td>
+      <td align="center">102.2</td>
+      <td align="center">1.219</td>
     </tr>
   </tbody>
 </table>
@@ -373,10 +373,10 @@ mapping — the fastest and lowest-energy of the three modes on every model here
       <td>Minimal</td>
       <td align="center">69</td>
       <td align="center">3</td>
-      <td align="center">38299862</td>
-      <td align="center">95.750</td>
-      <td align="center">181.5</td>
-      <td align="center">18.891</td>
+      <td align="center">38300315</td>
+      <td align="center">95.751</td>
+      <td align="center">182.6</td>
+      <td align="center">19.008</td>
       <td align="center">68.8</td>
       <td align="center">7.163</td>
     </tr>
@@ -384,23 +384,23 @@ mapping — the fastest and lowest-energy of the three modes on every model here
       <td>AllNPs</td>
       <td align="center">79</td>
       <td align="center">3</td>
-      <td align="center">32085266</td>
-      <td align="center">80.213</td>
-      <td align="center">196.1</td>
-      <td align="center">16.683</td>
-      <td align="center">82.9</td>
-      <td align="center">7.057</td>
+      <td align="center">32075821</td>
+      <td align="center">80.190</td>
+      <td align="center">197.2</td>
+      <td align="center">16.775</td>
+      <td align="center">83.1</td>
+      <td align="center">7.071</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">130</td>
       <td align="center">5</td>
-      <td align="center">23211956</td>
-      <td align="center">58.030</td>
-      <td align="center">227.6</td>
-      <td align="center">14.074</td>
-      <td align="center">113.8</td>
-      <td align="center">7.037</td>
+      <td align="center">23199090</td>
+      <td align="center">57.998</td>
+      <td align="center">229.2</td>
+      <td align="center">14.160</td>
+      <td align="center">114.1</td>
+      <td align="center">7.050</td>
     </tr>
   </tbody>
 </table>
@@ -429,34 +429,34 @@ mapping — the fastest and lowest-energy of the three modes on every model here
       <td>Minimal</td>
       <td align="center">25</td>
       <td align="center">1</td>
-      <td align="center">24259988</td>
-      <td align="center">60.650</td>
-      <td align="center">144.4</td>
-      <td align="center">8.788</td>
-      <td align="center">33.0</td>
-      <td align="center">2.010</td>
+      <td align="center">24271532</td>
+      <td align="center">60.679</td>
+      <td align="center">145.7</td>
+      <td align="center">8.876</td>
+      <td align="center">33.2</td>
+      <td align="center">2.019</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">33</td>
       <td align="center">1</td>
-      <td align="center">16988126</td>
-      <td align="center">42.470</td>
-      <td align="center">158.0</td>
-      <td align="center">6.743</td>
-      <td align="center">46.1</td>
-      <td align="center">1.969</td>
+      <td align="center">16997933</td>
+      <td align="center">42.495</td>
+      <td align="center">159.3</td>
+      <td align="center">6.801</td>
+      <td align="center">46.4</td>
+      <td align="center">1.982</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">107</td>
       <td align="center">4</td>
-      <td align="center">8233113</td>
-      <td align="center">20.583</td>
-      <td align="center">207.0</td>
-      <td align="center">4.476</td>
-      <td align="center">93.7</td>
-      <td align="center">2.025</td>
+      <td align="center">8246733</td>
+      <td align="center">20.617</td>
+      <td align="center">208.1</td>
+      <td align="center">4.507</td>
+      <td align="center">93.8</td>
+      <td align="center">2.031</td>
     </tr>
   </tbody>
 </table>
@@ -485,34 +485,34 @@ mapping — the fastest and lowest-energy of the three modes on every model here
       <td>Minimal</td>
       <td align="center">21</td>
       <td align="center">1</td>
-      <td align="center">8417975</td>
-      <td align="center">21.045</td>
-      <td align="center">140.2</td>
-      <td align="center">2.976</td>
-      <td align="center">29.2</td>
+      <td align="center">8421520</td>
+      <td align="center">21.054</td>
+      <td align="center">141.4</td>
+      <td align="center">3.007</td>
+      <td align="center">29.1</td>
       <td align="center">0.619</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">33</td>
       <td align="center">1</td>
-      <td align="center">5554226</td>
-      <td align="center">13.886</td>
-      <td align="center">155.0</td>
-      <td align="center">2.180</td>
-      <td align="center">43.3</td>
-      <td align="center">0.610</td>
+      <td align="center">5556847</td>
+      <td align="center">13.892</td>
+      <td align="center">156.1</td>
+      <td align="center">2.199</td>
+      <td align="center">43.5</td>
+      <td align="center">0.612</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">107</td>
       <td align="center">4</td>
-      <td align="center">3210457</td>
-      <td align="center">8.026</td>
-      <td align="center">188.1</td>
-      <td align="center">1.574</td>
-      <td align="center">75.6</td>
-      <td align="center">0.632</td>
+      <td align="center">3212595</td>
+      <td align="center">8.031</td>
+      <td align="center">189.4</td>
+      <td align="center">1.589</td>
+      <td align="center">75.8</td>
+      <td align="center">0.636</td>
     </tr>
   </tbody>
 </table>

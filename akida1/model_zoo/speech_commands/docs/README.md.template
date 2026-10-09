@@ -72,16 +72,32 @@ The accuracy metrics reported above come from running evaluation on the validati
       <td align="center">{allnps_dyn_P}</td>
       <td align="center">{allnps_dyn_E}</td>
     </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">{hwpr_nps}</td>
+      <td align="center">{hwpr_passes}</td>
+      <td align="center">{hwpr_cycles}</td>
+      <td align="center">{hwpr_latency_ms}</td>
+      <td align="center">{hwpr_total_P}</td>
+      <td align="center">{hwpr_total_E}</td>
+      <td align="center">{hwpr_dyn_P}</td>
+      <td align="center">{hwpr_dyn_E}</td>
+    </tr>
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements and hardware mapping in Minimal, AllNps and HwPr mapping modes" width="1050">
 
 The plot above shows power measurements captured during inference on hardware.
 In **Minimal** mapping the model is scheduled onto the fewest NPs required,
 keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs, which results in a slight increase in power during inference but a
 proportional reduction in latency.
+
+**HwPr** splits the model over {hwpr_passes} passes so that each layer can use more NPs.
+For a model this small it doesn't pay: the whole network already fits in a single pass,
+and reloading the weights between passes on every inference costs far more than the extra
+NPs save ({hwpr_latency_ms} ms against {allnps_latency_ms} ms for AllNps).
 
 The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture for
 keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)

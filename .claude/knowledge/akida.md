@@ -99,6 +99,12 @@ exception (see above).
 - For a small model that already fits in a single pass, reloading weights between
   passes can cost more than the per-layer gain: in `uored_vafcls`, `HwPr` was slower
   than `AllNps` and used more energy. *Source: measured, AKD1500, 2026-10-08.*
+- Across this repo's Akida 1 examples, `HwPr` was fastest and used the least energy for
+  the AkidaNet image models (`vww`, `plant_village`, and every `imagenet_akidanet`
+  variant). For the small models it either lost outright (`speech_commands`: about 4.5×
+  slower than `AllNps`) or was slightly faster but used more energy
+  (`arrhythmia_classification`). So benchmark all three modes; don't assume.
+  *Source: measured, AKD1500, 2026-10-09 (#58); numbers in each example's `metrics.json`.*
 
 ## Platforms and clocks
 

@@ -70,28 +70,39 @@ See the [Dataset limits](#dataset-limits) for a full discussion.
       <td>Minimal</td>
       <td align="center">7</td>
       <td align="center">1</td>
-      <td align="center">976262</td>
+      <td align="center">976258</td>
       <td align="center">2.441</td>
-      <td align="center">150.3</td>
-      <td align="center">0.372</td>
-      <td align="center">38.5</td>
-      <td align="center">0.095</td>
+      <td align="center">151.1</td>
+      <td align="center">0.373</td>
+      <td align="center">38.7</td>
+      <td align="center">0.096</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">31</td>
       <td align="center">1</td>
-      <td align="center">249873</td>
+      <td align="center">249871</td>
       <td align="center">0.625</td>
-      <td align="center">282.1</td>
+      <td align="center">282.8</td>
       <td align="center">0.185</td>
-      <td align="center">166.6</td>
+      <td align="center">166.4</td>
       <td align="center">0.109</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">34</td>
+      <td align="center">2</td>
+      <td align="center">223527</td>
+      <td align="center">0.559</td>
+      <td align="center">228.8</td>
+      <td align="center">0.214</td>
+      <td align="center">113.9</td>
+      <td align="center">0.106</td>
     </tr>
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements and hardware mapping in Minimal, AllNps and HwPr mapping modes" width="1050">
 
 The plot above shows power measurements captured during inference on hardware.
 In **Minimal** mapping the model is scheduled onto the fewest NPs required,
@@ -99,11 +110,16 @@ keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs (visible in the lower trace plots), which results in a slight increase
 in power during inference but a proportional reduction in latency.
 
+**HwPr** splits the model over 2 passes so that each layer can use more NPs.
+Here it is slightly faster than AllNps (0.559 ms against 0.625 ms)
+but uses more energy per inference (0.214 mJ against 0.185 mJ), because
+the weights are reloaded between passes on every inference.
+
 The model is a small custom depthwise-separable network: a dense 16-filter stem
 convolution, three separable convolution blocks of 32, 64 and 128 filters with
 stride-2 max pooling between them, then global average pooling and two dense
-layers. It maps to **6 Akida layers in a single pass**, with the whole network
-resident on-chip and no DMA traffic during inference.
+layers. It maps to **6 Akida layers**, in a single pass in Minimal and AllNps modes,
+with the whole network resident on-chip and no DMA traffic during inference.
 
 Latency can also be profiled on a per-layer basis, making it possible to see
 which layers dominate processing time. This is determined by several factors:

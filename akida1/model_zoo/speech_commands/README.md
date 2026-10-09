@@ -54,34 +54,50 @@ The accuracy metrics reported above come from running evaluation on the validati
       <td>Minimal</td>
       <td align="center">6</td>
       <td align="center">1</td>
-      <td align="center">134806</td>
+      <td align="center">134797</td>
       <td align="center">0.337</td>
-      <td align="center">131.5</td>
+      <td align="center">132.4</td>
       <td align="center">0.048</td>
-      <td align="center">20.7</td>
+      <td align="center">20.8</td>
       <td align="center">0.008</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">31</td>
       <td align="center">1</td>
-      <td align="center">45638</td>
+      <td align="center">45630</td>
       <td align="center">0.114</td>
-      <td align="center">178.8</td>
+      <td align="center">180.1</td>
       <td align="center">0.026</td>
-      <td align="center">66.6</td>
+      <td align="center">66.9</td>
       <td align="center">0.010</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">68</td>
+      <td align="center">3</td>
+      <td align="center">208604</td>
+      <td align="center">0.522</td>
+      <td align="center">138.7</td>
+      <td align="center">0.110</td>
+      <td align="center">26.7</td>
+      <td align="center">0.021</td>
     </tr>
   </tbody>
 </table>
 
-<img src="docs/ref_benchmark_results_full.png" alt="Power measurements during inference in Minimal and AllNps mapping modes" width="700">
+<img src="docs/ref_benchmark_results_full.png" alt="Power measurements and hardware mapping in Minimal, AllNps and HwPr mapping modes" width="1050">
 
 The plot above shows power measurements captured during inference on hardware.
 In **Minimal** mapping the model is scheduled onto the fewest NPs required,
 keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs, which results in a slight increase in power during inference but a
 proportional reduction in latency.
+
+**HwPr** splits the model over 3 passes so that each layer can use more NPs.
+For a model this small it doesn't pay: the whole network already fits in a single pass,
+and reloading the weights between passes on every inference costs far more than the extra
+NPs save (0.522 ms against 0.114 ms for AllNps).
 
 The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture for
 keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)
