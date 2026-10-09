@@ -94,6 +94,11 @@ keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs, which results in a slight increase in power during inference but a
 proportional reduction in latency.
 
+**HwPr** splits the model over {hwpr_passes} passes so that each layer can use more NPs.
+For a model this small it doesn't pay: the whole network already fits in a single pass,
+and reloading the weights between passes on every inference costs far more than the extra
+NPs save ({hwpr_latency_ms} ms against {allnps_latency_ms} ms for AllNps).
+
 The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture for
 keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)
 benchmark suite. The task is to classify 1-second audio clips into 10 keyword classes plus

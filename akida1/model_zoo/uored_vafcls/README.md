@@ -64,34 +64,34 @@ The table reports results for a **single model architecture**. Only the method u
       <td>Minimal</td>
       <td align="center">17</td>
       <td align="center">1</td>
-      <td align="center">3930879</td>
-      <td align="center">9.827</td>
-      <td align="center">179.2</td>
-      <td align="center">1.782</td>
-      <td align="center">67.5</td>
-      <td align="center">0.671</td>
+      <td align="center">3931606</td>
+      <td align="center">9.829</td>
+      <td align="center">181.6</td>
+      <td align="center">1.807</td>
+      <td align="center">68.0</td>
+      <td align="center">0.677</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">27</td>
       <td align="center">1</td>
-      <td align="center">2932933</td>
-      <td align="center">7.332</td>
-      <td align="center">201.9</td>
-      <td align="center">1.506</td>
-      <td align="center">89.0</td>
-      <td align="center">0.664</td>
+      <td align="center">2933046</td>
+      <td align="center">7.333</td>
+      <td align="center">202.9</td>
+      <td align="center">1.515</td>
+      <td align="center">88.6</td>
+      <td align="center">0.661</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">64</td>
       <td align="center">3</td>
-      <td align="center">3063152</td>
-      <td align="center">7.658</td>
-      <td align="center">216.2</td>
-      <td align="center">1.791</td>
-      <td align="center">103.1</td>
-      <td align="center">0.854</td>
+      <td align="center">3063620</td>
+      <td align="center">7.659</td>
+      <td align="center">217.8</td>
+      <td align="center">1.805</td>
+      <td align="center">102.9</td>
+      <td align="center">0.853</td>
     </tr>
   </tbody>
 </table>

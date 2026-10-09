@@ -98,20 +98,20 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td rowspan="3">Classification</td>
       <td rowspan="3">ImageNet-1k</td>
       <td>69.93% top-1</td>
-      <td align="right">27.102</td>
-      <td align="right">103.186</td>
+      <td align="right">27.250</td>
+      <td align="right">103.235</td>
       <td>AkidaNet &alpha;=1.0</td>
     </tr>
     <tr>
       <td>61.92% top-1</td>
-      <td align="right">7.304</td>
-      <td align="right">27.560</td>
+      <td align="right">7.356</td>
+      <td align="right">27.594</td>
       <td>AkidaNet &alpha;=0.5</td>
     </tr>
     <tr>
       <td>46.32% top-1</td>
-      <td align="right">2.569</td>
-      <td align="right">11.533</td>
+      <td align="right">2.587</td>
+      <td align="right">11.550</td>
       <td>AkidaNet &alpha;=0.25</td>
     </tr>
     <tr>
@@ -119,8 +119,8 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>Classification</td>
       <td>Visual Wake Words</td>
       <td>88.42% acc.</td>
-      <td align="right">0.840</td>
-      <td align="right">5.570</td>
+      <td align="right">0.740</td>
+      <td align="right">3.975</td>
       <td></td>
     </tr>
     <tr>
@@ -128,8 +128,8 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>Classification</td>
       <td>PlantVillage</td>
       <td>99.43% acc.</td>
-      <td align="right">9.389</td>
-      <td align="right">45.786</td>
+      <td align="right">7.187</td>
+      <td align="right">26.645</td>
       <td></td>
     </tr>
   </tbody>
@@ -191,14 +191,14 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td rowspan="2">Industrial Monitoring / Classification</td>
       <td rowspan="2">UORED-VAFCLS</td>
       <td>0.8939 macro AUROC</td>
-      <td align="right">1.506</td>
-      <td align="right">7.332</td>
+      <td align="right">1.515</td>
+      <td align="right">7.333</td>
       <td>Bearing-level split (mean over 100 CV folds)</td>
     </tr>
     <tr>
       <td>0.9973 macro AUROC</td>
-      <td align="right">1.506</td>
-      <td align="right">7.332</td>
+      <td align="right">1.515</td>
+      <td align="right">7.333</td>
       <td>Segment-level split</td>
     </tr>
   </tbody>

@@ -110,11 +110,16 @@ keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs (visible in the lower trace plots), which results in a slight increase
 in power during inference but a proportional reduction in latency.
 
+**HwPr** splits the model over {hwpr_passes} passes so that each layer can use more NPs.
+Here it is slightly faster than AllNps ({hwpr_latency_ms} ms against {allnps_latency_ms} ms)
+but uses more energy per inference ({hwpr_total_E} mJ against {allnps_total_E} mJ), because
+the weights are reloaded between passes on every inference.
+
 The model is a small custom depthwise-separable network: a dense 16-filter stem
 convolution, three separable convolution blocks of 32, 64 and 128 filters with
 stride-2 max pooling between them, then global average pooling and two dense
-layers. It maps to **6 Akida layers in a single pass**, with the whole network
-resident on-chip and no DMA traffic during inference.
+layers. It maps to **6 Akida layers**, in a single pass in Minimal and AllNps modes,
+with the whole network resident on-chip and no DMA traffic during inference.
 
 Latency can also be profiled on a per-layer basis, making it possible to see
 which layers dominate processing time. This is determined by several factors:

@@ -86,6 +86,12 @@ keeping power consumption low. Switching to **AllNps** spreads the model across
 more NPs (visible in the lower trace plots), which results in a slight increase
 in power during inference but a proportional reduction in latency.
 
+**HwPr** goes further: it splits the model over {hwpr_passes} passes so that each layer can
+use more NPs ({hwpr_nps} in total). The weights are reloaded between passes on every
+inference, but for this model the extra parallelism more than pays for that: HwPr is the
+fastest mode ({hwpr_latency_ms} ms against {allnps_latency_ms} ms for AllNps) and uses the
+least energy per inference ({hwpr_total_E} mJ against {allnps_total_E} mJ).
+
 The model is a standard **Akidanet** (from `akida_models`) with
 width multiplier **alpha = 0.25** and input resolution **96 × 96**.
 
