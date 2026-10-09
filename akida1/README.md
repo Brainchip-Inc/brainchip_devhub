@@ -119,8 +119,8 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>Classification</td>
       <td>Visual Wake Words</td>
       <td>88.42% acc.</td>
-      <td align="right">0.502</td>
-      <td align="right">3.315</td>
+      <td align="right">0.840</td>
+      <td align="right">5.570</td>
       <td></td>
     </tr>
     <tr>
