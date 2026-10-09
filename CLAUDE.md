@@ -86,7 +86,7 @@ about Akida, add an entry (platform, source, confidence) in the same PR as the f
 ## Commands
 
 ```bash
-pip install -v -e .                                   # Python 3.10–3.12, pinned toolchain
+pip install -v -e ".[cuda]"                           # Python 3.10–3.12; [cuda] for GPU training, [torch] for PyTorch examples (separate envs)
 python akida1/model_zoo/<example>/update_readme.py    # regenerate example + akida1 READMEs
 python akida1/update_readme.py                        # regenerate the akida1 landing page only
 pytest test/test_hardware_utils.py                    # unit tests, no hardware
