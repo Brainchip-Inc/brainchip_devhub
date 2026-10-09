@@ -137,8 +137,8 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>Detection</td>
       <td>PASCAL VOC</td>
       <td>47.54% mAP</td>
-      <td align="right">13.677</td>
-      <td align="right">62.012</td>
+      <td align="right">13.691</td>
+      <td align="right">61.937</td>
       <td>YOLOv2, 20 classes, mAP at IoU 0.5</td>
     </tr>
   </tbody>

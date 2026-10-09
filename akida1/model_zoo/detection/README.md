@@ -19,7 +19,7 @@
       <td align="center">47.41%</td>
       <td align="center">47.64%</td>
       <td align="center">47.54%</td>
-      <td align="center">55.26%</td>
+      <td align="center">55.34%</td>
       <td align="center">3,665,965</td>
     </tr>
   </tbody>
@@ -52,34 +52,34 @@ detections with a confidence above 0.01 are kept, up to 100 per image.
       <td>Minimal</td>
       <td align="center">73</td>
       <td align="center">3</td>
-      <td align="center">46278405</td>
-      <td align="center">115.696</td>
-      <td align="center">166.9</td>
-      <td align="center">20.117</td>
-      <td align="center">54.3</td>
-      <td align="center">6.542</td>
+      <td align="center">46298642</td>
+      <td align="center">115.747</td>
+      <td align="center">167.5</td>
+      <td align="center">20.193</td>
+      <td align="center">54.4</td>
+      <td align="center">6.561</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">83</td>
       <td align="center">3</td>
-      <td align="center">34052177</td>
-      <td align="center">85.130</td>
-      <td align="center">186.4</td>
-      <td align="center">16.462</td>
-      <td align="center">73.6</td>
-      <td align="center">6.497</td>
+      <td align="center">34040208</td>
+      <td align="center">85.101</td>
+      <td align="center">187.0</td>
+      <td align="center">16.509</td>
+      <td align="center">73.5</td>
+      <td align="center">6.491</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">118</td>
       <td align="center">5</td>
-      <td align="center">24804769</td>
-      <td align="center">62.012</td>
-      <td align="center">214.4</td>
-      <td align="center">13.677</td>
+      <td align="center">24774725</td>
+      <td align="center">61.937</td>
+      <td align="center">214.9</td>
+      <td align="center">13.691</td>
       <td align="center">100.7</td>
-      <td align="center">6.421</td>
+      <td align="center">6.413</td>
     </tr>
   </tbody>
 </table>
