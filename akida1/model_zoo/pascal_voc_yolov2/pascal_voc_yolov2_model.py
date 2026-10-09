@@ -22,7 +22,7 @@ weights with `load_weights(..., by_name=True)`, which would silently skip
 any layer whose name failed to line up between the two models.
 
 Usage:
-    python detection_model.py [-s OUTPUT_PATH]
+    python pascal_voc_yolov2_model.py [-s OUTPUT_PATH]
 """
 
 import argparse
@@ -96,7 +96,7 @@ def _reset_detection_layer_weights(model):
     ])
 
 
-def build_detection_model(anchors=5, classes=20, seed=42, alpha=0.5, head_filters=1024):
+def build_pascal_voc_yolov2_model(anchors=5, classes=20, seed=42, alpha=0.5, head_filters=1024):
     set_random_seed(seed)
 
     with set_akida_version(AkidaVersion.v1):
@@ -140,7 +140,7 @@ if __name__ == "__main__":
                         help='Random seed for reproducibility')
     args = parser.parse_args()
 
-    model = build_detection_model(anchors=args.anchors, classes=args.classes, seed=args.seed, alpha=args.alpha, head_filters=args.head_filters)
+    model = build_pascal_voc_yolov2_model(anchors=args.anchors, classes=args.classes, seed=args.seed, alpha=args.alpha, head_filters=args.head_filters)
     model.summary()
     model.save(args.savepath, include_optimizer=False)
     print(f'Model saved to {args.savepath}')

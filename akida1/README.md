@@ -133,7 +133,7 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td></td>
     </tr>
     <tr>
-      <td><a href="model_zoo/detection">Object detection</a></td>
+      <td><a href="model_zoo/pascal_voc_yolov2">Object detection</a></td>
       <td>Detection</td>
       <td>PASCAL VOC</td>
       <td>47.54% mAP</td>

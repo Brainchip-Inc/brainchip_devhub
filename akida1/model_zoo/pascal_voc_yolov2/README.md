@@ -185,14 +185,14 @@ set up `git-lfs`. For further instructions, see the
 Two notebooks are provided that walk through a) preparation of a trained Akida-compatible model and
 b) evaluation and benchmarking of that model on Akida.
 
-[detection_notebook_training.ipynb](detection_notebook_training.ipynb) walks through the
+[pascal_voc_yolov2_notebook_training.ipynb](pascal_voc_yolov2_notebook_training.ipynb) walks through the
 complete training pipeline end-to-end. It is written to expose and explain the Akida-specific
 aspects of the workflow: how the model is constructed for Akida compatibility,
 what the quantization constraints mean in practice, and what the conversion
 step does. Start here if you want to understand *why* the pipeline is structured
 the way it is.
 
-[detection_notebook_benchmark.ipynb](detection_notebook_benchmark.ipynb) walks through
+[pascal_voc_yolov2_notebook_benchmark.ipynb](pascal_voc_yolov2_notebook_benchmark.ipynb) walks through
 evaluation of model mAP on Akida and, if a hardware device is available, covers benchmarking
 of model latency and power.
 
@@ -202,7 +202,7 @@ For straightforward reproduction of the training and evaluation results, run
 the full pipeline in one shot:
 
 ```bash
-bash detection_train.sh [DATADIR]
+bash pascal_voc_yolov2_train.sh [DATADIR]
 ```
 
 The optional `DATADIR` argument overrides the default dataset location
@@ -223,10 +223,10 @@ and Akida model versions, plus the hardware benchmark, including the
 `--save-metrics` argument, and then regenerate the README from the template
 using `update_readme.py`:
 ```bash
-python detection_eval.py -l pretrained_models/yolo_akidanet_detection.h5 --save-metrics
-python detection_eval.py -l pretrained_models/yolo_akidanet_detection_qat.h5 --save-metrics
-python detection_eval.py -l pretrained_models/yolo_akidanet_detection_qat.fbz --save-metrics
-python detection_benchmark.py -l pretrained_models/yolo_akidanet_detection_qat.fbz --save-metrics
+python pascal_voc_yolov2_eval.py -l pretrained_models/yolo_akidanet_detection.h5 --save-metrics
+python pascal_voc_yolov2_eval.py -l pretrained_models/yolo_akidanet_detection_qat.h5 --save-metrics
+python pascal_voc_yolov2_eval.py -l pretrained_models/yolo_akidanet_detection_qat.fbz --save-metrics
+python pascal_voc_yolov2_benchmark.py -l pretrained_models/yolo_akidanet_detection_qat.fbz --save-metrics
 python update_readme.py
 ```
 Then commit the changed files (template, metrics and updated README).

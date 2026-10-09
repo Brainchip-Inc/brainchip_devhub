@@ -5,7 +5,7 @@ Detection evaluation (mAP) for tf_keras or akida YOLOv2 models.
 
 Example
 -------
-    python detection_eval.py -d /data/voc/ -l yolo_akidanet_detection.h5
+    python pascal_voc_yolov2_eval.py -d /data/voc/ -l yolo_akidanet_detection.h5
 """
 import argparse
 import json
@@ -34,7 +34,7 @@ from akida_models.detection.data_utils import Coord
 from akida_models.detection.processing import (BoundingBox, desize_bboxes,
                                                get_affine_transform, preprocess_image)
 
-from detection_data import LABELS, get_anchors, get_voc_dataset
+from pascal_voc_yolov2_data import LABELS, get_anchors, get_voc_dataset
 from brainchip_utils.hardware_utils import get_akida_device
 
 

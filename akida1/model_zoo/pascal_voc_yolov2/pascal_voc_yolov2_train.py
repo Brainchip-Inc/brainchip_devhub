@@ -5,7 +5,7 @@ Detection training
 
 Example
 -------
-    python detection_train.py -d /data/voc/ -e 70  \\
+    python pascal_voc_yolov2_train.py -d /data/voc/ -e 70  \\
         -l yolo_akidanet_detection.h5 -s yolo_akidanet_detection.h5
 """
 import argparse
@@ -22,7 +22,7 @@ from cnn2snn import load_quantized_model
 
 from akida_models.detection.yolo_loss import YoloLoss
 
-from detection_data import get_data, get_anchors
+from pascal_voc_yolov2_data import get_data, get_anchors
 
 # Must be called before any TF ops to make GPU ops (conv backward passes,
 # bilinear resize, etc.) deterministic. Has a small throughput cost.
