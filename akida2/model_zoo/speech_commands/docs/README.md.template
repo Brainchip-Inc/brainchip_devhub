@@ -134,15 +134,15 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 
 #### 8-bit (w8 / a8)
 
-<img src="{w8a8_full_plot}" alt="8-bit full-model benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
 
-<img src="{w8a8_layers_plot}" alt="8-bit per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
 
 #### 4-bit (w4 / a4, QAT)
 
-<img src="{w4a4_qat_full_plot}" alt="4-bit QAT full-model benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
-<img src="{w4a4_qat_layers_plot}" alt="4-bit QAT per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
 The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture
 for keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)

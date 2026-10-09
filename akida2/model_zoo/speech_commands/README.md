@@ -134,13 +134,13 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 
 #### 8-bit (w8 / a8)
 
-<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
 
 #### 4-bit (w4 / a4, QAT)
 
-<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
