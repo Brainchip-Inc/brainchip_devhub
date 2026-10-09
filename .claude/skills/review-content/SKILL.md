@@ -58,7 +58,7 @@ Also check, by hand:
   `metrics.json`. CI (`models-float`, `models-hardware`) must be green; check with
   `gh pr checks`.
 - **New example wiring.** The example is linked from the root `README.md` platform table;
-  Akida 1 examples have `docs/zoo_card.json` with a valid `domain`; the README has
+  every example has `docs/zoo_card.json` with a valid `domain`; the README has
   "Requirements", "Reference Models" and "Contributing and Maintenance" sections that link
   to the top-level README rather than repeating it.
 - **Notebooks.** The Colab badge URL path matches the notebook's location on `main`. The

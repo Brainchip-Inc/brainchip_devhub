@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 # Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
-"""Regenerate akida1/README.md from docs/README.md.template.
+"""Regenerate akida2/README.md from docs/README.md.template.
 
 The model zoo summary table is built from each example's docs/zoo_card.json
-(static row metadata) and docs/metrics.json (measured values), so it never
-drifts from the example READMEs. Examples without a zoo_card.json are skipped.
+(static row metadata, one row per quantization variant) and docs/metrics.json
+(measured values), so it never drifts from the example READMEs. Examples without
+a zoo_card.json are skipped.
+
+Akida 2 is benchmarked on the FPGA, which has no power measurement, so the table
+reports latency only: measured at the FPGA clock and projected to the AKD2500
+target clock, for the mapping with the fewest cycles.
 """
 import pathlib
 import sys
@@ -15,36 +20,39 @@ from brainchip_utils.zoo_table import domain_sections, html_table, load_cards, v
 
 DOMAINS = ["Image", "Audio", "Time series"]
 MAPPINGS = {"minimal": "Minimal", "allnps": "AllNPs", "hwpr": "HwPr"}
-HEADERS = ["Task", "Category", "Dataset", "Performance", "Energy (mJ/inf)", "Latency (ms)", "Notes"]
-RIGHT_ALIGNED = {4, 5}
+HEADERS = ["Task", "Category", "Dataset", "Variant", "Performance", "Mapping",
+           "Latency @ 25 MHz FPGA (ms)", "Projected @ 1 GHz AKD2500 (ms)", "Notes"]
+RIGHT_ALIGNED = {6, 7}
 MERGEABLE = 3   # Task, Category, Dataset: merged down a run of rows from the same example
 
 
-def _best_mapping(metrics, prefix):
-    """Mapping with the lowest total energy per inference, or None if unbenchmarked."""
+def _fastest_mapping(metrics, prefix):
+    """Mapping with the fewest cycles per inference, or None if unbenchmarked."""
     candidates = []
     for mapping in MAPPINGS:
-        energy = value(metrics, f"{prefix}{mapping}_total_E")
-        if energy is not None:
-            candidates.append((float(energy), mapping))
+        cycles = value(metrics, f"{prefix}{mapping}_cycles")
+        if cycles is not None:
+            candidates.append((float(cycles), mapping))
     return min(candidates)[1] if candidates else None
 
 
 def _cells(example, row, metrics):
-    prefix = row.get("bench_prefix", "")
+    prefix = row["bench_prefix"]
     perf = value(metrics, row["metric_key"])
-    mapping = _best_mapping(metrics, prefix)
-    energy = latency = None
+    mapping = _fastest_mapping(metrics, prefix)
+    latency = projected = None
     if mapping:
-        energy = value(metrics, f"{prefix}{mapping}_total_E")
         latency = value(metrics, f"{prefix}{mapping}_latency_ms")
+        projected = value(metrics, f"{prefix}{mapping}_projected_ms")
     return [
         f'<a href="model_zoo/{example}">{row["task"]}</a>',
         row["category"],
         row["dataset"],
+        row["variant"],
         f"{perf} {row['metric_label']}" if perf else "—",
-        energy or "—",
+        MAPPINGS[mapping] if mapping else "—",
         latency or "—",
+        projected or "—",
         row.get("notes", ""),
     ]
 
@@ -63,4 +71,4 @@ def build_table():
 if __name__ == "__main__":
     template = (here / "docs" / "README.md.template").read_text()
     (here / "README.md").write_text(template.replace("{model_zoo_table}", build_table()))
-    print("akida1/README.md updated.")
+    print("akida2/README.md updated.")

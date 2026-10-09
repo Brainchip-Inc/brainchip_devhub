@@ -23,7 +23,10 @@ akida1/                    Akida 1 (AKD1000 / AKD1500)
   README.md                GENERATED from docs/README.md.template + every example's zoo_card.json/metrics.json
   update_readme.py
   model_zoo/<example>/     one self-contained example per folder
-akida2/model_zoo/<example> Akida 2 (AKD2500; benchmarked on the v2 FPGA today)
+akida2/                    Akida 2 (AKD2500; benchmarked on the v2 FPGA today)
+  README.md                GENERATED, like akida1/README.md
+  update_readme.py
+  model_zoo/<example>/
 brainchip_utils/           shared hardware benchmark + plotting helpers (pip install -e .)
 test/                      CI model tests (pytest), discover_models.py
 .github/workflows/         ci.yml (float, GitHub-hosted), hardware.yml (self-hosted AKD1500 + v2 FPGA)
@@ -89,6 +92,7 @@ about Akida, add an entry (platform, source, confidence) in the same PR as the f
 pip install -v -e ".[cuda]"                           # Python 3.10–3.12; [cuda] for GPU training, [torch] for PyTorch examples (separate envs)
 python akida1/model_zoo/<example>/update_readme.py    # regenerate example + akida1 READMEs
 python akida1/update_readme.py                        # regenerate the akida1 landing page only
+python akida2/update_readme.py                        # regenerate the akida2 landing page only
 pytest test/test_hardware_utils.py                    # unit tests, no hardware
 pytest test/test_models.py -m "not hardware" --models "<repo-relative model paths>"
 python test/discover_models.py --all                  # list the models CI will test
@@ -134,8 +138,7 @@ writing step waits for its outputs (`metrics.json`, weights, plots).
 2. READMEs regenerated and in sync (rerunning `update_readme.py` leaves no diff).
 3. Every number traces to `metrics.json` or a citation; hardware and mapping are named.
 4. Dataset licence and citation present; no non-redistributable data committed.
-5. New example linked from the landing pages (`README.md` table, and `zoo_card.json` for
-   Akida 1).
+5. New example linked from the landing pages (`README.md` table, and `zoo_card.json`).
 6. CI green (`models-float`, plus `models-hardware` for new or changed weights).
 7. `/review-content` run on the branch, with no blocking findings left open.
 8. The PR links its issue and ticks the issue's acceptance criteria.

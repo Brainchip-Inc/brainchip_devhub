@@ -57,7 +57,7 @@ Akida 1 and Akida 2 examples are available today; more Akida 2 models can be fou
 | --- | --- | --- | --- |
 | **Chip** | AKD1500 | AKD2500 | — |
 | **Typical use cases** | Image classification, keyword spotting, object detection | Larger models, higher accuracy targets | Always-on sensing, edge inference |
-| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) | 🔜 Coming soon |
+| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) · [Image Classification (PlantVillage)](akida2/model_zoo/plant_village) · [Keyword Spotting](akida2/model_zoo/speech_commands) | 🔜 Coming soon |
 
 ---
 
@@ -87,7 +87,7 @@ Every result in this repo runs on real Akida silicon, not a simulation.
 
 All available through the [BrainChip Shop](https://shop.brainchipinc.com/).
 
-> **No hardware yet?** [Akida Cloud](https://shop.brainchipinc.com/) lets you test, benchmark, and validate models on real Akida hardware remotely — no board required.
+> **No hardware yet?** [Akida Cloud](https://brainchip.com/aclp/) gives you remote access to an FPGA implementation of Akida 2, so you can test, benchmark, and validate models without a board.
 
 ---
 
@@ -122,7 +122,7 @@ Go from a fresh clone to your first result in four steps.
    and evaluate in simulation with no board. To reproduce the latency and power
    numbers you'll need a physical AKD1500 / AKD1000 device and its runtime/driver —
    see the [official installation guide](https://doc.brainchipinc.com). No hardware?
-   [Akida Cloud](https://shop.brainchipinc.com/) runs models on real silicon remotely.
+   [Akida Cloud](https://brainchip.com/aclp/) runs models remotely on an FPGA implementation of Akida 2.
 
 4. **Pick an example and follow its README.** Browse the
    [available examples](#platform-overview) across Akida 1 and Akida 2 and open the
