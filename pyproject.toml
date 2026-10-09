@@ -33,6 +33,11 @@ torch = [
     "torch==2.10.0",
     "onnxscript",
 ]
+# Executing notebooks headlessly: python -m brainchip_utils.notebooks <notebook>
+notebooks = [
+    "nbclient",
+    "nbformat",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

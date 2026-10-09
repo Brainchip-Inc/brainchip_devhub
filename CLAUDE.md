@@ -92,7 +92,8 @@ python akida1/update_readme.py                        # regenerate the akida1 la
 pytest test/test_hardware_utils.py                    # unit tests, no hardware
 pytest test/test_models.py -m "not hardware" --models "<repo-relative model paths>"
 python test/discover_models.py --all                  # list the models CI will test
-python .claude/skills/review-content/check_content.py  # README drift, links, pins, LFS, paths (read-only)
+python .claude/skills/review-content/check_content.py  # README drift, links, pins, LFS, paths, notebook noise (read-only)
+python -m brainchip_utils.notebooks <notebook.ipynb>  # execute headlessly, saved as Jupyter would ([notebooks] extra)
 ```
 
 There is no site build: GitHub renders the markdown. CI (`.github/workflows/content.yml`)
