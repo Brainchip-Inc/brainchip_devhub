@@ -23,7 +23,7 @@ publishes for the same weights.
 <tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>75.38%</td><td>92.31%</td><td>75.39%</td><td>92.29%</td><td>75.39%</td><td>92.29%</td><td>74.61%</td><td>91.99%</td><td><b>74.63%</b></td><td><b>91.98%</b></td><td>41.57%</td></tr>
 <tr><td><code>mobilenetv1_125</code></td><td>1.25</td><td>6,270,840</td><td>76.92%</td><td>93.23%</td><td>76.93%</td><td>93.22%</td><td>76.93%</td><td>93.22%</td><td>76.69%</td><td>93.20%</td><td><b>76.77%</b></td><td><b>93.16%</b></td><td>44.68%</td></tr>
 <tr><td colspan="14"><b>256 × 256 input</b></td></tr>
-<tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>76.09%</td><td>93.00%</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
+<tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>76.09%</td><td>93.00%</td><td>76.09%</td><td>92.99%</td><td>76.09%</td><td>92.99%</td><td>TBD</td><td>TBD</td><td><b>75.42%</b></td><td><b>92.71%</b></td><td>42.09%</td></tr>
 <tr><td><code>mobilenetv1_125</code></td><td>1.25</td><td>6,270,840</td><td>77.60%</td><td>93.80%</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
 </table>
 
