@@ -74,50 +74,50 @@ rescale of the measured cycles.
       <td>Minimal</td>
       <td align="center">57</td>
       <td align="center">3</td>
-      <td align="center">11464876</td>
-      <td align="center">458.595</td>
-      <td align="center">11.465</td>
+      <td align="center">11482885</td>
+      <td align="center">459.315</td>
+      <td align="center">11.483</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">68</td>
       <td align="center">3</td>
-      <td align="center">10819339</td>
-      <td align="center">432.774</td>
-      <td align="center">10.819</td>
+      <td align="center">10837479</td>
+      <td align="center">433.499</td>
+      <td align="center">10.837</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">158</td>
       <td align="center">8</td>
-      <td align="center">6850359</td>
-      <td align="center">274.014</td>
-      <td align="center">6.850</td>
+      <td align="center">6869908</td>
+      <td align="center">274.796</td>
+      <td align="center">6.870</td>
     </tr>
     <tr>
       <td rowspan="3">4-bit (QAT)</td>
       <td>Minimal</td>
       <td align="center">36</td>
       <td align="center">2</td>
-      <td align="center">12249318</td>
-      <td align="center">489.973</td>
-      <td align="center">12.249</td>
+      <td align="center">12254447</td>
+      <td align="center">490.178</td>
+      <td align="center">12.254</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">37</td>
       <td align="center">2</td>
-      <td align="center">12235183</td>
-      <td align="center">489.407</td>
-      <td align="center">12.235</td>
+      <td align="center">12239876</td>
+      <td align="center">489.595</td>
+      <td align="center">12.240</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">92</td>
       <td align="center">4</td>
-      <td align="center">8316691</td>
-      <td align="center">332.668</td>
-      <td align="center">8.317</td>
+      <td align="center">8324002</td>
+      <td align="center">332.960</td>
+      <td align="center">8.324</td>
     </tr>
   </tbody>
 </table>

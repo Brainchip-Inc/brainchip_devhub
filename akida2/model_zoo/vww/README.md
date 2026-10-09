@@ -30,7 +30,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">-</td>
       <td align="center">87.77%</td>
       <td align="center">87.77%</td>
-      <td align="center">27.98%</td>
+      <td align="center">27.95%</td>
     </tr>
     <tr>
       <td>4-bit</td>
@@ -38,7 +38,7 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">yes</td>
       <td align="center">84.02%</td>
       <td align="center">84.02%</td>
-      <td align="center">31.73%</td>
+      <td align="center">32.13%</td>
     </tr>
   </tbody>
 </table>
@@ -70,41 +70,82 @@ rescale of the measured cycles.
   </thead>
   <tbody>
     <tr>
-      <td rowspan="2">8-bit</td>
+      <td rowspan="3">8-bit</td>
       <td>Minimal</td>
       <td align="center">29</td>
       <td align="center">2</td>
-      <td align="center">1043316</td>
-      <td align="center">41.733</td>
-      <td align="center">1.043</td>
+      <td align="center">1044066</td>
+      <td align="center">41.763</td>
+      <td align="center">1.044</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">46</td>
       <td align="center">2</td>
-      <td align="center">873810</td>
-      <td align="center">34.952</td>
-      <td align="center">0.874</td>
+      <td align="center">874556</td>
+      <td align="center">34.982</td>
+      <td align="center">0.875</td>
     </tr>
     <tr>
-      <td rowspan="2">4-bit (QAT)</td>
+      <td>HwPr</td>
+      <td align="center">46</td>
+      <td align="center">2</td>
+      <td align="center">874554</td>
+      <td align="center">34.982</td>
+      <td align="center">0.875</td>
+    </tr>
+    <tr>
+      <td rowspan="3">4-bit (QAT)</td>
       <td>Minimal</td>
       <td align="center">28</td>
       <td align="center">2</td>
-      <td align="center">923436</td>
-      <td align="center">36.937</td>
-      <td align="center">0.923</td>
+      <td align="center">919231</td>
+      <td align="center">36.769</td>
+      <td align="center">0.919</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">46</td>
       <td align="center">2</td>
-      <td align="center">742299</td>
-      <td align="center">29.692</td>
-      <td align="center">0.742</td>
+      <td align="center">739604</td>
+      <td align="center">29.584</td>
+      <td align="center">0.740</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">46</td>
+      <td align="center">2</td>
+      <td align="center">739602</td>
+      <td align="center">29.584</td>
+      <td align="center">0.740</td>
     </tr>
   </tbody>
 </table>
+
+For this model, HwPr finds no better split than AllNPs: both map the 8-bit variant to
+46 NPs over 2 passes, so their latencies match.
+
+### Benchmark plots
+
+For each variant, two plots are shown below. The **full-model** plot shows the
+hardware mapping (NPs used per layer, with pass boundaries) under each mapping
+mode (Minimal, AllNPs and HwPr): Minimal mapping schedules the model onto the
+fewest NPs required, while AllNPs and HwPr spread it across more NPs. The
+**per-layer** plot shows per-layer latency, input sparsity and NP mapping under
+Minimal mapping. Akida is event-driven, so a layer's cost depends on how many
+non-zero activations it receives; sparsity is measured on real dataset samples.
+
+#### 8-bit (w8 / a8)
+
+<img src="docs/ref_benchmark_results_full_mobilenet_vww_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_mobilenet_vww_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
+
+#### 4-bit (w4 / a4, QAT)
+
+<img src="docs/ref_benchmark_results_full_mobilenet_vww_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_mobilenet_vww_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
 The model is a standard **MobileNet** (from `tf_keras.applications`) with
 width multiplier **alpha = 0.25** and input resolution **96 × 96**. We use

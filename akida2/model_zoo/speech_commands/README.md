@@ -74,7 +74,7 @@ rescale of the measured cycles.
       <td>Minimal</td>
       <td align="center">10</td>
       <td align="center">1</td>
-      <td align="center">249754</td>
+      <td align="center">249756</td>
       <td align="center">9.990</td>
       <td align="center">0.250</td>
     </tr>
@@ -82,7 +82,7 @@ rescale of the measured cycles.
       <td>AllNPs</td>
       <td align="center">18</td>
       <td align="center">1</td>
-      <td align="center">135334</td>
+      <td align="center">135336</td>
       <td align="center">5.413</td>
       <td align="center">0.135</td>
     </tr>
@@ -90,8 +90,8 @@ rescale of the measured cycles.
       <td>HwPr</td>
       <td align="center">90</td>
       <td align="center">4</td>
-      <td align="center">125959</td>
-      <td align="center">5.038</td>
+      <td align="center">126481</td>
+      <td align="center">5.059</td>
       <td align="center">0.126</td>
     </tr>
     <tr>
@@ -99,7 +99,7 @@ rescale of the measured cycles.
       <td>Minimal</td>
       <td align="center">10</td>
       <td align="center">1</td>
-      <td align="center">212213</td>
+      <td align="center">212214</td>
       <td align="center">8.489</td>
       <td align="center">0.212</td>
     </tr>
@@ -107,7 +107,7 @@ rescale of the measured cycles.
       <td>AllNPs</td>
       <td align="center">18</td>
       <td align="center">1</td>
-      <td align="center">120408</td>
+      <td align="center">120410</td>
       <td align="center">4.816</td>
       <td align="center">0.120</td>
     </tr>
@@ -115,8 +115,8 @@ rescale of the measured cycles.
       <td>HwPr</td>
       <td align="center">90</td>
       <td align="center">4</td>
-      <td align="center">110605</td>
-      <td align="center">4.424</td>
+      <td align="center">111010</td>
+      <td align="center">4.440</td>
       <td align="center">0.111</td>
     </tr>
   </tbody>
