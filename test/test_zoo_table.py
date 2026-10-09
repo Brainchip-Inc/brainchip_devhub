@@ -32,3 +32,11 @@ def test_akida2_table_picks_the_mapping_with_fewest_cycles():
     cells = gen['_cells']('ex', row, metrics)
     assert cells[4:8] == ['90.00% acc.', 'AllNPs', '8.000', '0.200']
 
+
+
+def test_akida2_table_prefers_the_simpler_mapping_on_a_tie():
+    gen = runpy.run_path(str(ROOT / 'akida2' / 'update_readme.py'))
+    metrics = {'w8a8_minimal_cycles': '1044066', 'w8a8_allnps_cycles': '874556', 'w8a8_hwpr_cycles': '874554'}
+    assert gen['_fastest_mapping'](metrics, 'w8a8_') == 'allnps'
+    metrics['w8a8_hwpr_cycles'] = '600000'
+    assert gen['_fastest_mapping'](metrics, 'w8a8_') == 'hwpr'

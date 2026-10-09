@@ -9,7 +9,7 @@ a zoo_card.json are skipped.
 
 Akida 2 is benchmarked on the FPGA, which has no power measurement, so the table
 reports latency only: measured at the FPGA clock and projected to the AKD2500
-target clock, for the mapping with the fewest cycles.
+target clock, for the fastest mapping (the simplest, if modes tie within 1%).
 """
 import pathlib
 import sys
@@ -26,14 +26,20 @@ RIGHT_ALIGNED = {6, 7}
 MERGEABLE = 3   # Task, Category, Dataset: merged down a run of rows from the same example
 
 
+# Modes whose cycle counts differ by less than this are treated as equally fast, and the
+# simplest (earliest in MAPPINGS) is shown: run-to-run jitter is around 0.1%, and HwPr
+# often produces exactly the AllNPs mapping.
+TIE_TOLERANCE = 0.01
+
+
 def _fastest_mapping(metrics, prefix):
-    """Mapping with the fewest cycles per inference, or None if unbenchmarked."""
-    candidates = []
-    for mapping in MAPPINGS:
-        cycles = value(metrics, f"{prefix}{mapping}_cycles")
-        if cycles is not None:
-            candidates.append((float(cycles), mapping))
-    return min(candidates)[1] if candidates else None
+    """Simplest mapping within TIE_TOLERANCE of the fewest cycles, or None if unbenchmarked."""
+    cycles = {m: float(c) for m in MAPPINGS
+              if (c := value(metrics, f"{prefix}{m}_cycles")) is not None}
+    if not cycles:
+        return None
+    fastest = min(cycles.values())
+    return next(m for m in MAPPINGS if m in cycles and cycles[m] <= fastest * (1 + TIE_TOLERANCE))
 
 
 def _cells(example, row, metrics):

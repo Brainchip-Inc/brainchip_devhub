@@ -94,8 +94,8 @@ benchmarks for every mapping, and the steps to reproduce them.
 {model_zoo_table}
 
 <sub>Performance is for the converted Akida model. Latency is measured on the Akida 2 FPGA
-at 25 MHz and projected to the AKD2500 target clock (1 GHz), for the mapping mode with the
-fewest cycles per inference. This table is generated from each example's
+at 25 MHz and projected to the AKD2500 target clock (1 GHz), for the fastest mapping mode
+(the simplest one, if modes are within 1% of each other). This table is generated from each example's
 `docs/metrics.json`.</sub>
 
 ---

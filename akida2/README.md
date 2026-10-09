@@ -115,16 +115,16 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>8-bit</td>
       <td>87.77% acc.</td>
       <td>AllNPs</td>
-      <td align="right">34.952</td>
-      <td align="right">0.874</td>
+      <td align="right">34.982</td>
+      <td align="right">0.875</td>
       <td></td>
     </tr>
     <tr>
       <td>4-bit QAT</td>
       <td>84.02% acc.</td>
       <td>AllNPs</td>
-      <td align="right">29.692</td>
-      <td align="right">0.742</td>
+      <td align="right">29.584</td>
+      <td align="right">0.740</td>
       <td></td>
     </tr>
     <tr>
@@ -134,16 +134,16 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>8-bit</td>
       <td>99.63% acc.</td>
       <td>HwPr</td>
-      <td align="right">274.014</td>
-      <td align="right">6.850</td>
+      <td align="right">274.796</td>
+      <td align="right">6.870</td>
       <td></td>
     </tr>
     <tr>
       <td>4-bit QAT</td>
       <td>99.65% acc.</td>
       <td>HwPr</td>
-      <td align="right">332.668</td>
-      <td align="right">8.317</td>
+      <td align="right">332.960</td>
+      <td align="right">8.324</td>
       <td></td>
     </tr>
   </tbody>
@@ -173,7 +173,7 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>8-bit</td>
       <td>95.65% acc.</td>
       <td>HwPr</td>
-      <td align="right">5.038</td>
+      <td align="right">5.059</td>
       <td align="right">0.126</td>
       <td>10 keywords + silence + unknown</td>
     </tr>
@@ -181,7 +181,7 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>4-bit QAT</td>
       <td>94.90% acc.</td>
       <td>HwPr</td>
-      <td align="right">4.424</td>
+      <td align="right">4.440</td>
       <td align="right">0.111</td>
       <td>10 keywords + silence + unknown</td>
     </tr>
@@ -189,8 +189,8 @@ benchmarks for every mapping, and the steps to reproduce them.
 </table>
 
 <sub>Performance is for the converted Akida model. Latency is measured on the Akida 2 FPGA
-at 25 MHz and projected to the AKD2500 target clock (1 GHz), for the mapping mode with the
-fewest cycles per inference. This table is generated from each example's
+at 25 MHz and projected to the AKD2500 target clock (1 GHz), for the fastest mapping mode
+(the simplest one, if modes are within 1% of each other). This table is generated from each example's
 `docs/metrics.json`.</sub>
 
 ---
