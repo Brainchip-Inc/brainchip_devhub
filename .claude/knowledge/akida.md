@@ -6,7 +6,7 @@ Claude session through `CLAUDE.md`, and written for developers too, so entries c
 into tutorials as they are.
 
 **Rules for entries**
-- Tag the platform: **[Akida 1]**, **[Akida 2]** or **[both]**.
+- Tag the platform: **[Akida 1]**, **[Akida 2]**, **[Akida Pico]** or **[both]** (Akida 1 and 2).
 - Give a source: a link to the official docs, *BrainChip engineering* (with date) for
   knowledge passed on directly, *measured* (with the example) for results from this
   repo, or a file in this repo.
@@ -164,3 +164,39 @@ have to be rebuilt in Keras and go through `cnn2snn` with QAT.
 
 Version constraints between torch, TensorFlow and `onnx2akida` are in the README, under
 Requirements → "PyTorch and TensorFlow in one environment".
+
+## Akida Pico
+
+**[Akida Pico] Akida Pico models are recurrent TENNs.** They are trained with
+`Kernelized` layers (temporal convolutions whose kernel is generated from state-space
+parameters), then `convert_to_stateful` turns each one into a `StatefulRecurrent` layer
+with the same weights, which processes the input in chunks of `timesteps` samples and
+carries its state between chunks. The stateful model is the one quantized with
+`quantizeml` and converted with `cnn2snn`. Stateful tf_keras models have a fixed batch
+size (set with `quantizeml.layers.update_batch_size`), and their quantized form must be
+called directly rather than through `predict`.
+*Source: [official model zoo](https://doc.brainchipinc.com/model_zoo_performance.html)
+("Pico models are recurrent TENNs targeting the Akida Pico Neuromorphic Processor
+IP"); `akida_models.tenn_recurrent` docstrings (akida_models 1.14.0); measured,
+`akida_pico/model_zoo/speech_commands` (#103).*
+
+**[Akida Pico] Hardware limits for `StatefulRecurrent` models** (checked at mapping): at
+most 8 `StatefulRecurrent` layers; only a `Dequantizer` or `PicoPostProcessing` may follow
+them, as the last layer; ReLU must be unbounded; first layer input 8-bit with up to 256
+channels or 16-bit with up to 128 (the packed input row must be a power-of-2 number of
+32-bit words, at most 512 bytes; MetaTF doesn't pad); stateful channels at most 256, a
+power of 2, the same in every layer; subsampling at most 4 per layer.
+*Source: [Akida Pico hardware constraints](https://doc.brainchipinc.com/user_guide/hardware/pico.html), MetaTF 2.19.3.*
+
+**[Akida Pico] Mapping can be checked without hardware.** `akida.PicoIP()` returns a
+virtual Pico device; mapping a converted model onto it checks the limits above. Map a
+copy (`akida.Model(model.layers)`), since a model mapped on a virtual device can't run
+inference. `tenn_recurrent_sc12` maps entirely onto one `TNP_R` component, in a single
+hardware sequence.
+*Source: `akida.PicoIP` docstring (akida 2.19.3); measured on the virtual device,
+`akida_pico/model_zoo/speech_commands` (#103).*
+
+**[Akida Pico] Inputs can be raw 16-bit signals.** `tenn_recurrent_sc12` takes raw
+16 kHz audio as int16 (quantized with `-id int16`), with no MFCC step.
+**(unconfirmed:** Pico clock, power and latency: not yet measured in this repo; #104.)
+*Source: `akida_models.tenn_recurrent_sc12` (akida_models 1.14.0).*
