@@ -106,7 +106,9 @@ if __name__ == '__main__':
     # multiprocessing. Also, the power measurement tools are complex and not of 
     # interest to most Akida users. For that reason we do not present that code here.
     # If interested, consult the details of the full_model_benchmark function.
-    map_modes = ['Minimal', 'AllNps']
+    # Minimal uses the fewest NPs; AllNps spreads the model over every NP in one
+    # hardware pass; HwPr also uses every NP but splits the work over more passes.
+    map_modes = ['Minimal', 'AllNps', 'HwPr']
     POWER_REPEATS = 10
     full_results = dict()
     for mm in map_modes:

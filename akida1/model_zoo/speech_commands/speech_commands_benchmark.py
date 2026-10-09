@@ -95,7 +95,9 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # Full-model benchmark (latency + optional power)
     # -------------------------------------------------------------------------
-    map_modes = ['Minimal', 'AllNps']
+    # Minimal uses the fewest NPs; AllNps spreads the model over every NP in one
+    # hardware pass; HwPr also uses every NP but splits the work over more passes.
+    map_modes = ['Minimal', 'AllNps', 'HwPr']
     POWER_REPEATS = 10
     full_results = dict()
     for mm in map_modes:
