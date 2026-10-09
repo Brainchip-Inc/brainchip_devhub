@@ -1,46 +1,39 @@
 <img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
 
-# ImageNet MobileNetV1 (PyTorch/timm → Akida 2)
+# ImageNet MobileNetV1 (PyTorch → Akida 2)
 
 <!-- GENERATED FILE: edit docs/README.md.template and run update_readme.py -->
 
 ## Model Card
 
-This example takes a pretrained **PyTorch/timm** ImageNet classifier to Akida 2:
-load the timm model, export it to ONNX, quantize it with **`quantizeml`** (8-bit
+This example shows how to deploy a pretrained **PyTorch** ImageNet classifier to Akida 2:
+load the PyTorch model, export it to ONNX, quantize it with **`quantizeml`** (8-bit
 weights and activations, post-training, no fine-tuning), convert it with
 **`cnn2snn`**, and check top-1 and top-5 accuracy on the ImageNet validation set at
-every step. No Keras conversion is needed, so the same route works for other timm
-models whose layers Akida supports.
+every step. The same route works for other PyTorch models whose layers Akida supports.
 
 Two MobileNetV1 widths are covered, both taking 224 × 224 RGB input.
 
 <table>
 <tr><th rowspan="2">Model</th><th rowspan="2">Width (alpha)</th><th rowspan="2">Params</th><th colspan="2">timm ref.</th><th colspan="2">Float (PyTorch)</th><th colspan="2">Float (ONNX)</th><th colspan="2">Quantized (w8a8)</th><th colspan="2">Akida</th><th rowspan="2">Activation sparsity</th></tr>
 <tr><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th></tr>
-<tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>75.38%</td><td>92.31%</td><td>75.39%</td><td>92.29%</td><td>75.39%</td><td>92.29%</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
-<tr><td><code>mobilenetv1_125</code></td><td>1.25</td><td>TBD</td><td>76.92%</td><td>93.23%</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
+<tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>75.38%</td><td>92.31%</td><td>75.39%</td><td>92.29%</td><td>75.39%</td><td>92.29%</td><td>74.61%</td><td>91.99%</td><td><b>74.63%</b></td><td><b>91.98%</b></td><td>41.57%</td></tr>
+<tr><td><code>mobilenetv1_125</code></td><td>1.25</td><td>6,270,840</td><td>76.92%</td><td>93.23%</td><td>76.93%</td><td>93.22%</td><td>76.93%</td><td>93.22%</td><td>76.69%</td><td>93.20%</td><td><b>76.77%</b></td><td><b>93.16%</b></td><td>44.68%</td></tr>
 </table>
 
-All accuracies are over the full 50,000-image ImageNet validation set. Values marked
-TBD have not been measured yet. The timm reference is the accuracy timm publishes for
-the same weights at 224 × 224 (`mobilenetv1_100.ra4_e3600_r224_in1k`,
-`mobilenetv1_125.ra4_e3600_r224_in1k`). Activation sparsity is the fraction of zero
-outputs, measured on 100 validation images and averaged over the Akida layers that end
-in a ReLU. In MobileNetV1 that is every convolution; only the classifier is left out.
-
-The quantized models are calibrated on 8,192 images drawn at random from the ImageNet
-train split. The Akida model tracks the quantized ONNX model closely, so the accuracy
-cost comes from 8-bit post-training quantization rather than from conversion. 🚧 That
-cost is under investigation, and this section will explain it.
+All accuracies are over the full 50,000-image ImageNet validation set. The timm
+reference is the accuracy timm publishes for the same weights at 224 × 224
+(`mobilenetv1_100.ra4_e3600_r224_in1k`, `mobilenetv1_125.ra4_e3600_r224_in1k`).
+Activation sparsity is the fraction of zero outputs, measured on 100 validation images
+and averaged over the Akida layers that end in a ReLU. In MobileNetV1 that is every
+convolution; only the classifier is left out.
 
 ### Akida 2 hardware benchmark
 
 The Akida 2 reference hardware is an FPGA running at 25 MHz. Latency is measured
 there, and also projected to the 1 GHz AKD2500 target clock: the cycle count does
 not depend on the clock, so the projection is exact. Power is not measured yet,
-because the FPGA power path is still under development. Values marked TBD have not
-been measured on hardware yet.
+because the FPGA power path is still under development.
 
 <details>
 <summary><b>mobilenetv1_100</b> (alpha = 1.0)</summary>
@@ -162,7 +155,7 @@ Hugging Face hub.
 
 | File | Purpose |
 |---|---|
-| [imagenet_mobilenet_model.py](imagenet_mobilenet_model.py) | Model selection by width, and the creation pipeline: timm → ONNX → quantizeml → cnn2snn |
+| [imagenet_mobilenet_model.py](imagenet_mobilenet_model.py) | Model selection by width, and the creation pipeline: PyTorch → ONNX → quantizeml → cnn2snn |
 | [imagenet_mobilenet_data.py](imagenet_mobilenet_data.py) | ImageNet loaders, calibration samples, 10-image sample pack |
 | [imagenet_mobilenet_preprocessing.py](imagenet_mobilenet_preprocessing.py) | Evaluation preprocessing, identical to timm's |
 | [imagenet_mobilenet_eval.py](imagenet_mobilenet_eval.py) | Top-1 / top-5 accuracy of one variant, plus Akida activation sparsity |

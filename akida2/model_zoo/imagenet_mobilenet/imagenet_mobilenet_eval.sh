@@ -25,17 +25,18 @@ if [ "${REBUILD:-0}" = "1" ]; then
 fi
 
 # Float timm model: top-1 / top-5 over the ImageNet validation set
-python imagenet_mobilenet_eval.py -a "$ALPHA" --variant float -d "$DATADIR"
+python imagenet_mobilenet_eval.py -a "$ALPHA" --variant float -d "$DATADIR" --save-metrics
 
 # The same model exported to ONNX: should match the float model exactly
-python imagenet_mobilenet_eval.py -a "$ALPHA" --variant onnx -d "$DATADIR"
+python imagenet_mobilenet_eval.py -a "$ALPHA" --variant onnx -d "$DATADIR" --save-metrics
 
 # 8-bit post-training quantized model (quantizeml)
-python imagenet_mobilenet_eval.py -a "$ALPHA" --variant quantized -d "$DATADIR"
+python imagenet_mobilenet_eval.py -a "$ALPHA" --variant quantized -d "$DATADIR" --save-metrics
 
 # Converted Akida model, plus mean activation sparsity
-python imagenet_mobilenet_eval.py -a "$ALPHA" --variant akida -d "$DATADIR"
+python imagenet_mobilenet_eval.py -a "$ALPHA" --variant akida -d "$DATADIR" --save-metrics
 
 # Hardware latency. Exits early if no Akida 2 device is connected.
 # Uses the 10-image sample pack, so no dataset setup is needed.
-python imagenet_mobilenet_benchmark.py -a "$ALPHA"
+python imagenet_mobilenet_benchmark.py -a "$ALPHA" --save-metrics
+python update_readme.py
