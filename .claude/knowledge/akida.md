@@ -131,7 +131,27 @@ pipeline instead, so the deployed model receives an already-shaped tensor.
 how much pooling can come before it.
 *Source: `akida1/model_zoo/uored_vafcls/uored_vafcls_model.py` docstring.*
 
-## Backbones
+## Backbones and blocks
+
+**[both] Separable convolutions: fused on Akida 1, two layers on Akida 2.**
+- On Akida 1 a depthwise-separable convolution is a single fused layer
+  (`SeparableConv2D`). It can't have a ReLU between its depthwise and pointwise parts.
+- On Akida 2 the depthwise convolution is a distinct layer (`DepthwiseConv2D` followed by
+  a pointwise `Conv2D`), so a block can have a ReLU after the depthwise layer as well, as
+  in MobileNet.
+- Without that ReLU the depthwise outputs are dense, and the pointwise layer that takes
+  them processes more events (see [Sparsity](#sparsity)). Adding it should make Akida 2
+  models faster, and it's one reason MobileNet runs faster than AkidaNet there. The risk
+  is accuracy, possibly because quantization gets harder.
+- `akida_models` factories don't add it. Under `set_akida_version(AkidaVersion.v2)`,
+  `separable_conv_block` (with `fused=False`) and models built from it, such as
+  `ds_cnn_kws` and `akidanet_imagenet`, still go depthwise → pointwise → BN → ReLU, with
+  nothing in between. Adding the ReLU means defining the block locally.
+
+**(unconfirmed:** the speed gain hasn't been measured in this repo yet. #101 measures it
+on Akida 2 Speech Commands; update this entry with its numbers.)
+*Source: BrainChip engineering (repo owner), 2026-10-10; layer structure checked with
+akida_models 1.14.0.*
 
 **[Akida 2] Prefer an ImageNet-pretrained MobileNet (V1) backbone to AkidaNet.**
 AkidaNet (`akida_models.akidanet_imagenet`) was designed around Akida 1. On Akida 2, an
