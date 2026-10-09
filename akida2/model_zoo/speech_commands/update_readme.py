@@ -11,6 +11,7 @@ in one place instead of hardcoding long filenames in the template.
 """
 import json
 import pathlib
+import runpy
 
 here = pathlib.Path(__file__).parent
 
@@ -35,3 +36,6 @@ for variant, stem in VARIANT_MODEL_STEMS.items():
 
 (here / "README.md").write_text(template.format_map(context))
 print("README.md updated.")
+
+# Refresh the Akida 2 landing README, whose model zoo table reads this metrics.json.
+runpy.run_path(str(here.parents[1] / "update_readme.py"), run_name="__main__")

@@ -60,15 +60,17 @@ def check_readme_drift():
         if not readme.exists() or readme.read_text() != expected:
             yield "readme-drift", rel, "out of sync with docs/README.md.template + docs/metrics.json"
 
-    landing = ROOT / "akida1" / "README.md"
-    try:
-        build_table = runpy.run_path(str(ROOT / "akida1" / "update_readme.py"))["build_table"]
-    except SyntaxError as e:
-        yield "readme-drift", "akida1/README.md", f"not checked: update_readme.py needs Python >= 3.12 ({e.msg})"
-        return
-    expected = (ROOT / "akida1" / "docs" / "README.md.template").read_text().replace("{model_zoo_table}", build_table())
-    if landing.read_text() != expected:
-        yield "readme-drift", "akida1/README.md", "out of sync; run akida1/update_readme.py"
+    for platform in ("akida1", "akida2"):
+        landing = ROOT / platform / "README.md"
+        rel = f"{platform}/README.md"
+        try:
+            build_table = runpy.run_path(str(ROOT / platform / "update_readme.py"))["build_table"]
+        except SyntaxError as e:
+            yield "readme-drift", rel, f"not checked: update_readme.py needs Python >= 3.12 ({e.msg})"
+            continue
+        template = (ROOT / platform / "docs" / "README.md.template").read_text()
+        if not landing.exists() or landing.read_text() != template.replace("{model_zoo_table}", build_table()):
+            yield "readme-drift", rel, f"out of sync; run {platform}/update_readme.py"
 
 
 def check_links(files):
@@ -94,7 +96,7 @@ def check_version_badges():
     pin = re.search(r"akida_models==([\w.]+)", (ROOT / "pyproject.toml").read_text())
     if not pin:
         return
-    for rel in ("README.md", "akida1/docs/README.md.template"):
+    for rel in ("README.md", "akida1/docs/README.md.template", "akida2/docs/README.md.template"):
         for lineno, line in enumerate((ROOT / rel).read_text().splitlines(), 1):
             for badge in re.findall(r"akida__models-([\d.]+)-", line):
                 if badge != pin.group(1):

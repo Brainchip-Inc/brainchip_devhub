@@ -1,0 +1,26 @@
+{
+    "domain": "Audio",
+    "order": 10,
+    "rows": [
+        {
+            "task": "Keyword spotting",
+            "category": "Classification",
+            "dataset": "Google Speech Commands",
+            "variant": "8-bit",
+            "metric_key": "w8a8_akida_acc",
+            "metric_label": "acc.",
+            "bench_prefix": "w8a8_",
+            "notes": "10 keywords + silence + unknown"
+        },
+        {
+            "task": "Keyword spotting",
+            "category": "Classification",
+            "dataset": "Google Speech Commands",
+            "variant": "4-bit QAT",
+            "metric_key": "w4a4_qat_akida_acc",
+            "metric_label": "acc.",
+            "bench_prefix": "w4a4_qat_",
+            "notes": "10 keywords + silence + unknown"
+        }
+    ]
+}

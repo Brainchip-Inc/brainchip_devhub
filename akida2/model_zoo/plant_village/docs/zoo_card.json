@@ -1,0 +1,26 @@
+{
+    "domain": "Image",
+    "order": 20,
+    "rows": [
+        {
+            "task": "Plant disease recognition",
+            "category": "Classification",
+            "dataset": "PlantVillage",
+            "variant": "8-bit",
+            "metric_key": "w8a8_akida_acc",
+            "metric_label": "acc.",
+            "bench_prefix": "w8a8_",
+            "notes": ""
+        },
+        {
+            "task": "Plant disease recognition",
+            "category": "Classification",
+            "dataset": "PlantVillage",
+            "variant": "4-bit QAT",
+            "metric_key": "w4a4_qat_akida_acc",
+            "metric_label": "acc.",
+            "bench_prefix": "w4a4_qat_",
+            "notes": ""
+        }
+    ]
+}
