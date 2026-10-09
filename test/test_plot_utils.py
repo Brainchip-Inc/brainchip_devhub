@@ -64,3 +64,12 @@ def test_full_model_figure_has_one_legend_and_shared_zoomed_power_axes():
     power_axes = fig.axes[:2]
     assert power_axes[0].get_ylim() == power_axes[1].get_ylim()
     assert power_axes[0].get_ylim()[0] > 0     # zoomed to the data, not from 0
+
+
+def test_many_layers_get_vertical_labels():
+    rng = np.random.default_rng(0)
+    results = {'Minimal': {'num_nps': 30, 'num_passes': 1, 'mean_clk_ms': 1.0, 'power': None}}
+    fig = plot_full_model_results(results, _fake_model([[1] * 30]), device=None,
+                                  model_name='x', show_power=False)
+    labels = fig.axes[0].get_xticklabels()
+    assert len(labels) == 30 and all(label.get_rotation() == 90 for label in labels)

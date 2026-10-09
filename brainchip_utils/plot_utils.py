@@ -45,6 +45,8 @@ def _set_title(fig, model_name, example):
     title = figure_title(model_name, example)
     if title:
         fig.suptitle(title, fontsize=14, fontweight='bold')
+        # A little more room between the figure title and the panel titles below it
+        fig.get_layout_engine().set(h_pad=0.1)
 
 
 def _figure_legend(fig, handles):
@@ -156,6 +158,16 @@ def plot_mapping(ak_model, ax, colors=None, legend=True):
     if legend and handles:
         ax.legend(handles=handles, fontsize=8)
     return bool(pass_ends), bool(seq_ends)
+
+
+def _fit_layer_labels(ax, max_slanted=20):
+    """Layer names at 45° for up to max_slanted layers; above that, vertical and smaller so
+    neighbouring names don't overlap in a 7-inch column."""
+    labels = ax.get_xticklabels()
+    if len(labels) > max_slanted:
+        plt.setp(labels, rotation=90, ha='center', fontsize=8)
+    else:
+        plt.setp(labels, fontsize=11)
 
 
 def plot_power_trace(power_data, ax, legend=True, stats=True):
@@ -322,15 +334,16 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
         has_pass, has_seq = has_pass or p, has_seq or q
         ax_map.yaxis.label.set_fontsize(12)
         ax_map.tick_params(axis='y', labelsize=11)
-        plt.setp(ax_map.get_xticklabels(), fontsize=11)
+        _fit_layer_labels(ax_map)
         if show_power:
             ax_map.set_title('')
 
-        # Column header: map mode, then the summary line
-        ax_top.set_title(_mode_summary(result), fontsize=11, color='#444444', pad=6)
-        ax_top.annotate(f'MapMode.{mode_name}', xy=(0.5, 1.0), xycoords='axes fraction',
-                        xytext=(0, 24), textcoords='offset points', ha='center', va='bottom',
-                        fontsize=13, fontweight='bold')
+        # Column header: the map mode as the axes title (so the layout reserves room for
+        # it below the figure title), with the summary line between it and the axes
+        ax_top.set_title(f'MapMode.{mode_name}', fontsize=13, fontweight='bold', pad=26)
+        ax_top.annotate(_mode_summary(result), xy=(0.5, 1.0), xycoords='axes fraction',
+                        xytext=(0, 6), textcoords='offset points', ha='center', va='bottom',
+                        fontsize=11, color='#444444')
 
     # Share the power axes' limits across columns (only for columns with real data).
     # The y-axis is zoomed to the data rather than starting at 0, so the step from

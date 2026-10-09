@@ -74,7 +74,7 @@ rescale of the measured cycles.
       <td>Minimal</td>
       <td align="center">10</td>
       <td align="center">1</td>
-      <td align="center">249754</td>
+      <td align="center">249756</td>
       <td align="center">9.990</td>
       <td align="center">0.250</td>
     </tr>
@@ -82,7 +82,7 @@ rescale of the measured cycles.
       <td>AllNPs</td>
       <td align="center">18</td>
       <td align="center">1</td>
-      <td align="center">135334</td>
+      <td align="center">135336</td>
       <td align="center">5.413</td>
       <td align="center">0.135</td>
     </tr>
@@ -90,8 +90,8 @@ rescale of the measured cycles.
       <td>HwPr</td>
       <td align="center">90</td>
       <td align="center">4</td>
-      <td align="center">125959</td>
-      <td align="center">5.038</td>
+      <td align="center">126481</td>
+      <td align="center">5.059</td>
       <td align="center">0.126</td>
     </tr>
     <tr>
@@ -99,7 +99,7 @@ rescale of the measured cycles.
       <td>Minimal</td>
       <td align="center">10</td>
       <td align="center">1</td>
-      <td align="center">212213</td>
+      <td align="center">212214</td>
       <td align="center">8.489</td>
       <td align="center">0.212</td>
     </tr>
@@ -107,7 +107,7 @@ rescale of the measured cycles.
       <td>AllNPs</td>
       <td align="center">18</td>
       <td align="center">1</td>
-      <td align="center">120408</td>
+      <td align="center">120410</td>
       <td align="center">4.816</td>
       <td align="center">0.120</td>
     </tr>
@@ -115,8 +115,8 @@ rescale of the measured cycles.
       <td>HwPr</td>
       <td align="center">90</td>
       <td align="center">4</td>
-      <td align="center">110605</td>
-      <td align="center">4.424</td>
+      <td align="center">111010</td>
+      <td align="center">4.440</td>
       <td align="center">0.111</td>
     </tr>
   </tbody>
@@ -134,13 +134,13 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 
 #### 8-bit (w8 / a8)
 
-<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
 
 #### 4-bit (w4 / a4, QAT)
 
-<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 

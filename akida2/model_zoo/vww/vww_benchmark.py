@@ -139,7 +139,10 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # Map without hw_only so ak_model.sequences is available for plot_mapping
     ak_model.map(device, mode=akida.MapMode.Minimal)
-    perlayer_savepath = 'benchmark_results_layers.png'
+    # Plot filenames include the model stem so that each variant (8-bit, 4-bit)
+    # keeps its own reference figures.
+    model_stem = pathlib.Path(args.loadmodel).stem
+    perlayer_savepath = f'benchmark_results_layers_{model_stem}.png'
     if args.save_metrics:
         perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + perlayer_savepath)
     plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
@@ -148,13 +151,14 @@ if __name__ == '__main__':
                            savepath=perlayer_savepath)
     print('\nPer-layer results plot saved to ' + str(perlayer_savepath))
 
-    full_savepath = 'benchmark_results_full.png'
+    full_savepath = f'benchmark_results_full_{model_stem}.png'
     if args.save_metrics:
         full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + full_savepath)
     plot_full_model_results(full_results, ak_model, device,
                             model_name=args.loadmodel,
                             example='Visual Wake Words (Akida 2)',
-                            savepath=full_savepath)
+                            savepath=full_savepath,
+                            show_power=False)  # power measurement not yet available
     print('Full model results plot saved to ' + str(full_savepath))
 
     if args.save_metrics:
