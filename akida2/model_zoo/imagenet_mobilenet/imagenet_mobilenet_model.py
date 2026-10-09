@@ -155,10 +155,7 @@ def quantize_model(model_onnx, samples, batch_size=128):
     Returns:
         onnx.ModelProto: the quantized model.
     """
-    # Default quantization parameters: 8-bit weights and activations.
-    # QuantizationParams(per_tensor_activations=True), as used in the quantizeml
-    # MobileNetV2 off-the-shelf example, was tried and did not improve accuracy.
-    return quantize(model_onnx, samples=samples, batch_size=batch_size)
+    return quantize(model_onnx, samples=samples, batch_size=batch_size, weight_rounding="adaptive")
 
 
 def convert_model(model_quantized):
