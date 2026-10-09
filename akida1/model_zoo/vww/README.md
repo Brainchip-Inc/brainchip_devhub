@@ -19,7 +19,7 @@
       <td align="center">89.33%</td>
       <td align="center">88.54%</td>
       <td align="center">88.42%</td>
-      <td align="center">68.29%</td>
+      <td align="center">52.24%</td>
       <td align="center">226,906</td>
     </tr>
   </tbody>
@@ -46,23 +46,23 @@
       <td>Minimal</td>
       <td align="center">17</td>
       <td align="center">1</td>
-      <td align="center">1743040</td>
-      <td align="center">4.358</td>
-      <td align="center">139.3</td>
-      <td align="center">0.619</td>
-      <td align="center">26.0</td>
-      <td align="center">0.116</td>
+      <td align="center">3210602</td>
+      <td align="center">8.027</td>
+      <td align="center">137.2</td>
+      <td align="center">1.112</td>
+      <td align="center">25.2</td>
+      <td align="center">0.204</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">29</td>
       <td align="center">1</td>
-      <td align="center">1325867</td>
-      <td align="center">3.315</td>
-      <td align="center">147.7</td>
-      <td align="center">0.502</td>
-      <td align="center">34.0</td>
-      <td align="center">0.116</td>
+      <td align="center">2227983</td>
+      <td align="center">5.570</td>
+      <td align="center">148.4</td>
+      <td align="center">0.840</td>
+      <td align="center">36.0</td>
+      <td align="center">0.204</td>
     </tr>
   </tbody>
 </table>
