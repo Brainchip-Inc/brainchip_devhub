@@ -10,6 +10,8 @@ Checks:
   copyright      new model_zoo .py file without the Brainchip copyright header
   lfs            weight file committed as a blob instead of an LFS pointer
   runtime-dir    file committed under an example's data/ or models/ directory
+  notebook-noise notebook outputs left by a headless run: split stream outputs, progress-bar
+                 \r residue, nbclient timing metadata
 
 Usage:
   python .claude/skills/review-content/check_content.py [--base origin/main]
@@ -22,9 +24,12 @@ import json
 import re
 import runpy
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT))
+from brainchip_utils.notebooks import noise_findings  # noqa: E402  (stdlib-only module)
 TEXT_SUFFIXES = {".py", ".sh", ".md", ".template", ".yml", ".yaml", ".toml"}
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)|(?:src|href|srcset)=\"([^\"]+)\"")
 PATH_RE = re.compile(r"/(?:mnt|home)/\w[\w.-]*")
@@ -125,6 +130,19 @@ def check_binaries(files):
                 yield "lfs", rel, "committed as a regular blob, not an LFS pointer"
 
 
+def check_notebooks(files):
+    for rel in files:
+        if not rel.endswith(".ipynb"):
+            continue
+        findings = list(noise_findings(json.loads((ROOT / rel).read_text())))
+        if findings:
+            cells = sorted({index for index, _ in findings})
+            problems = sorted({problem.split(" into ")[0] for _, problem in findings})
+            yield ("notebook-noise", rel,
+                   f"{'; '.join(problems)} in {len(cells)} cell(s); "
+                   f"run python -m brainchip_utils.notebooks --tidy-only {rel}")
+
+
 def changed_lines(base):
     """{path: set of changed line numbers, or None for a new file} vs the merge base,
     covering committed and uncommitted changes, numbered as in the working tree."""
@@ -161,7 +179,7 @@ def main():
     changed, added = changed_lines(args.base)
 
     findings = [*check_readme_drift(), *check_links(files), *check_version_badges(),
-                *check_text(files, added), *check_binaries(files)]
+                *check_text(files, added), *check_binaries(files), *check_notebooks(files)]
     in_diff = [f for f in findings if in_change(f, changed)]
     pre_existing = [f for f in findings if f not in in_diff]
 

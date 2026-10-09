@@ -63,7 +63,9 @@ Also check, by hand:
   to the top-level README rather than repeating it.
 - **Notebooks.** The Colab badge URL path matches the notebook's location on `main`. The
   benchmark notebook is committed *with* outputs from a hardware run. Training notebooks
-  need not be.
+  need not be. Notebooks executed headlessly should go through
+  `python -m brainchip_utils.notebooks`; a bare nbclient run leaves split progress-bar
+  output (the `notebook-noise` check).
 
 ## Step 3: Editorial review
 
