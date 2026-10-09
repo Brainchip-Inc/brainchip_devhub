@@ -5,21 +5,24 @@ Model selection and creation for the MobileNetV1/ImageNet example.
 
 This module does two jobs.
 
-**1. Resolve a model from its width multiplier and variant.**
+**1. Resolve a model from its width multiplier, resolution and variant.**
 Two timm models are covered, selected by width multiplier (alpha):
 
   1.0   mobilenetv1_100
   1.25  mobilenetv1_125
 
-and each exists in four variants:
+Both are trained at 224 x 224 and evaluated at two input resolutions: 224, and
+256, the test resolution timm publishes for the same weights. Each (alpha,
+resolution) pair exists in four variants:
 
   float      the timm PyTorch model, downloaded from the Hugging Face hub
   onnx       the same model exported to ONNX (float)
   quantized  the ONNX model quantized by quantizeml (8-bit weights and activations)
   akida      the quantized model converted to Akida by cnn2snn
 
-Files in ``pretrained_models/`` are named after the timm model, so
-:func:`model_path` is a single f-string.
+Files in ``pretrained_models/`` are named after the timm model and the
+resolution, e.g. ``mobilenetv1_100_256_quantized.onnx``, so :func:`model_path`
+is a single f-string.
 
 **2. Create the Akida model from the timm model.**
 :func:`create_float_model`, :func:`export_onnx`, :func:`quantize_model` and
@@ -32,7 +35,7 @@ Only the first two steps need PyTorch (see Requirements in the README). Loading 
 ONNX, quantized and Akida models does not.
 
 Usage:
-    python imagenet_mobilenet_model.py -a 1.0 -d /path/to/imagenet
+    python imagenet_mobilenet_model.py -a 1.0 -i 224 -d /path/to/imagenet
 """
 import os
 # akida_models imports TensorFlow, which by default reserves almost all GPU memory
@@ -48,13 +51,13 @@ import onnx
 from cnn2snn import convert
 from quantizeml.models import quantize
 
-__all__ = ["ALPHAS", "VARIANTS", "INPUT_SIZE", "TIMM_NAMES", "TIMM_REFERENCE",
+__all__ = ["ALPHAS", "RESOLUTIONS", "VARIANTS", "TIMM_NAMES", "TIMM_REFERENCE",
            "PRETRAINED_DIR", "model_path", "metrics_prefix", "load_model",
            "create_float_model", "export_onnx", "quantize_model", "convert_model"]
 
 ALPHAS = (1.0, 1.25)
+RESOLUTIONS = (224, 256)
 VARIANTS = ("float", "onnx", "quantized", "akida")
-INPUT_SIZE = 224
 
 PRETRAINED_DIR = pathlib.Path(__file__).parent / 'pretrained_models'
 
@@ -62,23 +65,27 @@ PRETRAINED_DIR = pathlib.Path(__file__).parent / 'pretrained_models'
 TIMM_NAMES = {1.0: 'mobilenetv1_100', 1.25: 'mobilenetv1_125'}
 
 # ImageNet (top-1, top-5) accuracy published by timm for the default pretrained
-# weights of each model at 224 x 224 (mobilenetv1_100.ra4_e3600_r224_in1k and
-# mobilenetv1_125.ra4_e3600_r224_in1k).
-TIMM_REFERENCE = {1.0: (75.382, 92.312), 1.25: (76.924, 93.234)}
+# weights of each model (mobilenetv1_100.ra4_e3600_r224_in1k and
+# mobilenetv1_125.ra4_e3600_r224_in1k), per (alpha, resolution), from the
+# Hugging Face model cards
+TIMM_REFERENCE = {(1.0, 224): (75.382, 92.312), (1.0, 256): (76.094, 93.004),
+                  (1.25, 224): (76.924, 93.234), (1.25, 256): (77.600, 93.804)}
 
 # Filename ending for each variant stored on disk. The float variant has no
 # file: timm downloads its weights.
 _VARIANT_SUFFIX = {'onnx': '.onnx', 'quantized': '_quantized.onnx', 'akida': '.fbz'}
 
 
-def _check(alpha, variant=None):
+def _check(alpha, variant=None, resolution=224):
     if alpha not in ALPHAS:
         raise ValueError(f'alpha must be one of {ALPHAS}, received {alpha}')
+    if resolution not in RESOLUTIONS:
+        raise ValueError(f'resolution must be one of {RESOLUTIONS}, received {resolution}')
     if variant is not None and variant not in VARIANTS:
         raise ValueError(f'variant must be one of {VARIANTS}, received {variant}')
 
 
-def model_path(alpha, variant, models_dir=None):
+def model_path(alpha, variant, models_dir=None, resolution=224):
     """Returns the path of a MobileNetV1 model file.
 
     Args:
@@ -86,30 +93,31 @@ def model_path(alpha, variant, models_dir=None):
         variant (str): 'onnx', 'quantized' or 'akida'.
         models_dir (str, optional): directory holding the models. Defaults to
             this example's ``pretrained_models/``.
+        resolution (int, optional): input resolution, 224 or 256. Defaults to 224.
 
     Returns:
         pathlib.Path: path to the model file.
     """
-    _check(alpha, variant)
+    _check(alpha, variant, resolution)
     if variant == 'float':
         raise ValueError('The float variant has no model file: it is downloaded '
                          'by timm, see create_float_model().')
     directory = pathlib.Path(models_dir) if models_dir else PRETRAINED_DIR
-    return directory / f'{TIMM_NAMES[alpha]}{_VARIANT_SUFFIX[variant]}'
+    return directory / f'{TIMM_NAMES[alpha]}_{resolution}{_VARIANT_SUFFIX[variant]}'
 
 
-def metrics_prefix(alpha):
+def metrics_prefix(alpha, resolution=224):
     """Returns the ``docs/metrics.json`` key prefix for a model.
 
-    Both models share one metrics file, so every key is namespaced by width and
-    resolution, e.g. ``a125_224_akida_t1``.
+    All models share one metrics file, so every key is namespaced by width and
+    resolution, e.g. ``a125_256_akida_t1``.
 
     The alpha is scaled to an integer because these keys are substituted into
     the README template with ``str.format_map``, which reads a dot in a field
     name as attribute access: ``{a1.25_224_akida_t1}`` would fail to render.
     """
-    _check(alpha)
-    return f'a{round(alpha * 100)}_{INPUT_SIZE}_'
+    _check(alpha, resolution=resolution)
+    return f'a{round(alpha * 100)}_{resolution}_'
 
 
 def create_float_model(alpha):
@@ -120,12 +128,16 @@ def create_float_model(alpha):
     return timm.create_model(TIMM_NAMES[alpha], pretrained=True).eval()
 
 
-def export_onnx(pt_model, path):
+def export_onnx(pt_model, path, resolution=224):
     """Exports a timm model to ONNX with a dynamic batch axis. Needs PyTorch.
+
+    The spatial size is fixed at export, so each resolution has its own ONNX
+    model, even though the weights are the same.
 
     Args:
         pt_model (torch.nn.Module): the float timm model.
         path (str or pathlib.Path): where to write the ``.onnx`` file.
+        resolution (int, optional): input resolution, 224 or 256. Defaults to 224.
 
     Returns:
         onnx.ModelProto: the exported model, re-loaded from ``path``.
@@ -134,7 +146,7 @@ def export_onnx(pt_model, path):
 
     # The export traces the model, so the dummy input only has to have the
     # right shape: its values do not matter.
-    dummy = torch.zeros(1, 3, INPUT_SIZE, INPUT_SIZE)
+    dummy = torch.zeros(1, 3, resolution, resolution)
     torch.onnx.export(pt_model.to('cpu').eval(), dummy, f=str(path),
                       input_names=['inputs'], output_names=['outputs'],
                       dynamic_axes={'inputs': {0: 'batch_size'},
@@ -167,18 +179,20 @@ def convert_model(model_quantized):
     return convert(model_quantized)
 
 
-def load_model(alpha, variant, models_dir=None):
+def load_model(alpha, variant, models_dir=None, resolution=224):
     """Loads one variant of a model.
+
+    The float model is the same at both resolutions: only its input differs.
 
     Returns:
         a ``torch.nn.Module`` (float), an ``onnx.ModelProto`` (onnx, quantized)
         or an ``akida.Model`` (akida).
     """
-    _check(alpha, variant)
+    _check(alpha, variant, resolution)
     if variant == 'float':
         return create_float_model(alpha)
 
-    path = model_path(alpha, variant, models_dir)
+    path = model_path(alpha, variant, models_dir, resolution)
     if not path.exists():
         raise FileNotFoundError(
             f'{path} not found. The published models are tracked with Git LFS - '
@@ -196,6 +210,8 @@ if __name__ == '__main__':
         description='Create the ONNX, quantized and Akida MobileNetV1 models')
     parser.add_argument('-a', '--alpha', type=float, default=1.0, choices=ALPHAS,
                         help='Width multiplier. Defaults to %(default)s.')
+    parser.add_argument('-i', '--resolution', type=int, default=224, choices=RESOLUTIONS,
+                        help='Input resolution. Defaults to %(default)s.')
     parser.add_argument('-d', '--data', required=True,
                         help='ImageNet root, containing a train/ folder with one '
                              'subfolder per class (used for calibration)')
@@ -220,23 +236,24 @@ if __name__ == '__main__':
           f'parameters, pretrained weights {pt_model.pretrained_cfg["hf_hub_id"]}')
 
     # 2. Export to ONNX
-    onnx_path = model_path(args.alpha, 'onnx', savedir)
-    model_onnx = export_onnx(pt_model, onnx_path)
+    onnx_path = model_path(args.alpha, 'onnx', savedir, args.resolution)
+    model_onnx = export_onnx(pt_model, onnx_path, args.resolution)
     print(f'ONNX model saved to {onnx_path}')
 
     # 3. Quantize, calibrating on images from the train split
     samples = get_calibration_samples(args.data, args.alpha,
                                       num_samples=args.num_calib_samples,
-                                      batch_size=args.batch_size, seed=args.seed)
+                                      batch_size=args.batch_size, seed=args.seed,
+                                      resolution=args.resolution)
     print(f'Calibration samples: {samples.shape}')
     model_quantized = quantize_model(model_onnx, samples, batch_size=args.batch_size)
-    quantized_path = model_path(args.alpha, 'quantized', savedir)
+    quantized_path = model_path(args.alpha, 'quantized', savedir, args.resolution)
     onnx.save_model(model_quantized, str(quantized_path))
     print(f'Quantized model saved to {quantized_path}')
 
     # 4. Convert to Akida
     model_akida = convert_model(model_quantized)
     model_akida.summary()
-    akida_path = model_path(args.alpha, 'akida', savedir)
+    akida_path = model_path(args.alpha, 'akida', savedir, args.resolution)
     model_akida.save(str(akida_path))
     print(f'Akida model saved to {akida_path}')

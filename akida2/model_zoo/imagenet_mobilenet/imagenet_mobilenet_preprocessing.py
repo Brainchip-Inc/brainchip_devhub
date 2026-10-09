@@ -14,9 +14,22 @@ side of the example runs without PyTorch.
 The pipeline is the standard ImageNet "resize shorter side, then centre crop":
 
 1. Aspect-preserving **bicubic** resize so the *shorter* side becomes
-   ``floor(size / crop_pct)``. ``crop_pct`` differs between the two widths
-   (see ``CROP_PCT``): 224 -> 256 for alpha=1.0, 224 -> 248 for alpha=1.25.
+   ``floor(size / crop_pct)``. ``crop_pct`` depends on the width and on the
+   resolution (see ``CROP_PCT``).
 2. Centre crop to the target ``size x size``.
+
+Both models are trained at 224 x 224, and timm also publishes a larger test
+resolution for them (``test_input_size`` and ``test_crop_pct`` in the
+``pretrained_cfg``). The same weights are evaluated at both:
+
+  =====  ==========  ==========================  ==========================
+  alpha  resolution  crop_pct                    resize shorter side, crop
+  =====  ==========  ==========================  ==========================
+  1.0    224         0.875                       256 -> 224
+  1.0    256         0.95  (``test_crop_pct``)   269 -> 256
+  1.25   224         0.9                         248 -> 224
+  1.25   256         1.0   (``test_crop_pct``)   256 -> 256
+  =====  ==========  ==========================  ==========================
 
 What happens next depends on which model the image is for:
 
@@ -39,13 +52,21 @@ from PIL import Image
 
 __all__ = ["get_transform", "resize_and_crop", "CROP_PCT", "MEAN", "STD"]
 
-# Ratio between the crop size and the resize target, per width multiplier, from
-# the timm pretrained_cfg of each model
-CROP_PCT = {1.0: 0.875, 1.25: 0.9}
+# Ratio between the crop size and the resize target, per (width multiplier,
+# resolution), from the timm pretrained_cfg of each model: crop_pct at the 224
+# training resolution, test_crop_pct at the 256 test resolution
+CROP_PCT = {(1.0, 224): 0.875, (1.0, 256): 0.95,
+            (1.25, 224): 0.9, (1.25, 256): 1.0}
 
 # Normalisation, from the timm pretrained_cfg (the same for both widths)
 MEAN = (0.5, 0.5, 0.5)
 STD = (0.5, 0.5, 0.5)
+
+
+def _check(alpha, input_size):
+    if (alpha, input_size) not in CROP_PCT:
+        raise ValueError(f'(alpha, input_size) must be one of {tuple(CROP_PCT)}, '
+                         f'received {(alpha, input_size)}')
 
 
 def resize_and_crop(image, alpha, input_size=224):
@@ -53,18 +74,18 @@ def resize_and_crop(image, alpha, input_size=224):
 
     Args:
         image (PIL.Image.Image): an RGB image.
-        alpha (float): width multiplier, 1.0 or 1.25. Selects the crop ratio.
-        input_size (int, optional): output height and width. Defaults to 224.
+        alpha (float): width multiplier, 1.0 or 1.25.
+        input_size (int, optional): output height and width, 224 or 256.
+            Together with ``alpha``, selects the crop ratio. Defaults to 224.
 
     Returns:
         PIL.Image.Image: the ``input_size x input_size`` crop.
     """
-    if alpha not in CROP_PCT:
-        raise ValueError(f'alpha must be one of {tuple(CROP_PCT)}, received {alpha}')
+    _check(alpha, input_size)
 
     # Resize: shorter side to floor(input_size / crop_pct), long side scaled and
     # truncated, as torchvision.transforms.Resize does
-    short_target = math.floor(input_size / CROP_PCT[alpha])
+    short_target = math.floor(input_size / CROP_PCT[(alpha, input_size)])
     width, height = image.size
     if width <= height:
         new_size = (short_target, int(short_target * height / width))
@@ -93,8 +114,9 @@ def get_transform(alpha, input_size=224, normalize=True):
     """Returns the evaluation transform for a MobileNetV1 model.
 
     Args:
-        alpha (float): width multiplier, 1.0 or 1.25. Selects the crop ratio.
-        input_size (int, optional): output height and width. Defaults to 224.
+        alpha (float): width multiplier, 1.0 or 1.25.
+        input_size (int, optional): output height and width, 224 or 256.
+            Together with ``alpha``, selects the crop ratio. Defaults to 224.
         normalize (bool, optional): True for PyTorch/ONNX models (float32,
             normalised), False for Akida models (raw uint8). Defaults to True.
 
@@ -102,8 +124,7 @@ def get_transform(alpha, input_size=224, normalize=True):
         callable: a function taking a PIL RGB image and returning a numpy
         array of shape (3, H, W).
     """
-    if alpha not in CROP_PCT:
-        raise ValueError(f'alpha must be one of {tuple(CROP_PCT)}, received {alpha}')
+    _check(alpha, input_size)
     # A partial rather than a closure, so DataLoader workers can pickle it
     return functools.partial(_preprocess, alpha=alpha, input_size=input_size,
                              normalize=normalize)

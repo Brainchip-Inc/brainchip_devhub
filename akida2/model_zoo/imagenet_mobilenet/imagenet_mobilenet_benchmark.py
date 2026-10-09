@@ -24,7 +24,7 @@ samples from the ImageNet validation split instead.
 
 Example
 -------
-    python imagenet_mobilenet_benchmark.py -a 1.0
+    python imagenet_mobilenet_benchmark.py -a 1.0 -i 224
 """
 import argparse
 import json
@@ -36,7 +36,8 @@ from akida_models.sparsity import compute_sparsity
 
 from imagenet_mobilenet_data import get_samples
 from imagenet_mobilenet_eval import mean_activation_sparsity
-from imagenet_mobilenet_model import ALPHAS, TIMM_NAMES, load_model, metrics_prefix
+from imagenet_mobilenet_model import (ALPHAS, RESOLUTIONS, TIMM_NAMES, load_model,
+                                      metrics_prefix)
 from brainchip_utils.hardware_utils import (get_mapping_stats, get_akida_device,
                                             per_layer_benchmark, full_model_benchmark,
                                             AKIDA_CLOCKS_HZ)
@@ -59,6 +60,8 @@ if __name__ == '__main__':
         description='Akida 2 hardware latency benchmark for a MobileNetV1 ImageNet model')
     parser.add_argument('-a', '--alpha', type=float, default=1.0, choices=ALPHAS,
                         help='Width multiplier. Defaults to %(default)s.')
+    parser.add_argument('-i', '--resolution', type=int, default=224, choices=RESOLUTIONS,
+                        help='Input resolution. Defaults to %(default)s.')
     parser.add_argument('-d', '--data', default=None,
                         help='Optional ImageNet root; if omitted, the 10-image '
                              'sample pack is used')
@@ -69,12 +72,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     NUM_SAMPLES = 100
-    model_name = f'{TIMM_NAMES[args.alpha]} (alpha={args.alpha})'
+    model_name = (f'{TIMM_NAMES[args.alpha]} (alpha={args.alpha}, '
+                  f'{args.resolution}x{args.resolution})')
 
     # -------------------------------------------------------------------------
     # Model
     # -------------------------------------------------------------------------
-    ak_model = load_model(args.alpha, 'akida', args.models_dir)
+    ak_model = load_model(args.alpha, 'akida', args.models_dir, args.resolution)
     print(f'Benchmarking {model_name}')
 
     # -------------------------------------------------------------------------
@@ -92,7 +96,8 @@ if __name__ == '__main__':
     # and that activity is dependent on the input. That makes it imperative to
     # use real inputs when benchmarking Akida, rather than synthetic random
     # samples. They are raw uint8, channels-first, as the Akida model expects.
-    samples = get_samples(args.alpha, num_samples=NUM_SAMPLES, data_path=args.data)
+    samples = get_samples(args.alpha, num_samples=NUM_SAMPLES, data_path=args.data,
+                          resolution=args.resolution)
 
     # -------------------------------------------------------------------------
     # Full-model benchmark (latency only)
@@ -157,8 +162,8 @@ if __name__ == '__main__':
     # Map without hw_only so ak_model.sequences is available for plot_mapping
     ak_model.map(device, mode=akida.MapMode.Minimal)
 
-    # Plots are namespaced per model, since both models share this docs/ folder
-    tag = metrics_prefix(args.alpha).rstrip('_')
+    # Plots are namespaced per model, since all models share this docs/ folder
+    tag = metrics_prefix(args.alpha, args.resolution).rstrip('_')
 
     perlayer_savepath = f'benchmark_results_layers_{tag}.png'
     if args.save_metrics:
@@ -186,7 +191,7 @@ if __name__ == '__main__':
         # absent: benchmarking is latency-only until the FPGA power path exists.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
-        prefix = metrics_prefix(args.alpha)
+        prefix = metrics_prefix(args.alpha, args.resolution)
         for mm, res in full_results.items():
             mode = mm.lower()
             metrics[f'{prefix}{mode}_nps'] = str(res['num_nps'])

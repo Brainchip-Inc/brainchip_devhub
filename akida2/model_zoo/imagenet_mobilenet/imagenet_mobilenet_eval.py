@@ -3,7 +3,8 @@
 """
 Evaluation of the MobileNetV1 ImageNet models, at every step of the pipeline.
 
-Selects one model by width multiplier and evaluates one of its four variants:
+Selects one model by width multiplier and input resolution, and evaluates one
+of its four variants:
 
   float      the timm PyTorch model (on GPU if available)
   onnx       the float model exported to ONNX, run with onnxruntime
@@ -22,7 +23,7 @@ Requirements in the README). The 10-image smoke test of the onnx, quantized and 
 Examples
 --------
     # Full validation set (requires the ImageNet dataset setup)
-    python imagenet_mobilenet_eval.py -a 1.0 --variant akida -d /path/to/imagenet
+    python imagenet_mobilenet_eval.py -a 1.0 -i 224 --variant akida -d /path/to/imagenet
 
     # No dataset setup needed: 10-image smoke test of the whole pipeline
     python imagenet_mobilenet_eval.py -a 1.0 --variant akida --samples
@@ -46,8 +47,8 @@ from tqdm import tqdm
 
 from imagenet_mobilenet_data import (get_data, get_labelled_samples, get_samples,
                                      index_to_label)
-from imagenet_mobilenet_model import (ALPHAS, VARIANTS, TIMM_NAMES, TIMM_REFERENCE,
-                                      load_model, metrics_prefix)
+from imagenet_mobilenet_model import (ALPHAS, RESOLUTIONS, VARIANTS, TIMM_NAMES,
+                                      TIMM_REFERENCE, load_model, metrics_prefix)
 from brainchip_utils.hardware_utils import get_akida_device
 
 # Number of images used to measure activation sparsity
@@ -111,9 +112,10 @@ def evaluate_model(model, loader):
     return correct_1 / seen, correct_5 / seen, seen
 
 
-def run_smoke_test(model, alpha, variant):
+def run_smoke_test(model, alpha, variant, resolution=224):
     """Evaluates the 10-image sample pack and prints per-image predictions."""
-    images, labels = get_labelled_samples(alpha, normalize=variant != 'akida')
+    images, labels = get_labelled_samples(alpha, normalize=variant != 'akida',
+                                          resolution=resolution)
     logits = get_predictor(model)(images)
 
     preds = np.argmax(logits, axis=-1)
@@ -165,6 +167,8 @@ if __name__ == '__main__':
         description='Evaluate a MobileNetV1 ImageNet model')
     parser.add_argument('-a', '--alpha', type=float, default=1.0, choices=ALPHAS,
                         help='Width multiplier. Defaults to %(default)s.')
+    parser.add_argument('-i', '--resolution', type=int, default=224, choices=RESOLUTIONS,
+                        help='Input resolution. Defaults to %(default)s.')
     parser.add_argument('--variant', default='akida', choices=VARIANTS,
                         help='Model variant to evaluate. Defaults to %(default)s.')
     parser.add_argument('-d', '--data', default='./data/imagenet',
@@ -189,25 +193,27 @@ if __name__ == '__main__':
         raise SystemExit('--save-metrics only records full validation set runs '
                          '(without --samples or --num-samples).')
 
-    print(f'Evaluating {TIMM_NAMES[args.alpha]} (alpha={args.alpha}), {args.variant} variant')
-    model = load_model(args.alpha, args.variant, args.models_dir)
+    print(f'Evaluating {TIMM_NAMES[args.alpha]} (alpha={args.alpha}) at '
+          f'{args.resolution} x {args.resolution}, {args.variant} variant')
+    model = load_model(args.alpha, args.variant, args.models_dir, args.resolution)
 
     # -------------------------------------------------------------------------
     # Evaluation
     # -------------------------------------------------------------------------
     if args.samples:
-        top1, top5 = run_smoke_test(model, args.alpha, args.variant)
+        top1, top5 = run_smoke_test(model, args.alpha, args.variant, args.resolution)
         print(f'\nSmoke test (10 images): top-1 {top1 * 100:.1f}%, top-5 {top5 * 100:.1f}%')
         print('This is a pipeline check, not an accuracy measurement.')
     else:
         loader, _ = get_data(args.data, args.alpha, batch_size=args.batch_size,
                              normalize=args.variant != 'akida',
                              num_samples=args.num_samples,
-                             seed=None if args.num_samples is None else 0)
+                             seed=None if args.num_samples is None else 0,
+                             resolution=args.resolution)
         top1, top5, num_evaluated = evaluate_model(model, loader)
         print(f'\n{args.variant} accuracy over {num_evaluated} images: '
               f'top-1 {top1 * 100:.2f}%, top-5 {top5 * 100:.2f}%')
-        ref_top1, ref_top5 = TIMM_REFERENCE[args.alpha]
+        ref_top1, ref_top5 = TIMM_REFERENCE[(args.alpha, args.resolution)]
         print(f'timm reference (float): top-1 {ref_top1:.2f}%, top-5 {ref_top5:.2f}%')
 
     # -------------------------------------------------------------------------
@@ -216,7 +222,8 @@ if __name__ == '__main__':
     sparsity = None
     if args.variant == 'akida':
         samples = get_samples(args.alpha, num_samples=SPARSITY_SAMPLES,
-                              data_path=None if args.samples else args.data)
+                              data_path=None if args.samples else args.data,
+                              resolution=args.resolution)
         sparsity_dict = compute_sparsity(model, samples=samples)
         sparsity = mean_activation_sparsity(model, sparsity_dict)
         print(f'Mean activation sparsity (ReLU layers): {sparsity * 100:.2f}%')
@@ -229,7 +236,7 @@ if __name__ == '__main__':
         # This is a maintenance step, run when the models or pipeline change.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
-        prefix = metrics_prefix(args.alpha)
+        prefix = metrics_prefix(args.alpha, args.resolution)
 
         metrics[f'{prefix}{args.variant}_t1'] = f'{top1 * 100:.2f}%'
         metrics[f'{prefix}{args.variant}_t5'] = f'{top5 * 100:.2f}%'

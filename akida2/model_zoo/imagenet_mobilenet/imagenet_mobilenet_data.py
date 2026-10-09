@@ -51,7 +51,7 @@ NUM_SAMPLE_IMAGES = 10
 
 
 def get_data(data_path, alpha, split='validation', batch_size=128, normalize=True,
-             num_samples=None, seed=None, num_workers=8):
+             num_samples=None, seed=None, num_workers=8, resolution=224):
     """Loads one ImageNet split from an ``ImageFolder`` layout.
 
     ``data_path`` must contain one folder per split, each with one subfolder
@@ -70,6 +70,8 @@ def get_data(data_path, alpha, split='validation', batch_size=128, normalize=Tru
         seed (int, optional): if set, draw the images in a random order fixed by
             this seed rather than in class order. Defaults to None.
         num_workers (int, optional): DataLoader workers. Defaults to 8.
+        resolution (int, optional): input resolution of the model the data is
+            for, 224 or 256. Defaults to 224.
 
     Returns:
         torch.utils.data.DataLoader, int: batches of (images, labels) with
@@ -82,7 +84,8 @@ def get_data(data_path, alpha, split='validation', batch_size=128, normalize=Tru
     from torchvision.datasets import ImageFolder
 
     dataset = ImageFolder(os.path.join(data_path, split),
-                          transform=get_transform(alpha, normalize=normalize))
+                          transform=get_transform(alpha, input_size=resolution,
+                                                  normalize=normalize))
     indices = np.arange(len(dataset))
     if seed is not None:
         indices = np.random.default_rng(seed).permutation(indices)
@@ -95,7 +98,8 @@ def get_data(data_path, alpha, split='validation', batch_size=128, normalize=Tru
     return loader, len(dataset)
 
 
-def get_calibration_samples(data_path, alpha, num_samples=8192, batch_size=128, seed=0):
+def get_calibration_samples(data_path, alpha, num_samples=8192, batch_size=128, seed=0,
+                            resolution=224):
     """Draws quantization calibration images at random from the train split.
 
     The draw is seeded, so the same seed always gives the same images.
@@ -104,11 +108,11 @@ def get_calibration_samples(data_path, alpha, num_samples=8192, batch_size=128, 
         np.ndarray: float32 normalised images, shape (num_samples, 3, H, W).
     """
     loader, _ = get_data(data_path, alpha, split='train', batch_size=batch_size,
-                         num_samples=num_samples, seed=seed)
+                         num_samples=num_samples, seed=seed, resolution=resolution)
     return np.concatenate([images.numpy() for images, _ in loader])
 
 
-def get_labelled_samples(alpha, normalize=False):
+def get_labelled_samples(alpha, normalize=False, resolution=224):
     """Loads the 10-image ImageNet-like sample pack, with labels.
 
     Downloaded on first use and cached under ``~/.keras/datasets``. No ImageNet
@@ -118,6 +122,8 @@ def get_labelled_samples(alpha, normalize=False):
         alpha (float): width multiplier of the model the data is for.
         normalize (bool, optional): True for PyTorch/ONNX models, False for
             Akida models (raw uint8). Defaults to False.
+        resolution (int, optional): input resolution of the model the data is
+            for, 224 or 256. Defaults to 224.
 
     Returns:
         np.ndarray, np.ndarray: images of shape (10, 3, H, W) and their integer
@@ -135,7 +141,7 @@ def get_labelled_samples(alpha, normalize=False):
                 name, index = line.split()
                 labels[name] = int(index)
 
-    transform = get_transform(alpha, normalize=normalize)
+    transform = get_transform(alpha, input_size=resolution, normalize=normalize)
     images, targets = [], []
     for idx in range(NUM_SAMPLE_IMAGES):
         fname = f'image_{idx + 1:02d}.jpg'
@@ -145,7 +151,7 @@ def get_labelled_samples(alpha, normalize=False):
     return np.stack(images), np.array(targets, dtype=np.int64)
 
 
-def get_samples(alpha, num_samples=100, data_path=None):
+def get_samples(alpha, num_samples=100, data_path=None, resolution=224):
     """Returns uint8 Akida input samples for benchmarking and sparsity measurement.
 
     By default this uses the 10-image sample pack, cycled up to
@@ -163,16 +169,18 @@ def get_samples(alpha, num_samples=100, data_path=None):
         num_samples (int, optional): number of samples. Defaults to 100.
         data_path (str, optional): if given, take samples from the ImageNet
             validation split at this path instead of the sample pack.
+        resolution (int, optional): input resolution of the model the samples
+            are for, 224 or 256. Defaults to 224.
 
     Returns:
         np.ndarray: uint8 array of shape (num_samples, 3, H, W).
     """
     if data_path is not None:
         loader, _ = get_data(data_path, alpha, batch_size=num_samples, normalize=False,
-                             num_samples=num_samples, seed=0)
+                             num_samples=num_samples, seed=0, resolution=resolution)
         images, _ = next(iter(loader))
         return images.numpy()
 
-    images, _ = get_labelled_samples(alpha, normalize=False)
+    images, _ = get_labelled_samples(alpha, normalize=False, resolution=resolution)
     repeats = int(np.ceil(num_samples / len(images)))
     return np.tile(images, (repeats, 1, 1, 1))[:num_samples]

@@ -12,21 +12,36 @@ weights and activations, post-training, no fine-tuning), convert it with
 **`cnn2snn`**, and check top-1 and top-5 accuracy on the ImageNet validation set at
 every step. The same route works for other PyTorch models whose layers Akida supports.
 
-Two MobileNetV1 widths are covered, both taking 224 × 224 RGB input.
+Two MobileNetV1 widths are covered, each at two input resolutions: 224 × 224, the
+resolution the weights were trained at, and 256 × 256, the larger test resolution timm
+publishes for the same weights.
 
 <table>
 <tr><th rowspan="2">Model</th><th rowspan="2">Width (alpha)</th><th rowspan="2">Params</th><th colspan="2">timm ref.</th><th colspan="2">Float (PyTorch)</th><th colspan="2">Float (ONNX)</th><th colspan="2">Quantized (w8a8)</th><th colspan="2">Akida</th><th rowspan="2">Activation sparsity</th></tr>
 <tr><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th><th>top-1</th><th>top-5</th></tr>
+<tr><td colspan="14"><b>224 × 224 input</b></td></tr>
 <tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>75.38%</td><td>92.31%</td><td>75.39%</td><td>92.29%</td><td>75.39%</td><td>92.29%</td><td>74.61%</td><td>91.99%</td><td><b>74.63%</b></td><td><b>91.98%</b></td><td>41.57%</td></tr>
 <tr><td><code>mobilenetv1_125</code></td><td>1.25</td><td>6,270,840</td><td>76.92%</td><td>93.23%</td><td>76.93%</td><td>93.22%</td><td>76.93%</td><td>93.22%</td><td>76.69%</td><td>93.20%</td><td><b>76.77%</b></td><td><b>93.16%</b></td><td>44.68%</td></tr>
+<tr><td colspan="14"><b>256 × 256 input</b></td></tr>
+<tr><td><code>mobilenetv1_100</code></td><td>1.0</td><td>4,231,976</td><td>76.09%</td><td>93.00%</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
+<tr><td><code>mobilenetv1_125</code></td><td>1.25</td><td>6,270,840</td><td>77.60%</td><td>93.80%</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td>TBD</td><td><b>TBD</b></td><td><b>TBD</b></td><td>TBD</td></tr>
 </table>
 
 All accuracies are over the full 50,000-image ImageNet validation set. The timm
-reference is the accuracy timm publishes for the same weights at 224 × 224
+reference is the accuracy timm publishes for the same weights at each resolution
 (`mobilenetv1_100.ra4_e3600_r224_in1k`, `mobilenetv1_125.ra4_e3600_r224_in1k`).
 Activation sparsity is the fraction of zero outputs, measured on 100 validation images
 and averaged over the Akida layers that end in a ReLU. In MobileNetV1 that is every
 convolution; only the classifier is left out.
+
+**The same weights score higher at 256 than at 224.** Training uses random-resized
+crops, which zoom in on objects, so at test time a centre crop of the same size shows
+objects smaller than the network saw them in training. A larger test resolution
+undoes that mismatch (Touvron et al., *"Fixing the train-test resolution
+discrepancy"*, [arXiv:1906.06423](https://arxiv.org/abs/1906.06423)). The cost is
+compute: (256 / 224)² ≈ 1.31× the MACs, and larger activation maps on Akida. The
+`imagenet_akidanet` Akida 1 example shows the same effect, with weights trained at
+160 and served at 224.
 
 ### Akida 2 hardware benchmark
 
@@ -36,7 +51,7 @@ not depend on the clock, so the projection is exact. Power is not measured yet,
 because the FPGA power path is still under development.
 
 <details>
-<summary><b>mobilenetv1_100</b> (alpha = 1.0)</summary>
+<summary><b>mobilenetv1_100</b> (alpha = 1.0, 224 × 224)</summary>
 
 | Mapping mode | NPs | Passes | Cycles / inference | Latency @ 25 MHz (ms) | Projected latency @ 1 GHz (ms) |
 |---|---|---|---|---|---|
@@ -47,7 +62,29 @@ because the FPGA power path is still under development.
 </details>
 
 <details>
-<summary><b>mobilenetv1_125</b> (alpha = 1.25)</summary>
+<summary><b>mobilenetv1_125</b> (alpha = 1.25, 224 × 224)</summary>
+
+| Mapping mode | NPs | Passes | Cycles / inference | Latency @ 25 MHz (ms) | Projected latency @ 1 GHz (ms) |
+|---|---|---|---|---|---|
+| Minimal | TBD | TBD | TBD | TBD | TBD |
+| AllNps | TBD | TBD | TBD | TBD | TBD |
+| HwPr | TBD | TBD | TBD | TBD | TBD |
+
+</details>
+
+<details>
+<summary><b>mobilenetv1_100</b> (alpha = 1.0, 256 × 256)</summary>
+
+| Mapping mode | NPs | Passes | Cycles / inference | Latency @ 25 MHz (ms) | Projected latency @ 1 GHz (ms) |
+|---|---|---|---|---|---|
+| Minimal | TBD | TBD | TBD | TBD | TBD |
+| AllNps | TBD | TBD | TBD | TBD | TBD |
+| HwPr | TBD | TBD | TBD | TBD | TBD |
+
+</details>
+
+<details>
+<summary><b>mobilenetv1_125</b> (alpha = 1.25, 256 × 256)</summary>
 
 | Mapping mode | NPs | Passes | Cycles / inference | Latency @ 25 MHz (ms) | Projected latency @ 1 GHz (ms) |
 |---|---|---|---|---|---|
@@ -119,9 +156,17 @@ The scripts default to `./data/imagenet`; pass `-d /path/to/imagenet` to use
 another location.
 
 Preprocessing is the evaluation transform timm resolves from each model's
-`pretrained_cfg`: a bicubic resize of the shorter side (to 256 for alpha = 1.0, to 248
-for alpha = 1.25, because the two checkpoints use different crop ratios), then a
-224 × 224 centre crop.
+`pretrained_cfg`: a bicubic resize of the shorter side, then a centre crop. The crop
+ratio depends on the checkpoint and the resolution (`crop_pct` at 224, `test_crop_pct`
+at 256):
+
+| Width (alpha) | Resolution | Resize shorter side to | Centre crop |
+|---|---|---|---|
+| 1.0 | 224 | 256 | 224 × 224 |
+| 1.0 | 256 | 269 | 256 × 256 |
+| 1.25 | 224 | 248 | 224 × 224 |
+| 1.25 | 256 | 256 | 256 × 256 |
+
 [imagenet_mobilenet_preprocessing.py](imagenet_mobilenet_preprocessing.py) writes it
 out in full, with PIL and numpy only, and gives the same values as timm's own
 transform. PyTorch and ONNX models take float tensors normalised to [-1, 1]. Akida
@@ -142,11 +187,13 @@ Pretrained models are in the `pretrained_models/` folder and are stored with
 `git-lfs`. See the [Trained models](../../../README.md#trained-models) section of the
 top-level README.
 
+Files are named `<model>_<resolution>`, e.g. `mobilenetv1_100_256`:
+
 | File | Variant |
 |---|---|
-| `<model>.onnx` | float model exported to ONNX |
-| `<model>_quantized.onnx` | 8-bit quantized model (quantizeml) |
-| `<model>.fbz` | Akida model (cnn2snn) |
+| `<model>_<resolution>.onnx` | float model exported to ONNX |
+| `<model>_<resolution>_quantized.onnx` | 8-bit quantized model (quantizeml) |
+| `<model>_<resolution>.fbz` | Akida model (cnn2snn) |
 
 The float PyTorch weights are not stored here: timm downloads them from the
 Hugging Face hub.
@@ -155,7 +202,7 @@ Hugging Face hub.
 
 | File | Purpose |
 |---|---|
-| [imagenet_mobilenet_model.py](imagenet_mobilenet_model.py) | Model selection by width, and the creation pipeline: PyTorch → ONNX → quantizeml → cnn2snn |
+| [imagenet_mobilenet_model.py](imagenet_mobilenet_model.py) | Model selection by width and resolution, and the creation pipeline: PyTorch → ONNX → quantizeml → cnn2snn |
 | [imagenet_mobilenet_data.py](imagenet_mobilenet_data.py) | ImageNet loaders, calibration samples, 10-image sample pack |
 | [imagenet_mobilenet_preprocessing.py](imagenet_mobilenet_preprocessing.py) | Evaluation preprocessing, identical to timm's |
 | [imagenet_mobilenet_eval.py](imagenet_mobilenet_eval.py) | Top-1 / top-5 accuracy of one variant, plus Akida activation sparsity |
@@ -167,7 +214,8 @@ Hugging Face hub.
 ## Usage
 
 Run the commands from this folder, with the repository root on `PYTHONPATH` (for
-`brainchip_utils`). Models are selected by width multiplier: `-a 1.0` or `-a 1.25`.
+`brainchip_utils`). Models are selected by width multiplier, `-a 1.0` or `-a 1.25`,
+and by input resolution, `-i 224` (the default) or `-i 256`.
 
 ### Creating the models
 
@@ -175,7 +223,7 @@ Runs the four steps of the pipeline and writes the ONNX, quantized and Akida mod
 It needs the ImageNet train split for calibration:
 
 ```bash
-python imagenet_mobilenet_model.py -a 1.0 -d /path/to/imagenet
+python imagenet_mobilenet_model.py -a 1.0 -i 224 -d /path/to/imagenet
 ```
 
 By default this overwrites the published models in `pretrained_models/`, so pass
@@ -190,21 +238,22 @@ set. The Akida model runs on hardware if a device is present, and on the softwar
 backend otherwise.
 
 ```bash
-python imagenet_mobilenet_eval.py -a 1.0 --variant akida -d /path/to/imagenet
+python imagenet_mobilenet_eval.py -a 1.0 -i 224 --variant akida -d /path/to/imagenet
 ```
 
 `-n N` evaluates a random subset of N images. `--samples` runs on the 10-image
 sample pack instead, with per-image predictions, and needs no dataset:
 
 ```bash
-python imagenet_mobilenet_eval.py -a 1.0 --variant akida --samples
+python imagenet_mobilenet_eval.py -a 1.0 -i 224 --variant akida --samples
 ```
 
 [imagenet_mobilenet_eval.sh](imagenet_mobilenet_eval.sh) evaluates all four variants
-of one model, then benchmarks it. Set `REBUILD=1` to re-create the models first:
+of one model, then benchmarks it. The arguments are the width, the dataset path and
+the resolution (224 by default). Set `REBUILD=1` to re-create the models first:
 
 ```bash
-bash imagenet_mobilenet_eval.sh 1.0 /path/to/imagenet
+bash imagenet_mobilenet_eval.sh 1.0 /path/to/imagenet 256
 ```
 
 ### Hardware benchmark
@@ -212,7 +261,7 @@ bash imagenet_mobilenet_eval.sh 1.0 /path/to/imagenet
 Requires an Akida 2 device (it exits cleanly if none is found):
 
 ```bash
-python imagenet_mobilenet_benchmark.py -a 1.0
+python imagenet_mobilenet_benchmark.py -a 1.0 -i 224
 ```
 
 It measures full-model latency in the `Minimal`, `AllNps` and `HwPr` mapping modes,
