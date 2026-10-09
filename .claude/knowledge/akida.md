@@ -131,6 +131,23 @@ pipeline instead, so the deployed model receives an already-shaped tensor.
 how much pooling can come before it.
 *Source: `akida1/model_zoo/uored_vafcls/uored_vafcls_model.py` docstring.*
 
+## Backbones
+
+**[Akida 2] Prefer an ImageNet-pretrained MobileNet (V1) backbone to AkidaNet.**
+AkidaNet (`akida_models.akidanet_imagenet`) was designed around Akida 1. On Akida 2, an
+off-the-shelf `tf_keras.applications.mobilenet.MobileNet` with ImageNet weights is
+expected to do better, and `akida2/model_zoo/vww` uses one (#26). Build it as
+`vww_model.py` does: `include_top=False, pooling='avg'`, then
+`quantizeml.models.transforms.insert_rescaling(scale=1/127.5, offset=-1)`, so the model
+still takes uint8 inputs. So an Akida 2 example
+ported with an AkidaNet backbone is a candidate for a follow-up improvement that swaps in
+MobileNet at the same alpha and resolution. Port first as the source has it, then raise
+the swap as its own issue under the Model improvement epic (#39), as #99 does for
+PlantVillage. **(unconfirmed:** no like-for-like measurement in this repo yet. #26 had
+no AkidaNet baseline on Akida 2. #99 will measure AkidaNet against MobileNet on
+PlantVillage; update this entry with its numbers.)
+*Source: BrainChip engineering (repo owner), 2026-10-10; `akida2/model_zoo/vww` (#26).*
+
 ## Toolchain
 
 **[both] The default `cnn2snn` context is Akida 2.** Akida 1 model construction and
