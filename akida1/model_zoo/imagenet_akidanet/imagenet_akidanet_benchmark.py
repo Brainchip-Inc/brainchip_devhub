@@ -172,6 +172,7 @@ if __name__ == '__main__':
         perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + perlayer_savepath)
     plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
                            model_name=f'akidanet_imagenet alpha={args.alpha} {args.resolution}px',
+                           example='ImageNet',
                            savepath=perlayer_savepath)
     print('\nPer-layer results plot saved to ' + str(perlayer_savepath))
 
@@ -180,6 +181,7 @@ if __name__ == '__main__':
         full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + full_savepath)
     plot_full_model_results(full_results, ak_model, device,
                             model_name=f'akidanet_imagenet alpha={args.alpha} {args.resolution}px',
+                            example='ImageNet',
                             savepath=full_savepath)
     print('Full model results plot saved to ' + str(full_savepath))
 

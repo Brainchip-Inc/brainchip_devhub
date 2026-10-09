@@ -452,6 +452,7 @@ if device is not None:
 if device is not None:
     plot_full_model_results(full_results, akida_model, device,
                             model_name=akida_model_path,
+                            example='Visual Wake Words',
                             savepath='benchmark_results_full.png')
 
 # %% [markdown]
@@ -490,6 +491,7 @@ if device is not None:
 if device is not None:
     plot_per_layer_results(per_layer_results, akida_model, sparsity_dict,
                            model_name=akida_model_path,
+                           example='Visual Wake Words',
                            savepath='benchmark_results_layers.png')
 
 # %% [markdown]
