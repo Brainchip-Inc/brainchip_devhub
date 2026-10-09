@@ -86,6 +86,9 @@ exception (see above).
 **[Akida 1] HwPr needs AKD1500.** AKD1000 does not support it.
 *Source: akida1/README.md, chips table.*
 
+**[Akida 2] Both Akida 2 platforms support HwPr:** AKD2500 and the Akida 2 FPGA.
+*Source: BrainChip engineering, 2026-10-09.*
+
 **[Akida 1] Which mode is fastest depends on the model.**
 - `AllNps` traded power for time in the examples measured here: more power, less time,
   about the same dynamic energy per inference. *Source: measured: `uored_vafcls`
@@ -103,10 +106,14 @@ exception (see above).
 | --- | --- | --- | --- | --- |
 | AKD1000 [Akida 1] | 80 | no | 300 MHz | |
 | AKD1500 [Akida 1] | 32 | yes | 400 MHz | reference chip for Akida 1 numbers in this repo |
-| AKD2500 [Akida 2] | | | 1 GHz target | pre-production; the clock may change |
-| Akida 2 FPGA [Akida 2] | 6 nodes | | 25 MHz | current Akida 2 benchmark platform; no power measurement |
+| AKD2500 [Akida 2] | | yes | 1 GHz target | pre-production; the clock may change |
+| Akida 2 FPGA [Akida 2] | 24 (6 nodes) | yes | 25 MHz | current Akida 2 benchmark platform; no power measurement |
 
-*Source: akida1/README.md; `brainchip_utils/hardware_utils.py` (`AKIDA_CLOCKS_HZ`).*
+**[both] A node is 4 NPs.** Akida 2 hardware is often described in nodes, so the
+6-node FPGA has 24 NPs.
+
+*Source: akida1/README.md; `brainchip_utils/hardware_utils.py` (`AKIDA_CLOCKS_HZ`);
+BrainChip engineering, 2026-10-09 (Akida 2 HwPr, nodes and NP counts).*
 
 ## Graph constraints
 
