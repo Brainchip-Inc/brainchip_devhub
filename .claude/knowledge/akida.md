@@ -171,10 +171,25 @@ still takes uint8 inputs. So an Akida 2 example
 ported with an AkidaNet backbone is a candidate for a follow-up improvement that swaps in
 MobileNet at the same alpha and resolution. Port first as the source has it, then raise
 the swap as its own issue under the Model improvement epic (#39), as #99 does for
-PlantVillage. **(unconfirmed:** no like-for-like measurement in this repo yet. #26 had
-no AkidaNet baseline on Akida 2. #99 will measure AkidaNet against MobileNet on
-PlantVillage; update this entry with its numbers.)
-*Source: BrainChip engineering (repo owner), 2026-10-10; `akida2/model_zoo/vww` (#26).*
+PlantVillage.
+
+**Measured** on PlantVillage, alpha 0.5, 224 × 224 (#99):
+
+| | AkidaNet | MobileNet |
+| --- | --- | --- |
+| HwPr projected latency (AKD2500) | 6.870 ms (8-bit), 8.324 ms (4-bit) | 5.784 ms (8-bit), 4.802 ms (4-bit) |
+| Minimal projected latency (AKD2500) | 11.483 ms (8-bit), 12.254 ms (4-bit) | 7.872 ms (8-bit), 8.621 ms (4-bit) |
+| Accuracy: float / 8-bit / 4-bit QAT | 99.67 % / 99.63 % / 99.65 % | 99.61 % / 99.43 % / 98.97 % |
+
+- MobileNet is 16–42 % faster depending on mapping mode and bit width.
+- It's also smaller: no 512-unit dense layer, which made no accuracy difference here.
+- It lost accuracy in quantization: 0.2 points at 8 bits and 0.7 at 4 bits. A higher QAT
+  learning rate made 4-bit worse here, unlike on Speech Commands.
+- So expect a speed gain, but check quantized accuracy.
+
+*Source: BrainChip engineering (repo owner), 2026-10-10; `akida2/model_zoo/vww` (#26);
+measured on the Akida 2 FPGA, 2026-10-10 (`akida2/model_zoo/plant_village/docs/metrics.json`
+after #99, AkidaNet values from before it).*
 
 ## Toolchain
 
