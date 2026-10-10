@@ -232,7 +232,7 @@ Here is what's coming:
 | Inputs to Akida 1: scaling and the specialised input layer | 📝 Planned |
 | Developing sparse models | 🚧 In review |
 | **Under the Hood** |  |
-| Sparsity in Akida hardware | 📝 Planned |
+| [Sparsity in Akida hardware](tutorials/sparsity_in_hardware/sparsity_in_hardware_notebook.ipynb) | 🚧 In review |
 | Mapping modes, and single- vs multi-pass models | 📝 Planned |
 | Quantization with `cnn2snn` | 📝 Planned |
 | AKD1000 vs AKD1500 | 📝 Planned |

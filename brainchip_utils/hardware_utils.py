@@ -85,7 +85,7 @@ def get_akida_device(target_version=None):
 #
 #----------------------------------------------------------------------------------
 
-def _silence_output_layer(ak_model):
+def silence_output_layer(ak_model):
     """Set the output layer's threshold/act_step so it never fires.
 
     Used during per-layer benchmarking to prevent the truncated sub-model's
@@ -123,7 +123,7 @@ def _silence_output_layer(ak_model):
     return ak_model
 
 
-def _remove_final_maxpool(ak_model):
+def remove_final_maxpool(ak_model):
     """Strip the max-pool from the final convolutional layer if present.
 
     Sub-models built for per-layer benchmarking may end on a layer that includes
@@ -173,8 +173,8 @@ def per_layer_benchmark(ak_model, device, samples, repeats=100, clock_freq=400e6
 
     for ll in range(num_layers):
         cut_model = akida.Model(ak_model.layers[:ll + 1])
-        cut_model = _silence_output_layer(cut_model)
-        cut_model = _remove_final_maxpool(cut_model)
+        cut_model = silence_output_layer(cut_model)
+        cut_model = remove_final_maxpool(cut_model)
         cut_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
         layer_names.append(cut_model.layers[-1].name)
 

@@ -72,6 +72,86 @@ unrepresentative activity and gives misleading timings. The input layer is the
 exception (see above).
 *Source: akida1/README.md, "The technology"; benchmark notebooks in this repo.*
 
+**[Akida 1] A layer's time is a straight line in the events it receives.**
+- With no events a layer costs almost nothing. With any events it pays a small fixed cost
+  (the fit gives 25,577 clocks for a 3 × 3, 32-filter, 32 × 32 layer on one NP), then a
+  constant cost per event.
+- To a first approximation, clocks ≈ events × filters / NPs × *c*. Dividing by the NPs
+  assumes a split layer shares out its events (a spatial split) or its filters evenly.
+- *c*, the clocks per event per filter, depends on the kernel. On AKD1500 with 4-bit
+  weights: 0.386 (1 × 1), 0.648 (3 × 3), 2.240 (5 × 5), 9.269 (7 × 7), and 0.646 for a
+  3 × 3 separable layer. So 3 × 3 gets the most dense-equivalent MACs per clock.
+- Events are counted at the layer's *input*, so a strided layer costs per input event like
+  any other.
+- AKD1000 gave the same values in clocks (0.375, 0.635, 2.185, 9.25; separable 0.625), so
+  the per-event cost is the same core at a different clock. On AKD1000, 2-bit weights made
+  5 × 5 and 7 × 7 convolutions much cheaper (0.98, 1.6), but not separable layers
+  **(unconfirmed** on AKD1500: rerun the tutorial's kernel sweep with `weights_bits=2`).
+- On VWW (AkidaNet 0.25, 96 × 96), `separable_4` measured 0.648, the same as the hand-built
+  layer. Fitted per layer, most layers come out at 0.65–0.70 and a few up to 0.87, so the
+  model runs a little low; `conv_2`, split over two NPs, is furthest off (1.08).
+
+*Source: measured, AKD1500, 2026-10-10, `akida1/tutorials/sparsity_in_hardware`;
+AKD1000 values: BrainChip engineering, 2026-10-10.*
+
+**[Akida 1] A fused separable layer costs the same per event as a full convolution with
+the same number of filters.** Measured on AKD1500 at 3 × 3: 0.648 clocks per event per
+filter for a convolution, 0.646 for a separable layer. The depthwise-separable saving you'd
+expect on a GPU doesn't happen on Akida 1 (see [Backbones and blocks](#backbones-and-blocks)).
+*Source: measured, AKD1500, 2026-10-10, `akida1/tutorials/sparsity_in_hardware`.*
+
+**[Akida 1] Each NP has 32 MAC units, in 8 blocks of 4, and processes each event for 8
+filters at once.** Against a dense 32-MAC array computing the same 3 × 3 layer, an NP is
+slower on fully dense input (42 % of the array's ideal speed) and faster below a break-even
+input density of 0.40. AKD1000 and AKD1500 give the same figures.
+*Source: BrainChip engineering, 2026-10-10 (NP structure); measured, AKD1500, 2026-10-10,
+`akida1/tutorials/sparsity_in_hardware`.*
+
+**[Akida 1] Energy follows the events too.** A busy NP draws roughly constant dynamic
+power, so a layer's dynamic energy is proportional to its clock count, and static energy
+scales with latency anyway. Forcing every activation of the VWW model non-zero (same
+weights, same mapping) doubled both: 8.03 → 16.74 ms and 0.199 → 0.407 mJ dynamic energy
+per inference, in MapMode.Minimal. Shifting thresholds in between traced a smooth curve.
+*Source: measured, AKD1500, 2026-10-10, `akida1/tutorials/sparsity_in_hardware`.*
+
+**[Akida 1] Zero weights save energy, not time.** With fully dense input, a 3 × 3 layer took
+the same clocks with random weights (81 % non-zero), half of them zeroed (41 %) or an
+identity kernel (0.3 %), while the dynamic energy of the whole test model fell from 74.6 to
+62.8 to 34.9 µJ per inference. Only activation sparsity saves time. Measured on one
+hand-built layer only.
+*Source: measured, AKD1500, 2026-10-10, `akida1/tutorials/sparsity_in_hardware`.*
+
+**[Akida 1] With batch size > 1, layers work on successive frames in parallel
+(pipelining),** so time per frame tends towards that of the slowest stage rather than the
+sum of the layers. On AKD1000 with AkidaNet 0.25 at batch 100 the bottleneck didn't always
+fall where single-layer timings predicted. **(unconfirmed:** per-layer subtraction at
+batch 1 vs batch 100 on AKD1500 would show it.)
+*Source: BrainChip engineering (measured on AKD1000), 2026-10-10.*
+
+## Measuring on hardware
+
+**[both] `model.metrics['inference_clk']` is the chip's clock count for the last
+inference.** It leaves out the host (Python, driver, PCIe), which varies by host: on a
+Raspberry Pi with AKD1000 the host side could take several times the on-chip time.
+It is very repeatable: rerunning the same image through VWW sub-models of 1–3 M clocks
+gave differences of a few hundred clocks (median), rarely up to about 1 %. So
+image-to-image variation in latency is real, and comes from the activity.
+*Source: measured, AKD1500, 2026-10-10; BrainChip engineering (host side), 2026-10-10.*
+
+**[both] There is no per-layer counter: time a layer by subtraction.** Run the model up to
+and including the layer, then up to the layer before, and subtract
+(`per_layer_benchmark` in `brainchip_utils`). Silence the last layer of each sub-model
+(`silence_output_layer`) so it sends no events off the chip: copying outputs back to the
+host is slow, especially on AKD1000, and would be charged to whichever layer is last.
+*Source: BrainChip engineering, 2026-10-10; `brainchip_utils/hardware_utils.py`.*
+
+**[Akida 1] The software backend reproduces the hardware's outputs exactly,** so event
+counts per layer can be computed without a device: on VWW every layer's output matched
+on 20 images. **(unconfirmed** exception: a hand-built model with identity kernels,
+mapped with `AllNps` over 32 NPs, gave 72 differing values out of 131k; with `Minimal` it
+matched. Worth reporting if it reproduces.)
+*Source: measured, AKD1500, akida 2.19.3, 2026-10-10.*
+
 ## Mapping modes
 
 **[both] `akida.MapMode` has three strategies.**
