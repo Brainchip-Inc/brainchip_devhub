@@ -148,10 +148,18 @@ how much pooling can come before it.
   `ds_cnn_kws` and `akidanet_imagenet`, still go depthwise → pointwise → BN → ReLU, with
   nothing in between. Adding the ReLU means defining the block locally.
 
-**(unconfirmed:** the speed gain hasn't been measured in this repo yet. #101 measures it
-on Akida 2 Speech Commands; update this entry with its numbers.)
+- **Measured** on Akida 2 Speech Commands (DS-CNN, #101 / PR #107):
+  - With the ReLU, the pointwise layers' input sparsity rose from 11–30 % to 52–60 %
+    (8-bit).
+  - Projected AKD2500 latency fell 8–11 % (8-bit) and 19–23 % (4-bit) in every mapping
+    mode, with the same NP counts.
+  - 8-bit accuracy was unchanged. 4-bit QAT lost 0.23 points, after raising the QAT
+    learning rate from 1e-4 to 1e-3 (it lost 0.65 at 1e-4). That's within run-to-run
+    noise.
+
 *Source: BrainChip engineering (repo owner), 2026-10-10; layer structure checked with
-akida_models 1.14.0.*
+akida_models 1.14.0; measured on the Akida 2 FPGA, 2026-10-10
+(`akida2/model_zoo/speech_commands/docs/metrics.json`).*
 
 **[Akida 2] Prefer an ImageNet-pretrained MobileNet (V1) backbone to AkidaNet.**
 AkidaNet (`akida_models.akidanet_imagenet`) was designed around Akida 1. On Akida 2, an
