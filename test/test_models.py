@@ -23,6 +23,9 @@ import cnn2snn
 import quantizeml
 
 from akida_models.model_io import load_model
+from akida_models.tenn_recurrent.convert_recurrent import convert_to_stateful
+from quantizeml.layers import QuantizationParams, StatefulRecurrent
+from quantizeml.models.transforms.transforms_utils import get_layers_by_type
 
 
 # ---------------------------------------------------------------------------
@@ -33,12 +36,14 @@ def get_device_or_skip(arch):
     """Return the first Akida device matching the architecture, or skip.
 
     Args:
-        arch: "v1" or "v2" (from the model's location, akida1/ or akida2/).
+        arch: "v1", "v2" or "pico" (from the model's location: akida1/, akida2/ or
+            akida_pico/).
     """
     devices = akida.devices()
     if not devices:
         pytest.skip("No Akida hardware device detected")
-    target = akida.IpVersion.v1 if arch == "v1" else akida.IpVersion.v2
+    target = {"v1": akida.IpVersion.v1, "v2": akida.IpVersion.v2,
+              "pico": akida.IpVersion.pico}[arch]
     for device in devices:
         if device.ip_version == target:
             return device
@@ -149,9 +154,30 @@ def assert_sw_hw_outputs_match(model_sw, model_hw):
 # Tests
 # ---------------------------------------------------------------------------
 
+def quantize_sanity_pico(model):
+    """Akida Pico recurrent TENNs: quantize the stateful form, with int16 inputs.
+
+    A float model in training (Kernelized) form is converted to stateful form first.
+    Stateful models have a fixed batch size of 1 and are called directly, as
+    `predict` doesn't support their fixed-batch internal state.
+    """
+    if not get_layers_by_type(model, StatefulRecurrent):
+        model = convert_to_stateful(model, timesteps=256)
+    qparams = QuantizationParams(input_dtype="int16", per_tensor_activations=True)
+    quantized = quantizeml.models.quantize(model, qparams=qparams, num_samples=1)
+    rng = np.random.default_rng(0)
+    inputs = rng.integers(-2**15, 2**15, (1, *model.input_shape[1:]), dtype=np.int16)
+    return np.asarray(quantized(inputs)), 1
+
+
 def test_float_model_quantize_sanity(float_spec):
     num_samples = 2
     model = load_keras_model(float_spec)
+    if float_spec.arch == "pico":
+        outputs, num_samples = quantize_sanity_pico(model)
+        assert outputs.shape[0] == num_samples
+        assert np.all(np.isfinite(outputs)), "Quantized model produced non-finite outputs"
+        return
     if float_spec.arch == "v1":
         quantized = cnn2snn.quantize(model,
                                      input_weight_quantization=8,

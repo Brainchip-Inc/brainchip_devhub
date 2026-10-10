@@ -1,0 +1,21 @@
+{
+    "float_acc": "95.15%",
+    "float_f1": "0.9513",
+    "stateful_acc": "95.17%",
+    "stateful_f1": "0.9515",
+    "w8a8_quant_acc": "94.25%",
+    "w8a8_quant_f1": "0.9424",
+    "params": "46,552",
+    "w8a8_akida_acc": "94.19%",
+    "w8a8_akida_f1": "0.9417",
+    "pico_hw_sequences": "1",
+    "pico_sw_sequences": "0",
+    "pico_program_bytes": "52,504",
+    "pico_components": "1 TNP_R",
+    "ref_stateful_acc": "95.24%",
+    "ref_stateful_f1": "0.9521",
+    "ref_w8a8_quant_acc": "93.80%",
+    "ref_w8a8_quant_f1": "0.9380",
+    "ref_w8a8_akida_acc": "93.80%",
+    "ref_w8a8_akida_f1": "0.9380"
+}

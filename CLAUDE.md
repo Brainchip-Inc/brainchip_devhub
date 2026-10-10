@@ -27,6 +27,10 @@ akida2/                    Akida 2 (AKD2500; benchmarked on the v2 FPGA today)
   README.md                GENERATED, like akida1/README.md
   update_readme.py
   model_zoo/<example>/
+akida_pico/                Akida Pico (recurrent TENNs; not benchmarked on hardware yet)
+  README.md                GENERATED, like akida1/README.md
+  update_readme.py
+  model_zoo/<example>/
 brainchip_utils/           shared hardware benchmark + plotting helpers (pip install -e .)
 test/                      CI model tests (pytest), discover_models.py
 .github/workflows/         ci.yml (float, GitHub-hosted), hardware.yml (self-hosted AKD1500 + v2 FPGA)
@@ -93,6 +97,7 @@ pip install -v -e ".[cuda]"                           # Python 3.10–3.12; [cud
 python akida1/model_zoo/<example>/update_readme.py    # regenerate example + akida1 READMEs
 python akida1/update_readme.py                        # regenerate the akida1 landing page only
 python akida2/update_readme.py                        # regenerate the akida2 landing page only
+python akida_pico/update_readme.py                    # regenerate the akida_pico landing page only
 pytest test/test_hardware_utils.py                    # unit tests, no hardware
 pytest test/test_models.py -m "not hardware" --models "<repo-relative model paths>"
 python test/discover_models.py --all                  # list the models CI will test
