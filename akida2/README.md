@@ -132,18 +132,18 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td rowspan="2">Classification</td>
       <td rowspan="2">PlantVillage</td>
       <td>8-bit</td>
-      <td>99.63% acc.</td>
+      <td>99.43% acc.</td>
       <td>HwPr</td>
-      <td align="right">274.796</td>
-      <td align="right">6.870</td>
+      <td align="right">231.371</td>
+      <td align="right">5.784</td>
       <td></td>
     </tr>
     <tr>
       <td>4-bit QAT</td>
-      <td>99.65% acc.</td>
+      <td>98.97% acc.</td>
       <td>HwPr</td>
-      <td align="right">332.960</td>
-      <td align="right">8.324</td>
+      <td align="right">192.066</td>
+      <td align="right">4.802</td>
       <td></td>
     </tr>
   </tbody>
