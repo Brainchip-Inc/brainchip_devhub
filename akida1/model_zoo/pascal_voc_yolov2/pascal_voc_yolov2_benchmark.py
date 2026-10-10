@@ -8,7 +8,7 @@ summary table, and generates a summary plot.
 
 Example
 -------
-    python detection_benchmark.py -l pretrained_models/yolo_akidanet_detection.fbz
+    python pascal_voc_yolov2_benchmark.py -l pretrained_models/yolo_akidanet_detection.fbz
 """
 import argparse
 import json
@@ -20,7 +20,7 @@ import numpy as np
 import akida
 from akida_models.sparsity import compute_sparsity
 
-from detection_data import get_samples
+from pascal_voc_yolov2_data import get_samples
 from brainchip_utils.hardware_utils import get_mapping_stats, get_akida_device, per_layer_benchmark, full_model_benchmark
 from brainchip_utils.plot_utils import plot_full_model_results, plot_per_layer_results, pretty_print_sparsity
 

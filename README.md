@@ -178,8 +178,10 @@ once you've run one you can find your way around any of them.
 
 <br>
 
-Each example is a self-contained folder named after its task (e.g. `plant_village/`),
-with files following an `<example>_<role>` convention:
+Each example is a self-contained folder named after its dataset (e.g. `plant_village/`),
+or after its dataset and model when a dataset has, or is likely to have, several models
+(e.g. `imagenet_akidanet/`, `pascal_voc_yolov2/`). `arrhythmia_classification/` is a
+deliberate exception. Files follow an `<example>_<role>` convention:
 
 | File / folder | What it is |
 |---|---|
