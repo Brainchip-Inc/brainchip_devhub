@@ -18,8 +18,8 @@ here = pathlib.Path(__file__).parent
 # Variant -> model filename stem. Must match the .fbz names produced by
 # plant_village_train.sh and the variant keys written into metrics.json.
 VARIANT_MODEL_STEMS = {
-    "w8a8": "akidanet_plant_village_i8_w8_a8",
-    "w4a4_qat": "akidanet_plant_village_i8_w4_a4_qat",
+    "w8a8": "mobilenet_plant_village_i8_w8_a8",
+    "w4a4_qat": "mobilenet_plant_village_i8_w4_a4_qat",
 }
 
 metrics = json.loads((here / "docs" / "metrics.json").read_text())

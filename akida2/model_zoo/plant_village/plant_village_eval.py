@@ -4,7 +4,7 @@
 PlantVillage evaluation for tf_keras or akida models.
 Example
 -------
-    python plant_village_eval.py -l models/akidanet_plant_village.h5
+    python plant_village_eval.py -l models/mobilenet_plant_village.h5
 """
 import argparse
 import json
@@ -111,9 +111,9 @@ if __name__ == '__main__':
         # The Akida 2 PlantVillage example has two quantized variants, disambiguated by
         # filename. Each variant contributes a "quantized" accuracy (from its
         # .h5) and an "akida" accuracy (from its .fbz):
-        #   akidanet_plant_village.h5                    -> float_acc, params
-        #   akidanet_plant_village_i8_w8_a8.{h5,fbz}     -> w8a8_quant_acc / w8a8_akida_acc
-        #   akidanet_plant_village_i8_w4_a4_qat.{h5,fbz} -> w4a4_qat_quant_acc / w4a4_qat_akida_acc
+        #   mobilenet_plant_village.h5                    -> float_acc, params
+        #   mobilenet_plant_village_i8_w8_a8.{h5,fbz}     -> w8a8_quant_acc / w8a8_akida_acc
+        #   mobilenet_plant_village_i8_w4_a4_qat.{h5,fbz} -> w4a4_qat_quant_acc / w4a4_qat_akida_acc
         # (The 4-bit PTQ model is a throwaway on the way to QAT -- it is never
         #  evaluated or stored, so it has no metrics.)
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'

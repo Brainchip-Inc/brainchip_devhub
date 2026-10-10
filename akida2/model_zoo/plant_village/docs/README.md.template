@@ -134,19 +134,26 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 
 #### 8-bit (w8 / a8)
 
-<img src="docs/ref_benchmark_results_full_akidanet_plant_village_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
 
-<img src="docs/ref_benchmark_results_layers_akidanet_plant_village_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
 
 #### 4-bit (w4 / a4, QAT)
 
-<img src="docs/ref_benchmark_results_full_akidanet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
-<img src="docs/ref_benchmark_results_layers_akidanet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
-The model is an **AkidaNet** (from `akida_models`) with width multiplier
-**alpha = 0.5** and input resolution **224 × 224**, using transfer learning from
-an ImageNet-pretrained backbone with a 38-class classification head.
+The model is a **MobileNet (V1)** with width multiplier **alpha = 0.5** and input
+resolution **224 × 224**, using transfer learning from an ImageNet-pretrained
+backbone with a single 38-class dense layer as its head.
+
+MobileNet is used rather than AkidaNet because AkidaNet was designed around
+Akida 1, where a depthwise-separable convolution is a single fused layer with no
+activation between its depthwise and pointwise parts. On Akida 2 the depthwise
+convolution is a distinct layer, so it can have its own ReLU, as in every
+MobileNet block. That makes its outputs sparse, and the pointwise layers that
+consume them process fewer events.
 
 ## Requirements
 
@@ -273,17 +280,17 @@ model versions, plus the hardware benchmark, including the
 using `update_readme.py`:
 ```bash
 # Float model
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village.h5 --save-metrics
 
 # 8-bit variant
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w8_a8.h5 --save-metrics
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w8_a8.fbz --save-metrics
-python plant_village_benchmark.py -l pretrained_models/akidanet_plant_village_i8_w8_a8.fbz --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w8_a8.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w8_a8.fbz --save-metrics
+python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_i8_w8_a8.fbz --save-metrics
 
 # 4-bit variant (QAT)
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w4_a4_qat.h5 --save-metrics
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w4_a4_qat.fbz --save-metrics
-python plant_village_benchmark.py -l pretrained_models/akidanet_plant_village_i8_w4_a4_qat.fbz --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.fbz --save-metrics
+python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.fbz --save-metrics
 
 python update_readme.py
 ```
