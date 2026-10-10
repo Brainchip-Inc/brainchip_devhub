@@ -175,6 +175,15 @@ architecture.
 - The `akida_models` factories are version-aware inside the `set_akida_version(AkidaVersion.v2)`
   context, so that context is the whole version switch — there is no per-layer
   v2-compatibility work.
+- **If the source uses an AkidaNet backbone, still port it unchanged.** Then say in the
+  final report (and the PR) that it's a candidate for a MobileNet backbone swap, and
+  propose that as a follow-up issue under the Model improvement epic (#39). AkidaNet was
+  designed for Akida 1. See "Backbones and blocks" in `.claude/knowledge/akida.md`, and
+  #26 (VWW) and #99 (PlantVillage) for the swap itself.
+- Likewise, separable blocks from `akida_models` factories have no ReLU between the
+  depthwise and pointwise layers, even under Akida 2, where one is possible and likely
+  faster. Port unchanged, and flag it as a follow-up candidate (as #101 does for Speech
+  Commands).
 
 `akida2/model_zoo/vww/vww_model.py` shows what a lifted-and-adapted result looks like, but the
 source example — not this reference — dictates the architecture.

@@ -131,6 +131,66 @@ pipeline instead, so the deployed model receives an already-shaped tensor.
 how much pooling can come before it.
 *Source: `akida1/model_zoo/uored_vafcls/uored_vafcls_model.py` docstring.*
 
+## Backbones and blocks
+
+**[both] Separable convolutions: fused on Akida 1, two layers on Akida 2.**
+- On Akida 1 a depthwise-separable convolution is a single fused layer
+  (`SeparableConv2D`). It can't have a ReLU between its depthwise and pointwise parts.
+- On Akida 2 the depthwise convolution is a distinct layer (`DepthwiseConv2D` followed by
+  a pointwise `Conv2D`), so a block can have a ReLU after the depthwise layer as well, as
+  in MobileNet.
+- Without that ReLU the depthwise outputs are dense, and the pointwise layer that takes
+  them processes more events (see [Sparsity](#sparsity)). Adding it should make Akida 2
+  models faster, and it's one reason MobileNet runs faster than AkidaNet there. The risk
+  is accuracy, possibly because quantization gets harder.
+- `akida_models` factories don't add it. Under `set_akida_version(AkidaVersion.v2)`,
+  `separable_conv_block` (with `fused=False`) and models built from it, such as
+  `ds_cnn_kws` and `akidanet_imagenet`, still go depthwise → pointwise → BN → ReLU, with
+  nothing in between. Adding the ReLU means defining the block locally.
+
+- **Measured** on Akida 2 Speech Commands (DS-CNN, #101 / PR #107):
+  - With the ReLU, the pointwise layers' input sparsity rose from 11–30 % to 52–60 %
+    (8-bit).
+  - Projected AKD2500 latency fell 8–11 % (8-bit) and 19–23 % (4-bit) in every mapping
+    mode, with the same NP counts.
+  - 8-bit accuracy was unchanged. 4-bit QAT lost 0.23 points, after raising the QAT
+    learning rate from 1e-4 to 1e-3 (it lost 0.65 at 1e-4). That's within run-to-run
+    noise.
+
+*Source: BrainChip engineering (repo owner), 2026-10-10; layer structure checked with
+akida_models 1.14.0; measured on the Akida 2 FPGA, 2026-10-10
+(`akida2/model_zoo/speech_commands/docs/metrics.json`).*
+
+**[Akida 2] Prefer an ImageNet-pretrained MobileNet (V1) backbone to AkidaNet.**
+AkidaNet (`akida_models.akidanet_imagenet`) was designed around Akida 1. On Akida 2, an
+off-the-shelf `tf_keras.applications.mobilenet.MobileNet` with ImageNet weights is
+expected to do better, and `akida2/model_zoo/vww` uses one (#26). Build it as
+`vww_model.py` does: `include_top=False, pooling='avg'`, then
+`quantizeml.models.transforms.insert_rescaling(scale=1/127.5, offset=-1)`, so the model
+still takes uint8 inputs. So an Akida 2 example
+ported with an AkidaNet backbone is a candidate for a follow-up improvement that swaps in
+MobileNet at the same alpha and resolution. Port first as the source has it, then raise
+the swap as its own issue under the Model improvement epic (#39), as #99 does for
+PlantVillage.
+
+**Measured** on PlantVillage, alpha 0.5, 224 × 224 (#99):
+
+| | AkidaNet | MobileNet |
+| --- | --- | --- |
+| HwPr projected latency (AKD2500) | 6.870 ms (8-bit), 8.324 ms (4-bit) | 5.784 ms (8-bit), 4.802 ms (4-bit) |
+| Minimal projected latency (AKD2500) | 11.483 ms (8-bit), 12.254 ms (4-bit) | 7.872 ms (8-bit), 8.621 ms (4-bit) |
+| Accuracy: float / 8-bit / 4-bit QAT | 99.67 % / 99.63 % / 99.65 % | 99.61 % / 99.43 % / 98.97 % |
+
+- MobileNet is 16–42 % faster depending on mapping mode and bit width.
+- It's also smaller: no 512-unit dense layer, which made no accuracy difference here.
+- It lost accuracy in quantization: 0.2 points at 8 bits and 0.7 at 4 bits. A higher QAT
+  learning rate made 4-bit worse here, unlike on Speech Commands.
+- So expect a speed gain, but check quantized accuracy.
+
+*Source: BrainChip engineering (repo owner), 2026-10-10; `akida2/model_zoo/vww` (#26);
+measured on the Akida 2 FPGA, 2026-10-10 (`akida2/model_zoo/plant_village/docs/metrics.json`
+after #99, AkidaNet values from before it).*
+
 ## Toolchain
 
 **[both] The default `cnn2snn` context is Akida 2.** Akida 1 model construction and
