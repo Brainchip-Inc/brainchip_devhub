@@ -84,6 +84,8 @@ train_ds, test_ds, val_ds = get_data(DATA_PATH, batch_size=BATCH_SIZE,
 # ## Model
 #
 # The model is a **DS-CNN** (depthwise-separable CNN) from `akida_models`, a lightweight architecture for keyword spotting drawn from the MLPerf Tiny benchmark. It is built for Akida 2 under `set_akida_version(AkidaVersion.v2)`. A Rescaling layer is included up front so the model accepts raw uint8 MFCC features directly: folding the rescaling into the model graph (rather than the preprocessing pipeline) means the same inputs feed the float and Akida versions, and the step is automatically folded into the Akida layer parameters at conversion.
+#
+# The model is defined locally rather than taken from `akida_models.ds_cnn_kws`, for one reason: **every depthwise layer gets its own BatchNormalization and ReLU**. `ds_cnn_kws` keeps the Akida 1 block design, where a depthwise-separable convolution is a single fused layer that can't have an activation between its depthwise and pointwise parts. On Akida 2 the depthwise convolution is a distinct layer, so it can have a ReLU, as every MobileNet block does. The ReLU zeroes the negative depthwise outputs, and Akida's pointwise layers only process non-zero values (events), so they have less work to do.
 
 # %%
 from speech_commands_model import build_speech_commands_model
@@ -187,7 +189,7 @@ if RUN_QAT_TRAINING:
     # QAT fine-tune the quantized 4-bit model. quantizeml-quantized models are standard
     # Keras models, so the same training loop applies.
     QAT_EPOCHS = 16
-    QAT_LR = 1e-4
+    QAT_LR = 1e-3
     train_ds, test_ds, val_ds = get_data(DATA_PATH, batch_size=BATCH_SIZE,
                                          data_transform=data_transform, seed=SEED)
     train_speech_commands(model_4bit, train_ds, val_ds, QAT_EPOCHS, QAT_LR, seed=SEED)
