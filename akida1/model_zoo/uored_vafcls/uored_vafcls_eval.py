@@ -200,7 +200,7 @@ if __name__ == '__main__':
         #
         # Under the naive split it writes the Model Card's top row outright: one
         # train-and-evaluate run is the whole of that row, because the segment
-        # split is singular and its score is stable to about 0.001.
+        # split is singular and its score barely changes between seeds.
         #
         # Under the protocol it writes no AUROC at all. The bottom row is the
         # 100-fold mean from uored_vafcls_cross_validate.py, and a single-fold
