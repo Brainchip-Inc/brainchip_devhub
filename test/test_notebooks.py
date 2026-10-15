@@ -48,6 +48,24 @@ def test_tf_log_lines_are_dropped_and_other_stderr_kept():
     assert outputs_of(tidy_outputs(nb)) == [stream('stderr', 'UserWarning: a real warning the reader should see\n')]
 
 
+def test_cpu_feature_notice_is_dropped_with_its_second_line():
+    nb = notebook(stream('stderr', [
+        '2026-10-15 23:22:41.123456: I tensorflow/core/platform/cpu_feature_guard.cc:210] '
+        'This TensorFlow binary is optimized to use available CPU instructions.\n',
+        'To enable the following instructions: AVX2 FMA, in other operations, '
+        'rebuild TensorFlow with the appropriate compiler flags.\n']))
+    assert outputs_of(tidy_outputs(nb)) == []
+
+
+def test_tf_log_line_glued_to_a_progress_bar_is_dropped_and_the_bar_collapses():
+    nb = notebook(stream('stderr', [
+        '\rEvaluating:  50%|█  | 1/2\rEvaluating: 100%|███| 2/2 [00:01<00:00]'
+        '2026-10-15 23:24:42.062881: I tensorflow/core/framework/local_rendezvous.cc:407] '
+        'Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence\n',
+        '\rEvaluating: 100%|███| 2/2 [00:02<00:00]']))
+    assert outputs_of(tidy_outputs(nb)) == [stream('stderr', 'Evaluating: 100%|███| 2/2 [00:02<00:00]')]
+
+
 def test_stream_left_empty_is_removed():
     nb = notebook(stream('stderr', 'I0000 00:00:1791545140.950426  577419 x.cc:1] info\n'))
     assert outputs_of(tidy_outputs(nb)) == []

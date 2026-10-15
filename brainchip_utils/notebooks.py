@@ -29,9 +29,13 @@ import time
 # C++ log lines TensorFlow/XLA print at import, e.g.
 #   2026-10-09 13:25:40.937067: E external/local_xla/...] Unable to register cuFFT factory...
 #   E0000 00:00:1791545140.950426  577419 cuda_dnn.cc:8579] Unable to register cuDNN factory...
-_TF_LOG_LINE = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+: [IWEF] '
-                          r'|[IWEF]\d{4} \d\d:\d\d:\d+\.\d+ +\d+ '
-                          r'|WARNING: All log messages before absl::InitializeLog\(\) is called)')
+# A timestamped one can also land mid-line, straight after a progress bar with no newline,
+# so it is removed wherever it starts, with its newline, before \r overwrites are applied.
+_TF_TIMESTAMPED_LOG = re.compile(r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+: [IWEF] [^\n]*\n?')
+_TF_LOG_LINE = re.compile(r'^([IWEF]\d{4} \d\d:\d\d:\d+\.\d+ +\d+ '
+                          r'|WARNING: All log messages before absl::InitializeLog\(\) is called'
+                          # Second line of the CPU-feature notice TF prints on a CPU-only host
+                          r'|To enable the following instructions: .*rebuild TensorFlow)')
 
 
 def _text(output):
@@ -47,6 +51,7 @@ def _apply_carriage_returns(text):
 
 
 def _drop_tf_log_lines(text):
+    text = _TF_TIMESTAMPED_LOG.sub('', text)
     return ''.join(line for line in text.splitlines(keepends=True) if not _TF_LOG_LINE.match(line))
 
 
@@ -72,9 +77,10 @@ def tidy_outputs(nb):
         outputs = _merge_streams(cell.get('outputs', []))
         for output in outputs:
             if output.get('output_type') == 'stream':
-                output['text'] = _apply_carriage_returns(_text(output))
+                text = _text(output)
                 if output.get('name') == 'stderr':
-                    output['text'] = _drop_tf_log_lines(output['text'])
+                    text = _drop_tf_log_lines(text)
+                output['text'] = _apply_carriage_returns(text)
         # Dropping a stream left empty can bring two of the same name together again
         cell['outputs'] = _merge_streams(
             [o for o in outputs if o.get('output_type') != 'stream' or o['text']])
