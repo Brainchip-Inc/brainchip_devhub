@@ -177,7 +177,7 @@ architecture.
   v2-compatibility work.
 - **If the source uses an AkidaNet backbone, still port it unchanged.** Then say in the
   final report (and the PR) that it's a candidate for a MobileNet backbone swap, and
-  propose that as a follow-up issue under the Model improvement epic (#39). AkidaNet was
+  propose that as a follow-up ticket in the Akida 2 model zoo epic. AkidaNet was
   designed for Akida 1. See "Backbones and blocks" in `.claude/knowledge/akida.md`, and
   #26 (VWW) and #99 (PlantVillage) for the swap itself.
 - Likewise, separable blocks from `akida_models` factories have no ReLU between the

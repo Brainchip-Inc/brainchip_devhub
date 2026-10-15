@@ -4,8 +4,8 @@
 OWNER: Douglas McLelland. Claude may propose changes by PR; only the owner merges them.
 This repo is PUBLIC: write nothing here you wouldn't say to a customer (no dates promised
 to named accounts, no unreleased silicon specs, no internal-only names).
-Task-level status does NOT live here. It lives on the GitHub Projects board. Each theme
-links to its epic issue(s); the board tracks everything below that.
+Task-level status does NOT live here. It is tracked internally, with one or more epics per
+theme.
 -->
 
 _Last reviewed: 2026-10-08_
@@ -38,18 +38,18 @@ project.
 
 ## Themes
 
-Each theme has an outcome (what's true for the reader when it's done) and one or more epics.
+Each theme has an outcome: what's true for the reader when it's done.
 
-| Theme | Outcome | Epic(s) | Priority |
-| --- | --- | --- | --- |
-| Akida 1 model zoo | Examples covering the main edge task families (vision, audio, time series, detection) on AKD1500, each one a starting point for the developer's own project | #35 | P2 |
-| Akida 2 model zoo: parity | Every Akida 1 example has an Akida 2 equivalent. First the same model through the Akida 2 pipeline (quantizeml, 8-bit quantization without QAT), then a model optimised for Akida 2 | #36 | P1 |
-| Akida 2 model zoo: beyond Akida 1 | Examples of what only Akida 2 can run: spatiotemporal models, models with upsampling (detection, segmentation and beyond), skip connections, non-ReLU activations. Includes PyTorch-based workflows, not just Keras | #37 | P2 |
-| Akida Pico | Akida Pico examples in the repo, following the same structure and principles, starting with the examples already developed internally | #38 | P2 |
-| Model improvement | Existing examples get better over time (accuracy, sparsity, latency/energy), with every change measured on hardware and reflected in the model cards | #39 | P2 |
-| Tutorials | A reader understands *why* models are built the way they are for each platform. Platform-specific where the topic is unique to one platform, shared where it isn't | #40 | P2 |
-| Deployment | A developer can take a converted model to a running embedded / MCU system, with a gentle first route (Arduino + Python) for developers new to embedded work | #41 | P3 |
-| Agent workflow | Most content work is specified as issues and executed by Claude, with human review | #42 | P1 |
+| Theme | Outcome | Priority |
+| --- | --- | --- |
+| Akida 1 model zoo | Examples covering the main edge task families (vision, audio, time series, detection) on AKD1500, each one a starting point for the developer's own project | P2 |
+| Akida 2 model zoo: parity | Every Akida 1 example has an Akida 2 equivalent. First the same model through the Akida 2 pipeline (quantizeml, 8-bit quantization without QAT), then a model optimised for Akida 2 | P1 |
+| Akida 2 model zoo: beyond Akida 1 | Examples of what only Akida 2 can run: spatiotemporal models, models with upsampling (detection, segmentation and beyond), skip connections, non-ReLU activations. Includes PyTorch-based workflows, not just Keras | P2 |
+| Akida Pico | Akida Pico examples in the repo, following the same structure and principles, starting with the examples already developed internally | P2 |
+| Model improvement | Existing examples get better over time (accuracy, sparsity, latency/energy), with every change measured on hardware and reflected in the model cards | P2 |
+| Tutorials | A reader understands *why* models are built the way they are for each platform. Platform-specific where the topic is unique to one platform, shared where it isn't | P2 |
+| Deployment | A developer can take a converted model to a running embedded / MCU system, with a gentle first route (Arduino + Python) for developers new to embedded work | P3 |
+| Agent workflow | Most content work is specified as issues and executed by Claude, with human review | P1 |
 
 ## Phases
 
@@ -110,3 +110,5 @@ priority. -->
   beyond-Akida-1 themes.
 - 2026-10-08: Added the Model improvement theme; brought in items from the internal
   backlog (tutorial ideas, MobileNet v1 via PyTorch, HwPr, weight hosting question).
+- 2026-10-15: Task-level tracking moved from GitHub Issues to an internal tracker; epic
+  links removed from the themes table.
