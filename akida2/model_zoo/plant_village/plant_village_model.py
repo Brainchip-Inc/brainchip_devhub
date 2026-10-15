@@ -3,14 +3,23 @@
 """
 Create a model for the PlantVillage dataset targeting the Akida 2 platform.
 
-The model is based on the AkidaNet architecture with width multiplier alpha=0.5
-(adequate for this 38-class task) and weights pre-trained on ImageNet. The
-ImageNet-pretrained backbone is used as a feature extractor, with the top layers
-replaced by a 38-class classification head for plant disease classification.
+This model is the MobileNet (V1) architecture with width multiplier alpha=0.5
+(adequate for this 38-class task) at 224x224 RGB input, with weights
+pre-trained on ImageNet. The ImageNet top is replaced by a single 38-class
+dense layer that outputs logits.
 
-The model is set to 224x224 RGB input. Input scaling (divide by 255) is included
-in the model via a Rescaling layer, so the preprocessing pipeline should NOT
-apply any normalization but rather deliver inputs in the uint8 range.
+MobileNet is used rather than AkidaNet: AkidaNet was designed around Akida 1,
+whose separable convolutions are fused and can't have a ReLU between the
+depthwise and pointwise parts. On Akida 2 the depthwise layer is distinct, and
+MobileNet's ReLU after each depthwise layer makes its outputs sparse.
+
+The source model expects inputs scaled to the [-1, 1] range.
+The final Akida model will require uint8 inputs.
+To enable a single data preprocessing pipeline across model
+versions, rescaling for the tf_keras model version is implemented
+within the model itself, as a Rescaling layer. That is added to the
+model using a helper from quantizeml. The data pipeline thus delivers
+inputs in the uint8 range.
 
 Usage:
     python plant_village_model.py [-s OUTPUT_PATH]
@@ -19,13 +28,10 @@ Usage:
 import argparse
 
 from tf_keras import Model
-from tf_keras.layers import Activation, Dropout, Reshape
+from tf_keras.applications.mobilenet import MobileNet
 from tf_keras.utils import set_random_seed
-
-from akida_models import akidanet_imagenet, fetch_file
 from akida_models.layer_blocks import dense_block
-from akida_models.utils import get_params_by_version
-from cnn2snn import set_akida_version, AkidaVersion
+from quantizeml.models.transforms import insert_rescaling
 
 
 def build_plant_village_model(seed=42):
@@ -34,53 +40,36 @@ def build_plant_village_model(seed=42):
     # Number of classes in the PlantVillage dataset
     classes = 38
 
-    with set_akida_version(AkidaVersion.v2):
-        # Create a base model without top layers, with global average pooling
-        base_model = akidanet_imagenet(input_shape=(224, 224, 3),
-                                       classes=classes,
-                                       alpha=0.5,
-                                       include_top=False,
-                                       pooling='avg')
+    base_model = MobileNet(input_shape=(224, 224, 3),
+                           alpha=0.5,
+                           include_top=False,
+                           weights='imagenet',
+                           pooling='avg')
 
-        # Get ImageNet-pretrained weights and load them into the base model
-        pretrained_weights = fetch_file(
-            "https://data.brainchip.com/models/AkidaV2/akidanet/"
-            "akidanet_imagenet_224_alpha_0.5.h5",
-            fname="akidanet_imagenet_224_alpha_0.5.h5",
-            cache_subdir='models')
-        base_model.load_weights(pretrained_weights, by_name=True)
+    # Pretrained mobilenet expects inputs in the [-1, 1] range
+    # Include the relevant preprocessing (scale and shift)
+    # as a layer within the model
+    base_model = insert_rescaling(base_model, scale=1/127.5, offset=-1)
 
-        # Version-appropriate ReLU activation for the head
-        _, _, relu_activation = get_params_by_version(relu_v2='ReLU7.5')
+    x = base_model.output
+    # 38 class block
+    x = dense_block(x,
+                    units=classes,
+                    name='predictions',
+                    add_batchnorm=False,
+                    relu_activation=False)
 
-        # Replace the classification head with one sized for PlantVillage
-        x = base_model.output
-        x = dense_block(x,
-                        units=512,
-                        name='fc_1',
-                        add_batchnorm=True,
-                        relu_activation=relu_activation)
-        x = Dropout(0.5, name='dropout_1')(x)
-        x = dense_block(x,
-                        units=classes,
-                        name='predictions',
-                        add_batchnorm=False,
-                        relu_activation=False)
-        x = Activation('softmax', name='act_softmax')(x)
-        x = Reshape((classes,), name='reshape')(x)
-
-    model = Model(base_model.input, x, name='akidanet_plant_village')
-
+    model = Model(base_model.input, x, name='mobilenet_plant_village')
     return model
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Build the AkidaNet-PlantVillage model for Akida 2')
+        description='Build the MobileNet-PlantVillage model for Akida 2')
     parser.add_argument("-s",
                         "--savepath",
                         type=str,
-                        default='./models/akidanet_plant_village.h5',
+                        default='./models/mobilenet_plant_village.h5',
                         help="Save model with the specified path + name")
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')

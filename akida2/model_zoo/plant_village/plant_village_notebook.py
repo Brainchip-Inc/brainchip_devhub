@@ -20,7 +20,7 @@
 #
 # Run Time: ~20 minutes with training included / TBD with training skipped
 #
-# This notebook walks through the complete pipeline to train, quantize, convert, and evaluate an AkidaNet model on the **PlantVillage** dataset for Akida 2 hardware.
+# This notebook walks through the complete pipeline to train, quantize, convert, and evaluate a MobileNet model on the **PlantVillage** dataset for Akida 2 hardware.
 #
 # The PlantVillage dataset has 54,303 leaf images across 38 categories (14 crop species plus disease and healthy variants).
 #
@@ -81,13 +81,15 @@ train_ds, val_ds, test_ds = get_data(DATA_PATH, INPUT_SHAPE, BATCH_SIZE, seed=SE
 # %% [markdown]
 # ## Model
 #
-# The model is based on **AkidaNet** (`akida_models.akidanet_imagenet`) with:
-# - Width multiplier **alpha = 0.5** — provides sufficient capacity for the 38 classes while remaining efficient on Akida hardware
+# The model is a **MobileNet (V1)** (`tf_keras.applications.mobilenet.MobileNet`) with:
+# - Width multiplier **alpha = 0.5**: enough capacity for the 38 classes
 # - Input resolution **224 × 224 RGB**
-# - A **38-class** classification head replacing the ImageNet top layers, ending in a softmax activation
-# - **Input scaling** built into the model (a Rescaling layer) — the pipeline delivers raw uint8 pixel values and the model normalises them internally
+# - A single **38-class** dense layer replacing the ImageNet top layers. It outputs logits; there is no softmax
+# - **Input scaling** built into the model: MobileNet expects inputs in [-1, 1], so `quantizeml`'s `insert_rescaling` adds a Rescaling layer (scale 1/127.5, offset -1). The pipeline delivers raw uint8 pixel values, which is also what the Akida model takes
 #
-# It uses transfer learning: the AkidaNet backbone is initialised from ImageNet-pretrained weights, then fine-tuned on PlantVillage. AkidaNet is designed for Akida hardware, using only operations that map efficiently to Akida Neural Processors (NPs) — depthwise separable convolutions and ReLU activations. The model is built under `set_akida_version(AkidaVersion.v2)`.
+# It uses transfer learning: the backbone is initialised from ImageNet-pretrained weights, then fine-tuned on PlantVillage.
+#
+# **Why MobileNet and not AkidaNet on Akida 2?** AkidaNet was designed around Akida 1, where a depthwise-separable convolution is a single fused layer that can't have an activation between its depthwise and pointwise parts. On Akida 2 the depthwise convolution is a distinct layer, so it can have its own ReLU, as every MobileNet block does. That makes the depthwise outputs sparse, and Akida's pointwise layers only process the non-zero values (events).
 
 # %%
 from plant_village_model import build_plant_village_model
@@ -98,7 +100,7 @@ model.summary()
 # %% [markdown]
 # ## Float Training
 #
-# The model is fine-tuned in full float32 precision using the Adam optimiser and sparse categorical cross-entropy loss. Because the model head ends in a **softmax** activation (it outputs probabilities, not raw logits), the loss is configured with `from_logits=False`.
+# The model is fine-tuned in full float32 precision using the Adam optimiser and sparse categorical cross-entropy loss. Because the model outputs raw logits (no softmax), the loss is configured with `from_logits=True`.
 #
 # The learning rate follows an **exponential decay** schedule, decaying continuously from the initial rate to ~1% of it by the final epoch. Since the backbone is already pretrained, only a modest number of fine-tuning epochs is needed.
 #
@@ -114,13 +116,13 @@ if RUN_FLOAT_TRAINING:
 
     train_plant_village(model, train_ds, val_ds, EPOCHS, LEARNING_RATE, seed=SEED)
 
-    float_model_path = os.path.join(MODELS_DIR, 'akidanet_plant_village.h5')
+    float_model_path = os.path.join(MODELS_DIR, 'mobilenet_plant_village.h5')
     model.save(float_model_path, include_optimizer=False)
     print(f'Float model saved to {float_model_path}')
 else:
     from tf_keras.models import load_model
     print('Training skipped. Loading an existing float model...')
-    model = load_model(os.path.join('pretrained_models', 'akidanet_plant_village.h5'))
+    model = load_model(os.path.join('pretrained_models', 'mobilenet_plant_village.h5'))
 
 # %% [markdown]
 # ### Evaluate float model
@@ -153,7 +155,7 @@ samples = get_samples(DATA_PATH, INPUT_SHAPE, num_samples=NUM_SAMPLES)
 qparams_8bit = QuantizationParams(input_weight_bits=8, weight_bits=8, activation_bits=8)
 model_8bit = quantize(model, qparams=qparams_8bit, samples=samples, batch_size=100, epochs=2)
 
-q8_path = os.path.join(MODELS_DIR, 'akidanet_plant_village_i8_w8_a8.h5')
+q8_path = os.path.join(MODELS_DIR, 'mobilenet_plant_village_i8_w8_a8.h5')
 model_8bit.save(q8_path, include_optimizer=False)
 
 model_8bit.compile(metrics=['accuracy'])
@@ -190,12 +192,12 @@ if RUN_QAT_TRAINING:
     train_ds, val_ds, test_ds = get_data(DATA_PATH, INPUT_SHAPE, BATCH_SIZE, seed=SEED)
     train_plant_village(model_4bit, train_ds, val_ds, QAT_EPOCHS, QAT_LR, seed=SEED)
 
-    q4_path = os.path.join(MODELS_DIR, 'akidanet_plant_village_i8_w4_a4_qat.h5')
+    q4_path = os.path.join(MODELS_DIR, 'mobilenet_plant_village_i8_w4_a4_qat.h5')
     model_4bit.save(q4_path, include_optimizer=False)
 else:
     from quantizeml.model_io import load_model
     print('Training skipped. Loading an existing 4-bit model...')
-    model_4bit = load_model(os.path.join('pretrained_models', 'akidanet_plant_village_i8_w4_a4_qat.h5'))
+    model_4bit = load_model(os.path.join('pretrained_models', 'mobilenet_plant_village_i8_w4_a4_qat.h5'))
 
 model_4bit.compile(metrics=['accuracy'])
 _, acc_4bit = model_4bit.evaluate(val_ds, verbose=0)
@@ -205,17 +207,16 @@ print(f'4-bit QAT validation accuracy: {acc_4bit:.4f}')
 # ## Conversion to Akida Format
 #
 # `cnn2snn.convert` compiles a quantized Keras model into an Akida `.fbz` model that can be loaded and executed directly on Akida 2 hardware. The converter verifies hardware compatibility and maps each layer to its corresponding Akida primitive. `cnn2snn.convert` accepts `quantizeml`-quantized models directly. We convert both quantized variants.
-#
-# The softmax head is not converted (Akida stops at the preceding dequantizer) — this is expected for a classification head, since argmax over logits and over softmax probabilities gives the same prediction.
+
 
 # %%
 from cnn2snn import convert
 
 akida_8bit = convert(model_8bit)
-akida_8bit.save(os.path.join(MODELS_DIR, 'akidanet_plant_village_i8_w8_a8.fbz'))
+akida_8bit.save(os.path.join(MODELS_DIR, 'mobilenet_plant_village_i8_w8_a8.fbz'))
 
 akida_4bit = convert(model_4bit)
-akida_4bit.save(os.path.join(MODELS_DIR, 'akidanet_plant_village_i8_w4_a4_qat.fbz'))
+akida_4bit.save(os.path.join(MODELS_DIR, 'mobilenet_plant_village_i8_w4_a4_qat.fbz'))
 
 akida_8bit.summary()
 

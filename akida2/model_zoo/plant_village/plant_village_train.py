@@ -6,7 +6,7 @@ PlantVillage training
 Example
 -------
     python plant_village_train.py -d ./data/plant_village -e 10 \\
-        -l models/akidanet_plant_village.h5 -s models/akidanet_plant_village.h5
+        -l models/mobilenet_plant_village.h5 -s models/mobilenet_plant_village.h5
 """
 import argparse
 
@@ -49,10 +49,10 @@ def train_plant_village(model, train_ds, val_ds, epochs, learning_rate,
             if isinstance(layer, ReLU):
                 layer.activity_regularizer = regularizer
 
-    # The model ends in a softmax activation, so the loss is computed on
-    # probabilities (from_logits=False).
+    # The model outputs logits (no softmax), so the loss applies the softmax
+    # itself (from_logits=True).
     model.compile(optimizer=Adam(learning_rate=learning_rate),
-                  loss=SparseCategoricalCrossentropy(from_logits=False),
+                  loss=SparseCategoricalCrossentropy(from_logits=True),
                   metrics=['accuracy'])
 
     callbacks = [get_custom_scheduler(initial_lr=learning_rate, n_epochs=epochs)]

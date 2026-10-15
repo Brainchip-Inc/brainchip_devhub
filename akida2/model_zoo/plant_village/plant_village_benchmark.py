@@ -18,7 +18,7 @@ Benchmark details:
 
 Example
 -------
-    python plant_village_benchmark.py -l models/akidanet_plant_village_i8_w8_a8.fbz
+    python plant_village_benchmark.py -l models/mobilenet_plant_village_i8_w8_a8.fbz
 """
 import argparse
 import json

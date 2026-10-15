@@ -4,7 +4,7 @@
 
 ## Model Card
 
-Float accuracy: **99.67%** &nbsp;|&nbsp; Parameters: **1,156,054**
+Float accuracy: **99.61%** &nbsp;|&nbsp; Parameters: **849,030**
 
 The quantized variants below all share the same float backbone. On Akida 2 the
 model is quantized with **`quantizeml`**: 8-bit weights and activations need no
@@ -28,17 +28,17 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td>8-bit</td>
       <td align="center">w8 / a8</td>
       <td align="center">-</td>
-      <td align="center">99.63%</td>
-      <td align="center">99.63%</td>
-      <td align="center">36.00%</td>
+      <td align="center">99.43%</td>
+      <td align="center">99.43%</td>
+      <td align="center">29.04%</td>
     </tr>
     <tr>
       <td>4-bit</td>
       <td align="center">w4 / a4</td>
       <td align="center">yes</td>
-      <td align="center">99.65%</td>
-      <td align="center">99.65%</td>
-      <td align="center">39.18%</td>
+      <td align="center">98.97%</td>
+      <td align="center">98.97%</td>
+      <td align="center">33.69%</td>
     </tr>
   </tbody>
 </table>
@@ -72,52 +72,52 @@ rescale of the measured cycles.
     <tr>
       <td rowspan="3">8-bit</td>
       <td>Minimal</td>
-      <td align="center">57</td>
+      <td align="center">66</td>
       <td align="center">3</td>
-      <td align="center">11482885</td>
-      <td align="center">459.315</td>
-      <td align="center">11.483</td>
+      <td align="center">7872358</td>
+      <td align="center">314.894</td>
+      <td align="center">7.872</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">68</td>
+      <td align="center">67</td>
       <td align="center">3</td>
-      <td align="center">10837479</td>
-      <td align="center">433.499</td>
-      <td align="center">10.837</td>
+      <td align="center">7846131</td>
+      <td align="center">313.845</td>
+      <td align="center">7.846</td>
     </tr>
     <tr>
       <td>HwPr</td>
-      <td align="center">158</td>
-      <td align="center">8</td>
-      <td align="center">6869908</td>
-      <td align="center">274.796</td>
-      <td align="center">6.870</td>
+      <td align="center">94</td>
+      <td align="center">4</td>
+      <td align="center">5784264</td>
+      <td align="center">231.371</td>
+      <td align="center">5.784</td>
     </tr>
     <tr>
       <td rowspan="3">4-bit (QAT)</td>
       <td>Minimal</td>
-      <td align="center">36</td>
+      <td align="center">39</td>
       <td align="center">2</td>
-      <td align="center">12254447</td>
-      <td align="center">490.178</td>
-      <td align="center">12.254</td>
+      <td align="center">8620801</td>
+      <td align="center">344.832</td>
+      <td align="center">8.621</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">37</td>
+      <td align="center">40</td>
       <td align="center">2</td>
-      <td align="center">12239876</td>
-      <td align="center">489.595</td>
-      <td align="center">12.240</td>
+      <td align="center">8597472</td>
+      <td align="center">343.899</td>
+      <td align="center">8.597</td>
     </tr>
     <tr>
       <td>HwPr</td>
-      <td align="center">92</td>
+      <td align="center">94</td>
       <td align="center">4</td>
-      <td align="center">8324002</td>
-      <td align="center">332.960</td>
-      <td align="center">8.324</td>
+      <td align="center">4801658</td>
+      <td align="center">192.066</td>
+      <td align="center">4.802</td>
     </tr>
   </tbody>
 </table>
@@ -134,19 +134,26 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 
 #### 8-bit (w8 / a8)
 
-<img src="docs/ref_benchmark_results_full_akidanet_plant_village_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
 
-<img src="docs/ref_benchmark_results_layers_akidanet_plant_village_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
 
 #### 4-bit (w4 / a4, QAT)
 
-<img src="docs/ref_benchmark_results_full_akidanet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
-<img src="docs/ref_benchmark_results_layers_akidanet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
-The model is an **AkidaNet** (from `akida_models`) with width multiplier
-**alpha = 0.5** and input resolution **224 × 224**, using transfer learning from
-an ImageNet-pretrained backbone with a 38-class classification head.
+The model is a **MobileNet (V1)** with width multiplier **alpha = 0.5** and input
+resolution **224 × 224**, using transfer learning from an ImageNet-pretrained
+backbone with a single 38-class dense layer as its head.
+
+MobileNet is used rather than AkidaNet because AkidaNet was designed around
+Akida 1, where a depthwise-separable convolution is a single fused layer with no
+activation between its depthwise and pointwise parts. On Akida 2 the depthwise
+convolution is a distinct layer, so it can have its own ReLU, as in every
+MobileNet block. That makes its outputs sparse, and the pointwise layers that
+consume them process fewer events.
 
 ## Requirements
 
@@ -273,17 +280,17 @@ model versions, plus the hardware benchmark, including the
 using `update_readme.py`:
 ```bash
 # Float model
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village.h5 --save-metrics
 
 # 8-bit variant
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w8_a8.h5 --save-metrics
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w8_a8.fbz --save-metrics
-python plant_village_benchmark.py -l pretrained_models/akidanet_plant_village_i8_w8_a8.fbz --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w8_a8.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w8_a8.fbz --save-metrics
+python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_i8_w8_a8.fbz --save-metrics
 
 # 4-bit variant (QAT)
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w4_a4_qat.h5 --save-metrics
-python plant_village_eval.py -l pretrained_models/akidanet_plant_village_i8_w4_a4_qat.fbz --save-metrics
-python plant_village_benchmark.py -l pretrained_models/akidanet_plant_village_i8_w4_a4_qat.fbz --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.fbz --save-metrics
+python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.fbz --save-metrics
 
 python update_readme.py
 ```
