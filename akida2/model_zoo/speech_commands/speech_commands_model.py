@@ -10,10 +10,17 @@ operates on MFCC features of shape (49, 10, 1) and classifies into 12 keyword
 classes (SC12: Down, Go, Left, No, Off, On, Right, Stop, Up, Yes, Silence,
 Unknown).
 
-The model is built from akida_models' `ds_cnn_kws` factory. Input
-preprocessing (rescaling) is included as part of the model via a Rescaling
-layer: the model expects uint8 inputs, and the data pipeline delivers uint8
-MFCC features accordingly.
+The architecture follows akida_models' `ds_cnn_kws` factory, with one change:
+every depthwise layer is followed by its own BatchNormalization and ReLU, as in
+MobileNet. `ds_cnn_kws` keeps the Akida 1 block design, where a separable
+convolution is a single fused layer that can't have an activation between its
+depthwise and pointwise parts. On Akida 2 the depthwise convolution is a
+distinct layer, so it can have a ReLU. That makes the depthwise outputs sparse,
+and the pointwise layers that consume them process fewer events.
+
+Input preprocessing (rescaling) is included as part of the model via a
+Rescaling layer: the model expects uint8 inputs, and the data pipeline delivers
+uint8 MFCC features accordingly.
 
 Usage:
     python speech_commands_model.py [-s OUTPUT_PATH]
@@ -21,9 +28,40 @@ Usage:
 
 import argparse
 
+import tensorflow as tf
+from tf_keras import Model
+from tf_keras.layers import (Activation, BatchNormalization, DepthwiseConv2D, Input,
+                             Rescaling)
 from tf_keras.utils import set_random_seed
-from akida_models import ds_cnn_kws
+from akida_models.layer_blocks import conv_block, dense_block
+from akida_models.custom_layers import act_to_layer
+from akida_models.utils import get_params_by_version
 from cnn2snn import set_akida_version, AkidaVersion
+
+
+def _separable_block(x, index, relu_activation, last=False):
+    """Depthwise (BN, ReLU) then pointwise (BN, ReLU), as two distinct layers.
+
+    Layer names follow akida_models' `separable_conv_block` (`dw_separable_N`,
+    `pw_separable_N`), with `dw_separable_N/BN` and `dw_separable_N/relu` added.
+    The last block ends with global average pooling after its ReLU, as
+    `ds_cnn_kws` does on Akida 2.
+    """
+    name = f'separable_{index}'
+    x = DepthwiseConv2D((3, 3), padding='same', use_bias=False, name=f'dw_{name}')(x)
+    x = BatchNormalization(name=f'dw_{name}/BN')(x)
+    x = act_to_layer(relu_activation, name=f'dw_{name}/relu')(x)
+    x = conv_block(x,
+                   filters=64,
+                   kernel_size=(1, 1),
+                   padding='same',
+                   use_bias=False,
+                   name=f'pw_{name}',
+                   pooling='global_avg' if last else None,
+                   post_relu_gap=True,
+                   add_batchnorm=True,
+                   relu_activation=relu_activation)
+    return x
 
 
 def build_speech_commands_model(seed=42):
@@ -31,18 +69,35 @@ def build_speech_commands_model(seed=42):
 
     classes = 12
 
-    # ds_cnn_kws is version-aware: under AkidaVersion.v2 it builds using
-    # v2-compatible layer/activation variants. input_scaling=(255, 0) bakes the
-    # /255 rescaling into the model so uint8 MFCC features can be fed directly.
     with set_akida_version(AkidaVersion.v2):
-        model = ds_cnn_kws(
-            input_shape=(49, 10, 1),
-            classes=classes,
-            include_top=True,
-            input_scaling=(255, 0),
-        )
+        # ReLU3.75 on Akida 2
+        _, _, relu_activation = get_params_by_version()
 
-    return model
+        # uint8 MFCC features; the /255 rescaling is part of the model
+        inputs = Input(shape=(49, 10, 1), name='input', dtype=tf.uint8)
+        x = Rescaling(1. / 255, 0, name='rescaling')(inputs)
+
+        x = conv_block(x,
+                       filters=64,
+                       kernel_size=(5, 5),
+                       padding='same',
+                       strides=(2, 2),
+                       use_bias=False,
+                       name='conv_0',
+                       add_batchnorm=True,
+                       relu_activation=relu_activation)
+
+        for index in range(1, 5):
+            x = _separable_block(x, index, relu_activation, last=(index == 4))
+
+        x = dense_block(x,
+                        units=classes,
+                        name='dense_5',
+                        use_bias=True,
+                        relu_activation=False)
+        x = Activation('softmax', name='act_softmax')(x)
+
+    return Model(inputs, x, name='ds_cnn_kws')
 
 
 if __name__ == "__main__":

@@ -171,18 +171,18 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td rowspan="2">Classification</td>
       <td rowspan="2">Google Speech Commands</td>
       <td>8-bit</td>
-      <td>95.65% acc.</td>
+      <td>95.77% acc.</td>
       <td>HwPr</td>
-      <td align="right">5.059</td>
-      <td align="right">0.126</td>
+      <td align="right">4.511</td>
+      <td align="right">0.113</td>
       <td>10 keywords + silence + unknown</td>
     </tr>
     <tr>
       <td>4-bit QAT</td>
-      <td>94.90% acc.</td>
+      <td>94.67% acc.</td>
       <td>HwPr</td>
-      <td align="right">4.440</td>
-      <td align="right">0.111</td>
+      <td align="right">3.455</td>
+      <td align="right">0.086</td>
       <td>10 keywords + silence + unknown</td>
     </tr>
   </tbody>

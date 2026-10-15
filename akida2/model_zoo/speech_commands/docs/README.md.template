@@ -150,6 +150,15 @@ benchmark suite. The task is to classify 1-second audio clips into 10 keyword cl
 silence and unknown (12 classes total). Audio input is represented as a **49 × 10 array of
 Mel-Frequency Cepstral Coefficients (MFCCs)**.
 
+This version of DS-CNN differs from `akida_models`' `ds_cnn_kws` in one way: every
+depthwise layer has its own BatchNormalization and ReLU, as in MobileNet. `ds_cnn_kws`
+keeps the Akida 1 block design, where a depthwise-separable convolution is a single
+fused layer that can't have an activation between its depthwise and pointwise parts.
+On Akida 2 the depthwise convolution is a distinct layer, so it can have a ReLU. The
+ReLU zeroes the negative depthwise outputs, and Akida's pointwise layers only process
+non-zero values (events), so they have less work to do. The per-layer plots above show
+the input sparsity of each layer.
+
 ## Requirements
 
 For environment requirements and setup, see the [Requirements](../../../README.md#requirements)

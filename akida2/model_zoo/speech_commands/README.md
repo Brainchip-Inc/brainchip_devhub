@@ -4,7 +4,7 @@
 
 ## Model Card
 
-Float accuracy: **95.65%** &nbsp;|&nbsp; Parameters: **22,348**
+Float accuracy: **95.74%** &nbsp;|&nbsp; Parameters: **23,372**
 
 The quantized variants below all share the same float backbone. On Akida 2 the
 model is quantized with **`quantizeml`**: 8-bit weights and activations need no
@@ -28,17 +28,17 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td>8-bit</td>
       <td align="center">w8 / a8</td>
       <td align="center">-</td>
-      <td align="center">95.65%</td>
-      <td align="center">95.65%</td>
-      <td align="center">30.26%</td>
+      <td align="center">95.77%</td>
+      <td align="center">95.77%</td>
+      <td align="center">44.81%</td>
     </tr>
     <tr>
       <td>4-bit</td>
       <td align="center">w4 / a4</td>
       <td align="center">yes</td>
-      <td align="center">94.90%</td>
-      <td align="center">94.90%</td>
-      <td align="center">33.91%</td>
+      <td align="center">94.67%</td>
+      <td align="center">94.67%</td>
+      <td align="center">50.49%</td>
     </tr>
   </tbody>
 </table>
@@ -74,50 +74,50 @@ rescale of the measured cycles.
       <td>Minimal</td>
       <td align="center">10</td>
       <td align="center">1</td>
-      <td align="center">249756</td>
-      <td align="center">9.990</td>
-      <td align="center">0.250</td>
+      <td align="center">222822</td>
+      <td align="center">8.913</td>
+      <td align="center">0.223</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">18</td>
       <td align="center">1</td>
-      <td align="center">135336</td>
-      <td align="center">5.413</td>
-      <td align="center">0.135</td>
+      <td align="center">124380</td>
+      <td align="center">4.975</td>
+      <td align="center">0.124</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">90</td>
       <td align="center">4</td>
-      <td align="center">126481</td>
-      <td align="center">5.059</td>
-      <td align="center">0.126</td>
+      <td align="center">112780</td>
+      <td align="center">4.511</td>
+      <td align="center">0.113</td>
     </tr>
     <tr>
       <td rowspan="3">4-bit (QAT)</td>
       <td>Minimal</td>
       <td align="center">10</td>
       <td align="center">1</td>
-      <td align="center">212214</td>
-      <td align="center">8.489</td>
-      <td align="center">0.212</td>
+      <td align="center">168752</td>
+      <td align="center">6.750</td>
+      <td align="center">0.169</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">18</td>
       <td align="center">1</td>
-      <td align="center">120410</td>
-      <td align="center">4.816</td>
-      <td align="center">0.120</td>
+      <td align="center">96839</td>
+      <td align="center">3.874</td>
+      <td align="center">0.097</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">90</td>
       <td align="center">4</td>
-      <td align="center">111010</td>
-      <td align="center">4.440</td>
-      <td align="center">0.111</td>
+      <td align="center">86385</td>
+      <td align="center">3.455</td>
+      <td align="center">0.086</td>
     </tr>
   </tbody>
 </table>
@@ -149,6 +149,15 @@ for keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/infer
 benchmark suite. The task is to classify 1-second audio clips into 10 keyword classes plus
 silence and unknown (12 classes total). Audio input is represented as a **49 × 10 array of
 Mel-Frequency Cepstral Coefficients (MFCCs)**.
+
+This version of DS-CNN differs from `akida_models`' `ds_cnn_kws` in one way: every
+depthwise layer has its own BatchNormalization and ReLU, as in MobileNet. `ds_cnn_kws`
+keeps the Akida 1 block design, where a depthwise-separable convolution is a single
+fused layer that can't have an activation between its depthwise and pointwise parts.
+On Akida 2 the depthwise convolution is a distinct layer, so it can have a ReLU. The
+ReLU zeroes the negative depthwise outputs, and Akida's pointwise layers only process
+non-zero values (events), so they have less work to do. The per-layer plots above show
+the input sparsity of each layer.
 
 ## Requirements
 

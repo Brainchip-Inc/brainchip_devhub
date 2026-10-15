@@ -48,7 +48,7 @@ quantizeml quantize -m models/ds_cnn_speech_commands.h5 -i 8 -w 4 -a 4 \
     -s models/ds_cnn_speech_commands_i8_w4_a4_pretmp.h5 \
     --samples data/kws_batch1024.npz -e 2 -bs 100
 
-python speech_commands_train.py -l models/ds_cnn_speech_commands_i8_w4_a4_pretmp.h5 -s models/ds_cnn_speech_commands_i8_w4_a4_qat.h5 -e 16 -lr 1e-4 $DATA_ARG
+python speech_commands_train.py -l models/ds_cnn_speech_commands_i8_w4_a4_pretmp.h5 -s models/ds_cnn_speech_commands_i8_w4_a4_qat.h5 -e 16 -lr 1e-3 $DATA_ARG
 python speech_commands_eval.py -l models/ds_cnn_speech_commands_i8_w4_a4_qat.h5 $DATA_ARG
 
 cnn2snn convert -m models/ds_cnn_speech_commands_i8_w4_a4_qat.h5
