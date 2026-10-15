@@ -71,8 +71,7 @@ The [official model zoo](https://doc.brainchipinc.com/model_zoo_performance.html
 whole model runs in 1 hardware sequence(s) (0 in
 software) on 1 TNP_R, with a 52,504-byte program.
 
-**Hardware benchmark.** 📝 Planned: latency and power on the Akida Pico FPGA are
-tracked in [#104](https://github.com/Brainchip-Inc/brainchip_devhub/issues/104).
+**Hardware benchmark.** 📝 Planned: latency and power on the Akida Pico FPGA.
 
 ## The model, and why it fits Akida Pico
 

@@ -28,8 +28,7 @@ Everything here targets the Akida Pico IP:
 - **[Model zoo](#model-zoo).** Ready-to-run models, each covering data, training,
   quantization, conversion and evaluation, with the same layout as the
   [Akida 1](../akida1) and [Akida 2](../akida2) examples.
-- **Hardware benchmarks.** 📝 Planned, on the Akida Pico FPGA
-  ([#104](https://github.com/Brainchip-Inc/brainchip_devhub/issues/104)).
+- **Hardware benchmarks.** 📝 Planned, on the Akida Pico FPGA.
 
 > 🚧 **Work in progress.** This is the first Akida Pico example; more will follow.
 > The official model zoo lists the current
@@ -59,7 +58,7 @@ for you as a developer:
 
 | Platform | | |
 | --- | --- | --- |
-| **Akida Pico FPGA** | Benchmarks 📝 Planned ([#104](https://github.com/Brainchip-Inc/brainchip_devhub/issues/104)) | Mapping can be checked without hardware, on the virtual device `akida.PicoIP()` |
+| **Akida Pico FPGA** | Benchmarks 📝 Planned | Mapping can be checked without hardware, on the virtual device `akida.PicoIP()` |
 
 The limits a model must respect to map onto Akida Pico (number of recurrent layers,
 input channels and bit widths, state sizes, subsampling) are listed in the

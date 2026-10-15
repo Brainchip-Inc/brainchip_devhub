@@ -178,7 +178,7 @@ called directly rather than through `predict`.
 *Source: [official model zoo](https://doc.brainchipinc.com/model_zoo_performance.html)
 ("Pico models are recurrent TENNs targeting the Akida Pico Neuromorphic Processor
 IP"); `akida_models.tenn_recurrent` docstrings (akida_models 1.14.0); measured,
-`akida_pico/model_zoo/speech_commands` (#103).*
+`akida_pico/model_zoo/speech_commands`.*
 
 **[Akida Pico] Hardware limits for `StatefulRecurrent` models** (checked at mapping): at
 most 8 `StatefulRecurrent` layers; only a `Dequantizer` or `PicoPostProcessing` may follow
@@ -194,9 +194,9 @@ copy (`akida.Model(model.layers)`), since a model mapped on a virtual device can
 inference. `tenn_recurrent_sc12` maps entirely onto one `TNP_R` component, in a single
 hardware sequence.
 *Source: `akida.PicoIP` docstring (akida 2.19.3); measured on the virtual device,
-`akida_pico/model_zoo/speech_commands` (#103).*
+`akida_pico/model_zoo/speech_commands`.*
 
 **[Akida Pico] Inputs can be raw 16-bit signals.** `tenn_recurrent_sc12` takes raw
 16 kHz audio as int16 (quantized with `-id int16`), with no MFCC step.
-**(unconfirmed:** Pico clock, power and latency: not yet measured in this repo; #104.)
+**(unconfirmed:** Pico clock, power and latency: not yet measured in this repo; hardware benchmarks are planned.)
 *Source: `akida_models.tenn_recurrent_sc12` (akida_models 1.14.0).*
