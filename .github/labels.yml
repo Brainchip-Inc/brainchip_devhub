@@ -1,20 +1,17 @@
-# Label scheme for brainchip_devhub issues and PRs.
+# Label scheme for brainchip_devhub GitHub issues and PRs.
 # Source of truth for labels; sync to GitHub with a label-sync action or `gh label create --force`.
+#
+# Planned work is tracked internally, not in GitHub Issues (see CLAUDE.md, "Planning and
+# work tracking"). GitHub issues come from outside users (bug reports) and the weekly
+# broken-link check.
 #
 # Rules:
 # - Every triaged issue has exactly one type:* and at least one content:* label.
-# - platform:* is set whenever the work is platform-specific.
-# - agent-ready means Claude may pick it up; needs-human means it's blocked on a person.
-#   They are mutually exclusive. An unassigned issue with neither isn't ready. An issue
-#   already assigned to someone and in progress carries neither; its state is on the board.
-# - needs-triage is applied by every issue template and removed once the above are set.
-# - Workflow status (Todo / In progress / In review / Done) lives on the Projects board,
-#   not in labels.
+# - platform:* is set whenever the issue is platform-specific.
+# - needs-triage is applied by the issue template and the link check, and removed once
+#   the above are set.
 
 # --- What kind of work ---------------------------------------------------------
-- name: "type:epic"
-  color: "3e4b9e"
-  description: "Parent issue grouping sub-issues toward one roadmap outcome"
 - name: "type:new-content"
   color: "0e8a16"
   description: "New example, tutorial, guide or page"
@@ -53,13 +50,7 @@
   color: "f9d0c4"
   description: "Akida Pico"
 
-# --- Who can do it -------------------------------------------------------------
-- name: "agent-ready"
-  color: "0052cc"
-  description: "Fully specified; Claude may pick it up and do it end to end, training and benchmarks included"
-- name: "needs-human"
-  color: "b60205"
-  description: "Blocked on a person: a decision, source material, clarification, or a step reserved for a human"
+# --- Triage --------------------------------------------------------------------
 - name: "needs-triage"
   color: "ededed"
   description: "New; labels, acceptance criteria or source material not yet confirmed"
@@ -74,4 +65,4 @@
 
 # Default labels to retire (map existing usages first):
 #   bug -> type:bug, enhancement -> type:new-content, documentation -> type:update,
-#   question -> needs-human. duplicate, invalid, wontfix -> use "Close as not planned / duplicate".
+#   question -> needs-triage. duplicate, invalid, wontfix -> use "Close as not planned / duplicate".

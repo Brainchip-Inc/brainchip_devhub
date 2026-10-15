@@ -37,8 +37,10 @@ group them:
 | Landing / nav | `README.md`, `akida*/README.md` |
 | Tooling | `test/`, `.github/`, `brainchip_utils/`, `.claude/` |
 
-Then read the linked issue (`gh pr view --json body,closingIssuesReferences`, or the branch
-name) and pull out its acceptance criteria. Those are part of the review.
+Then read the linked ticket (its key is in the PR body or the branch name; the tracker is
+described in `CLAUDE.md`, "Planning and work tracking") and pull out its acceptance
+criteria. Those are part of the review. If you can't reach the tracker, say so and ask for
+the criteria.
 
 ## Step 2: Mechanical checks
 
@@ -88,7 +90,7 @@ Keras but is new to Akida.
 5. **Reader fit.** Explains the Akida-specific *why*, skips generic ML tutorials, is runnable
    top to bottom, and points to existing sections instead of duplicating them. Follows the
    Style section of `CLAUDE.md`.
-6. **Acceptance criteria.** Each criterion from the issue is met, unmet, or can't be
+6. **Acceptance criteria.** Each criterion from the ticket is met, unmet, or can't be
    verified here.
 
 ## Step 4: Say what you could not verify

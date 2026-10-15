@@ -47,7 +47,7 @@ Akida 2.** Standard NPs have a smaller per-NP limit on the second dimension (32 
 Akida 1, 64 on Akida 2), but a standard layer can be split spatially across several NPs,
 up to the number available, so in practice the input layer's limit is the one that
 constrains input shapes. That is why `uored_vafcls` frames its input as 300 × 140 rather
-than 140 × 300, and why the Akida 2 segmentation spec (#49) feeds a 384 × 768 image to
+than 140 × 300, and why the planned Akida 2 segmentation example feeds a 384 × 768 image to
 Akida transposed, as 768 × 384.
 *Source: BrainChip engineering, 2026-10-09.*
 
@@ -170,7 +170,7 @@ expected to do better, and `akida2/model_zoo/vww` uses one (#26). Build it as
 still takes uint8 inputs. So an Akida 2 example
 ported with an AkidaNet backbone is a candidate for a follow-up improvement that swaps in
 MobileNet at the same alpha and resolution. Port first as the source has it, then raise
-the swap as its own issue under the Model improvement epic (#39), as #99 does for
+the swap as its own ticket in the Akida 2 model zoo epic, as #99 does for
 PlantVillage.
 
 **Measured** on PlantVillage, alpha 0.5, 224 × 224 (#99):

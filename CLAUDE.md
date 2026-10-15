@@ -11,8 +11,9 @@ hardware. It complements the official docs (doc.brainchipinc.com); it does not r
 
 Readers are ML engineers who already know Keras/TensorFlow but are new to Akida. They want
 something they can run, numbers they can trust, and the Akida-specific "why" explained.
-The repo is **public**, so everything committed (issues and ROADMAP.md included) is
-customer-facing.
+The repo is **public**, so everything committed (ROADMAP.md included), and every PR, issue
+and branch name, is customer-facing. Planned work is tracked internally (see "Planning and
+work tracking").
 
 ## Structure
 
@@ -109,7 +110,7 @@ inline HTML and long lines on purpose.
 
 Claude can develop an example end to end: code, templates, notebooks, landing pages, CI,
 and **GPU training runs** that produce `pretrained_models/` weights and `metrics.json`.
-Training is Claude's to run unless the issue says otherwise. When running it:
+Training is Claude's to run unless the ticket says otherwise. When running it:
 
 - check the GPU is free (`nvidia-smi`) before launching, and never stop jobs you didn't start;
 - run long jobs in the background and log to a file. Record the exact command, epochs,
@@ -121,14 +122,14 @@ Training is Claude's to run unless the issue says otherwise. When running it:
 Claude can run them when remote access to the benchmark machines is configured in a
 `CLAUDE.local.md` (local-only, git-ignored). Otherwise they need a human.
 
-These steps **need a human** and must be labelled `needs-human` on the issue:
+These steps **need a human** and must be labelled `needs-human` on the ticket:
 
 - hardware benchmarks, when remote hardware access isn't configured;
 - dataset licensing decisions and anything touching product positioning or roadmap;
-- any step the issue explicitly reserves for a human (e.g. a training run the owner
+- any step the ticket explicitly reserves for a human (e.g. a training run the owner
   wants to do themselves).
 
-When a task mixes both, split it: the human-only step becomes its own sub-issue and the
+When a task mixes both, split it: the human-only step becomes its own ticket and the
 writing step waits for its outputs (`metrics.json`, weights, plots).
 
 ## Definition of done (content PRs)
@@ -141,13 +142,31 @@ writing step waits for its outputs (`metrics.json`, weights, plots).
 5. New example linked from the landing pages (`README.md` table, and `zoo_card.json`).
 6. CI green (`models-float`, plus `models-hardware` for new or changed weights).
 7. `/review-content` run on the branch, with no blocking findings left open.
-8. The PR links its issue and ticks the issue's acceptance criteria.
+8. The PR names its ticket key, and the ticket's acceptance criteria are ticked in the
+   tracker.
 
 ## Planning and work tracking
 
 - Strategy: `ROADMAP.md`. Claude may propose edits by PR but never merges them.
-- Execution: GitHub Issues and the Projects board. Labels and their meaning are in
-  `.github/labels.yml`. Only pick up issues labelled `agent-ready`. If an issue is
-  ambiguous, comment with questions and swap the label to `needs-human`. Don't guess.
-- Issue templates in `.github/ISSUE_TEMPLATE/` require acceptance criteria and source
-  material; treat those as the spec.
+- Execution: an **internal Jira project**, not GitHub Issues (the repo is public). The
+  site, project key and search query are in `CLAUDE.local.md`; without that access, ask
+  the owner for the ticket.
+- **Tickets are the spec.** Sections: Context, Acceptance criteria (a checklist), Source
+  material, Steps reserved for a human, Notes. Every ticket for this repo has a parent epic
+  (one per platform model zoo, plus Tutorials, Deployment and Agent workflow) and the
+  repo's label.
+- **Labels.** `agent-ready`: Claude may pick it up and do it end to end. `needs-human`:
+  blocked on a person (a decision, source material, or a step reserved for a human).
+  They're mutually exclusive; a ticket with neither isn't ready. `parked`: don't start.
+  `akida1` / `akida2` / `pico` mark platform-specific tickets outside the platform epics.
+- **Picking up work** happens on request: take the highest-ranked `agent-ready` ticket in
+  To Do, move it to In Progress, and work on a branch named with its key
+  (`<kind>/<KEY>-<slug>`, e.g. `content/HUB-12-imagenet-eval`). The PR body says
+  `Refs <KEY>`; then comment the PR link on the ticket and move it to In Review. If a
+  ticket is ambiguous, comment with questions and swap its label to `needs-human`. Don't
+  guess.
+- **Nothing internal goes public.** PRs, commits and branch names carry the ticket key,
+  never the ticket's content: no internal names, customers, dates or plans. Write the PR
+  description for an outside reader.
+- GitHub Issues stay open for outside users: bug reports (`.github/ISSUE_TEMPLATE/`) and
+  the weekly broken-link report. Labels for those are in `.github/labels.yml`.
