@@ -14,11 +14,13 @@ import tensorflow as tf
 from tf_keras.losses import SparseCategoricalCrossentropy
 from tf_keras.optimizers.legacy import Adam
 from tf_keras.callbacks import LearningRateScheduler
-from tf_keras import regularizers
 from tf_keras.layers import ReLU
 from tf_keras.utils import set_random_seed
 
 from cnn2snn import load_quantized_model
+from quantizeml.layers import QuantizedReLU
+
+from brainchip_utils.training_utils import HoyerSquare
 
 from plant_village_data import get_data
 
@@ -43,10 +45,12 @@ def train_plant_village(model, train_ds, val_ds, epochs, learning_rate,
     set_random_seed(seed)
 
     if regularization is not None:
-        print('Adding Activity Regularization to ReLU layers')
-        regularizer = regularizers.L1L2(regularization, regularization)
+        # Hoyer-Square on every ReLU output pushes activations towards sparsity. It is
+        # applied to QuantizedReLU too, so QAT keeps the model sparse after quantization.
+        print(f'Adding Hoyer-Square activity regularization ({regularization:g}) to ReLU layers')
+        regularizer = HoyerSquare(regularization)
         for layer in model.layers:
-            if isinstance(layer, ReLU):
+            if isinstance(layer, (ReLU, QuantizedReLU)):
                 layer.activity_regularizer = regularizer
 
     # The model outputs logits (no softmax), so the loss applies the softmax
@@ -78,7 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('-lr', '--learning_rate', type=float, default=1e-2,
                         help='Initial learning rate')
     parser.add_argument('-reg', '--regularization', type=float, default=None,
-                        help='Activity Regularization to increase sparsity')
+                        help='Hoyer-Square activity regularization strength, to increase sparsity')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')
     args = parser.parse_args()

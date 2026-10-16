@@ -112,6 +112,7 @@ if __name__ == '__main__':
         #   ds_cnn_speech_commands.h5                    -> float_acc, params
         #   ds_cnn_speech_commands_i8_w8_a8.{h5,fbz}     -> w8a8_quant_acc / w8a8_akida_acc
         #   ds_cnn_speech_commands_i8_w4_a4_qat.{h5,fbz} -> w4a4_qat_quant_acc / w4a4_qat_akida_acc
+        #   ds_cnn_speech_commands_sparse*                -> the same keys, prefixed sparse_
         # (The 4-bit PTQ model is a throwaway on the way to QAT -- never stored.)
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
@@ -125,12 +126,16 @@ if __name__ == '__main__':
         else:
             variant = None  # float model
 
+        # The sparse variant (Hoyer-Square regularized, see the README) has "sparse" in its
+        # filename, and its keys are prefixed with sparse_
+        prefix = 'sparse_' if 'sparse' in stem else ''
+
         if variant is None:
-            metrics['float_acc'] = acc_str
+            metrics[f'{prefix}float_acc'] = acc_str
             metrics['params'] = f'{model.count_params():,}'
         elif isakida:
-            metrics[f'{variant}_akida_acc'] = acc_str
+            metrics[f'{prefix}{variant}_akida_acc'] = acc_str
         else:
-            metrics[f'{variant}_quant_acc'] = acc_str
+            metrics[f'{prefix}{variant}_quant_acc'] = acc_str
         metrics_path.write_text(json.dumps(metrics, indent=4) + '\n')
         print(f'Metrics saved to {metrics_path}')

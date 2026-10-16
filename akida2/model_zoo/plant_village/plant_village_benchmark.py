@@ -179,6 +179,8 @@ if __name__ == '__main__':
             variant = 'w4a4_qat'
         else:
             variant = 'w8a8'  # fallback; benchmarking is only meaningful for a quantized .fbz
+        if 'sparse' in model_stem:
+            variant = 'sparse_' + variant  # the Hoyer-Square regularized variant
 
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
