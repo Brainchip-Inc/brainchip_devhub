@@ -36,5 +36,9 @@
     "w4a4_qat_hwpr_passes": "4",
     "w4a4_qat_hwpr_cycles": "86385",
     "w4a4_qat_hwpr_latency_ms": "3.455",
-    "w4a4_qat_hwpr_projected_ms": "0.086"
+    "w4a4_qat_hwpr_projected_ms": "0.086",
+    "sparse_w8a8_quant_acc": "93.69%",
+    "sparse_w8a8_akida_acc": "93.69%",
+    "sparse_w4a4_qat_quant_acc": "93.37%",
+    "sparse_w4a4_qat_akida_acc": "93.37%"
 }
