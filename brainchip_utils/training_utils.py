@@ -2,6 +2,7 @@
 """Training helpers shared across model zoo examples."""
 import tensorflow as tf
 import tf_keras
+from quantizeml.tensors import QTensor
 from tf_keras.regularizers import Regularizer
 
 
@@ -14,6 +15,11 @@ class HoyerSquare(Regularizer):
     rather than small values. Applied per activation tensor; on Akida, sparser
     activations mean less computation and lower latency and energy.
 
+    It also works during quantization-aware training. A quantizeml layer such as
+    QuantizedReLU outputs a QTensor (e.g. a FixedPoint with per-channel scales), which
+    TensorFlow's reductions can't take directly; it is converted to float first, and
+    gradients still reach the weights through the quantizers' straight-through estimators.
+
     Args:
         strength (float): weight of the penalty in the training loss.
     """
@@ -22,6 +28,8 @@ class HoyerSquare(Regularizer):
         self.strength = float(strength)
 
     def __call__(self, x):
+        if isinstance(x, QTensor):
+            x = x.to_float()
         l1 = tf.reduce_sum(tf.abs(x))
         l2sq = tf.reduce_sum(tf.square(x)) + 1e-8  # epsilon avoids div-by-zero on zero tensors
         return self.strength * (l1 ** 2) / l2sq
