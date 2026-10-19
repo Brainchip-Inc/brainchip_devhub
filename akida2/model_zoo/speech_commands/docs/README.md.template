@@ -76,6 +76,10 @@ model). With HwPr mapping, the 8-bit sparse model needs
 **{sparse_w8a8_hwpr_cycle_reduction} fewer cycles** than the dense 8-bit model, and the
 4-bit sparse model {sparse_w4a4_qat_hwpr_cycle_reduction} fewer than the dense 4-bit one.
 
+This recipe is what worked for this model, not a general rule. The
+[PlantVillage example](../plant_village) needed a different one, and the best way to
+train sparse Akida 2 models is still being worked out across the model zoo.
+
 **Akida 2 hardware benchmark (FPGA @ 25 MHz)**
 
 Latency is measured on the Akida 2 FPGA reference platform, which runs at

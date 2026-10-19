@@ -40,8 +40,45 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">94.67%</td>
       <td align="center">50.49%</td>
     </tr>
+    <tr>
+      <td>8-bit sparse</td>
+      <td align="center">w8 / a8</td>
+      <td align="center">yes</td>
+      <td align="center">93.69%</td>
+      <td align="center">93.69%</td>
+      <td align="center">75.01%</td>
+    </tr>
+    <tr>
+      <td>4-bit sparse</td>
+      <td align="center">w4 / a4</td>
+      <td align="center">yes</td>
+      <td align="center">93.37%</td>
+      <td align="center">93.37%</td>
+      <td align="center">70.00%</td>
+    </tr>
   </tbody>
 </table>
+
+### Sparse variants
+
+Akida processes events, the non-zero activations, so a sparser model does less work.
+The sparse variants are trained with an activity regularizer on every ReLU
+(Hoyer-Square, `HoyerSquare` in [brainchip_utils/training_utils.py](../../../brainchip_utils/training_utils.py)),
+which pushes activations to zero without shrinking the ones that matter. It is applied
+during float training and again during QAT, so the model stays sparse after
+quantization. The 8-bit sparse model therefore goes through QAT as well: post-training
+quantization is not reliable on a model regularized this way.
+
+The regularization strength trades accuracy for sparsity. Each bit width uses the
+strongest value that kept the Akida accuracy above target over three training seeds:
+1e-4 for 8-bit, 2e-5 for 4-bit (4-bit quantization costs more accuracy on a sparse
+model). With HwPr mapping, the 8-bit sparse model needs
+**31% fewer cycles** than the dense 8-bit model, and the
+4-bit sparse model 15% fewer than the dense 4-bit one.
+
+This recipe is what worked for this model, not a general rule. The
+[PlantVillage example](../plant_village) needed a different one, and the best way to
+train sparse Akida 2 models is still being worked out across the model zoo.
 
 **Akida 2 hardware benchmark (FPGA @ 25 MHz)**
 
@@ -119,6 +156,56 @@ rescale of the measured cycles.
       <td align="center">3.455</td>
       <td align="center">0.086</td>
     </tr>
+    <tr>
+      <td rowspan="3">8-bit sparse</td>
+      <td>Minimal</td>
+      <td align="center">10</td>
+      <td align="center">1</td>
+      <td align="center">168736</td>
+      <td align="center">6.749</td>
+      <td align="center">0.169</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">18</td>
+      <td align="center">1</td>
+      <td align="center">92210</td>
+      <td align="center">3.688</td>
+      <td align="center">0.092</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">90</td>
+      <td align="center">4</td>
+      <td align="center">77641</td>
+      <td align="center">3.106</td>
+      <td align="center">0.078</td>
+    </tr>
+    <tr>
+      <td rowspan="3">4-bit sparse (QAT)</td>
+      <td>Minimal</td>
+      <td align="center">10</td>
+      <td align="center">1</td>
+      <td align="center">137543</td>
+      <td align="center">5.502</td>
+      <td align="center">0.138</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">18</td>
+      <td align="center">1</td>
+      <td align="center">78022</td>
+      <td align="center">3.121</td>
+      <td align="center">0.078</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">90</td>
+      <td align="center">4</td>
+      <td align="center">73282</td>
+      <td align="center">2.931</td>
+      <td align="center">0.073</td>
+    </tr>
   </tbody>
 </table>
 
@@ -143,6 +230,18 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 <img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
+
+#### 8-bit sparse (w8 / a8, QAT)
+
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_sparse_i8_w8_a8_qat.png" alt="8-bit sparse full-model benchmark results" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_sparse_i8_w8_a8_qat.png" alt="8-bit sparse per-layer benchmark results" width="700"/>
+
+#### 4-bit sparse (w4 / a4, QAT)
+
+<img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_sparse_i8_w4_a4_qat.png" alt="4-bit sparse full-model benchmark results" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_sparse_i8_w4_a4_qat.png" alt="4-bit sparse per-layer benchmark results" width="700"/>
 
 The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture
 for keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)
@@ -248,6 +347,7 @@ several variants, each converted to Akida format:
 | Full-precision | Float32 training from scratch |
 | 8-bit quantization | `quantizeml quantize` to 8-bit weights and activations (8-bit input), calibrated on real samples; no QAT required |
 | 4-bit quantization | `quantizeml quantize` to 4-bit weights and activations (8-bit input), calibrated on real samples, with QAT fine-tuning — 4-bit PTQ accuracy is poor so only the QAT model is kept |
+| Sparse variants | Float training from scratch with Hoyer-Square activity regularization (`-reg`), then quantization and QAT with the same regularization, at 8-bit (strength 1e-4) and 4-bit (strength 2e-5) |
 | Conversion to Akida | Automated conversion of each quantized model to Akida 2 format with `cnn2snn convert` |
 
 ## Reference Models
@@ -321,6 +421,14 @@ python speech_commands_benchmark.py -l pretrained_models/ds_cnn_speech_commands_
 python speech_commands_eval.py -l pretrained_models/ds_cnn_speech_commands_i8_w4_a4_qat.h5 --save-metrics
 python speech_commands_eval.py -l pretrained_models/ds_cnn_speech_commands_i8_w4_a4_qat.fbz --save-metrics
 python speech_commands_benchmark.py -l pretrained_models/ds_cnn_speech_commands_i8_w4_a4_qat.fbz --save-metrics
+
+# Sparse variants (QAT, Hoyer-Square regularized)
+python speech_commands_eval.py -l pretrained_models/ds_cnn_speech_commands_sparse_i8_w8_a8_qat.h5 --save-metrics
+python speech_commands_eval.py -l pretrained_models/ds_cnn_speech_commands_sparse_i8_w8_a8_qat.fbz --save-metrics
+python speech_commands_benchmark.py -l pretrained_models/ds_cnn_speech_commands_sparse_i8_w8_a8_qat.fbz --save-metrics
+python speech_commands_eval.py -l pretrained_models/ds_cnn_speech_commands_sparse_i8_w4_a4_qat.h5 --save-metrics
+python speech_commands_eval.py -l pretrained_models/ds_cnn_speech_commands_sparse_i8_w4_a4_qat.fbz --save-metrics
+python speech_commands_benchmark.py -l pretrained_models/ds_cnn_speech_commands_sparse_i8_w4_a4_qat.fbz --save-metrics
 
 python update_readme.py
 ```
