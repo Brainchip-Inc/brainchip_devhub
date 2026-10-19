@@ -73,9 +73,9 @@ quantization is not reliable on a model regularized this way.
 The regularization strength trades accuracy for sparsity. Each bit width uses the
 strongest value that kept the Akida accuracy above target over three training seeds:
 1e-4 for 8-bit, 2e-5 for 4-bit (4-bit quantization costs more accuracy on a sparse
-model). With HwPr mapping, the 8-bit sparse model needs
-**31% fewer cycles** than the dense 8-bit model, and the
-4-bit sparse model 15% fewer than the dense 4-bit one.
+model). With HwPr mapping, an inference takes **77641 cycles** on the
+8-bit sparse model against 112780 on the dense one, and 73282
+against 86385 at 4 bits.
 
 This recipe is what worked for this model, not a general rule. The
 [PlantVillage example](../plant_village) needed a different one, and the best way to

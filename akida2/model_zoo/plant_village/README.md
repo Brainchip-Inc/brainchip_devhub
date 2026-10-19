@@ -75,10 +75,10 @@ The QAT itself runs **without** the regularizer. Keeping it during QAT made this
 sparser but cost more accuracy than the 99% target for the 8-bit model allowed, while
 the sparsity gained in float training mostly survives QAT without it. The strength
 (2e-6) is the one that met that target over three training seeds. With HwPr mapping,
-the 8-bit sparse model needs **15% fewer cycles** than
-the dense 8-bit model, and the 4-bit sparse model 17%
-fewer than the dense 4-bit one, at some cost in accuracy (97.88%
-against 98.97%).
+an inference takes **4891084 cycles** on the 8-bit sparse model against
+5784264 on the dense one, and 3991030 against
+4801658 at 4 bits, where the sparse model gives up some accuracy
+(97.88% against 98.97%).
 
 This recipe is what worked for this model, not a general rule: the
 [Speech Commands example](../speech_commands) keeps the regularizer through QAT, and

@@ -75,10 +75,10 @@ The QAT itself runs **without** the regularizer. Keeping it during QAT made this
 sparser but cost more accuracy than the 99% target for the 8-bit model allowed, while
 the sparsity gained in float training mostly survives QAT without it. The strength
 (2e-6) is the one that met that target over three training seeds. With HwPr mapping,
-the 8-bit sparse model needs **{sparse_w8a8_hwpr_cycle_reduction} fewer cycles** than
-the dense 8-bit model, and the 4-bit sparse model {sparse_w4a4_qat_hwpr_cycle_reduction}
-fewer than the dense 4-bit one, at some cost in accuracy ({sparse_w4a4_qat_akida_acc}
-against {w4a4_qat_akida_acc}).
+an inference takes **{sparse_w8a8_hwpr_cycles} cycles** on the 8-bit sparse model against
+{w8a8_hwpr_cycles} on the dense one, and {sparse_w4a4_qat_hwpr_cycles} against
+{w4a4_qat_hwpr_cycles} at 4 bits, where the sparse model gives up some accuracy
+({sparse_w4a4_qat_akida_acc} against {w4a4_qat_akida_acc}).
 
 This recipe is what worked for this model, not a general rule: the
 [Speech Commands example](../speech_commands) keeps the regularizer through QAT, and
@@ -238,15 +238,15 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 
 #### 8-bit sparse (w8 / a8, QAT)
 
-<img src="{sparse_w8a8_full_plot}" alt="8-bit sparse full-model benchmark results" width="1050"/>
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_sparse_i8_w8_a8_qat.png" alt="8-bit sparse full-model benchmark results" width="1050"/>
 
-<img src="{sparse_w8a8_layers_plot}" alt="8-bit sparse per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_sparse_i8_w8_a8_qat.png" alt="8-bit sparse per-layer benchmark results" width="700"/>
 
 #### 4-bit sparse (w4 / a4, QAT)
 
-<img src="{sparse_w4a4_qat_full_plot}" alt="4-bit sparse full-model benchmark results" width="1050"/>
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_sparse_i8_w4_a4_qat.png" alt="4-bit sparse full-model benchmark results" width="1050"/>
 
-<img src="{sparse_w4a4_qat_layers_plot}" alt="4-bit sparse per-layer benchmark results" width="700"/>
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_sparse_i8_w4_a4_qat.png" alt="4-bit sparse per-layer benchmark results" width="700"/>
 
 The model is a **MobileNet (V1)** with width multiplier **alpha = 0.5** and input
 resolution **224 × 224**, using transfer learning from an ImageNet-pretrained

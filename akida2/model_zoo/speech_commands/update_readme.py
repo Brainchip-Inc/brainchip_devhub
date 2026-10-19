@@ -36,14 +36,6 @@ for variant, stem in VARIANT_MODEL_STEMS.items():
     context[f"{variant}_layers_plot"] = f"docs/ref_benchmark_results_layers_{stem}.png"
     context[f"{variant}_full_plot"] = f"docs/ref_benchmark_results_full_{stem}.png"
 
-# How many fewer cycles each sparse variant needs than the dense one at the same bit width,
-# per mapping mode, as `{sparse_<variant>_<mode>_cycle_reduction}` (e.g. "31%").
-for variant in ("w8a8", "w4a4_qat"):
-    for mode in ("minimal", "allnps", "hwpr"):
-        dense, sparse = (metrics.get(f"{p}{variant}_{mode}_cycles") for p in ("", "sparse_"))
-        if dense and sparse:
-            context[f"sparse_{variant}_{mode}_cycle_reduction"] = f"{1 - float(sparse) / float(dense):.0%}"
-
 (here / "README.md").write_text(template.format_map(context))
 print("README.md updated.")
 
