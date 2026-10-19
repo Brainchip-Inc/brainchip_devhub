@@ -87,10 +87,12 @@ recipes:
 - Post-training quantization of a regularized model can fail outright: PlantVillage at
   strength 1e-4 went from 75.1 % float to 1.6 % after 8-bit PTQ. So QAT is used at 8
   bits as well. *Source: BrainChip engineering (repo owner), 2026-10-16; measured.*
-- Keeping the regularizer during QAT kept Speech Commands sparse at no extra cost, but
-  cost PlantVillage about 0.4 points from the first QAT epoch at every strength tried,
-  so its 99 % target was only met with QAT *without* the regularizer. The sparsity from
-  float training mostly survived that (47.5 % after PTQ, 45.0 % after QAT, at 2e-6).
+- Keeping the regularizer during QAT worked for Speech Commands: 8-bit QAT accuracy was
+  at or above the regularized float model's (QAT without it wasn't tried there). On
+  PlantVillage it lost 0.1–0.65 points against PTQ at every strength tried (5e-7 to
+  1e-5), so the 99 % target was only met with QAT *without* the regularizer. The
+  sparsity from float training mostly survived that (47.5 % after PTQ, 45.0 % after QAT,
+  at 2e-6).
 - **Not a general conclusion** (repo owner, 2026-10-19). Keep comparing strategies on
   the next sparse models (regularizer in QAT or not, PTQ or QAT, strength per bit
   width) before writing one-size-fits-all guidance.
