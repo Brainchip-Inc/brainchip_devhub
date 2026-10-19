@@ -128,9 +128,9 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td></td>
     </tr>
     <tr>
-      <td rowspan="2"><a href="model_zoo/plant_village">Plant disease recognition</a></td>
-      <td rowspan="2">Classification</td>
-      <td rowspan="2">PlantVillage</td>
+      <td rowspan="4"><a href="model_zoo/plant_village">Plant disease recognition</a></td>
+      <td rowspan="4">Classification</td>
+      <td rowspan="4">PlantVillage</td>
       <td>8-bit</td>
       <td>99.43% acc.</td>
       <td>HwPr</td>
@@ -144,6 +144,22 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>HwPr</td>
       <td align="right">192.066</td>
       <td align="right">4.802</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>8-bit sparse</td>
+      <td>99.28% acc.</td>
+      <td>HwPr</td>
+      <td align="right">195.643</td>
+      <td align="right">4.891</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>4-bit QAT sparse</td>
+      <td>97.88% acc.</td>
+      <td>HwPr</td>
+      <td align="right">159.641</td>
+      <td align="right">3.991</td>
       <td></td>
     </tr>
   </tbody>

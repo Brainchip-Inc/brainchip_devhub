@@ -6,7 +6,8 @@
 
 Float accuracy: **99.61%** &nbsp;|&nbsp; Parameters: **849,030**
 
-The quantized variants below all share the same float backbone. On Akida 2 the
+The dense 8-bit and 4-bit variants below share the same float backbone; the sparse
+variants share a second, regularized one (see [Sparse variants](#sparse-variants)). On Akida 2 the
 model is quantized with **`quantizeml`**: 8-bit weights and activations need no
 quantization-aware training (QAT), while a lower-precision 4-bit variant (4-bit
 weights and activations, 8-bit input layer) uses QAT to recover accuracy — 4-bit
@@ -40,8 +41,49 @@ PTQ accuracy is poor, so only the QAT result is reported.
       <td align="center">98.97%</td>
       <td align="center">33.69%</td>
     </tr>
+    <tr>
+      <td>8-bit sparse</td>
+      <td align="center">w8 / a8</td>
+      <td align="center">yes</td>
+      <td align="center">99.28%</td>
+      <td align="center">99.28%</td>
+      <td align="center">45.03%</td>
+    </tr>
+    <tr>
+      <td>4-bit sparse</td>
+      <td align="center">w4 / a4</td>
+      <td align="center">yes</td>
+      <td align="center">97.88%</td>
+      <td align="center">97.88%</td>
+      <td align="center">48.90%</td>
+    </tr>
   </tbody>
 </table>
+
+### Sparse variants
+
+Akida processes events, the non-zero activations, so a sparser model does less work.
+The sparse variants come from a float model trained with an activity regularizer on
+every ReLU (Hoyer-Square, `HoyerSquare` in
+[brainchip_utils/training_utils.py](../../../brainchip_utils/training_utils.py)), which
+pushes activations to zero without shrinking the ones that matter. Both bit widths are
+quantized from that one model and fine-tuned with QAT, the 8-bit one included: QAT
+was more accurate than post-training quantization here, and post-training
+quantization collapsed entirely at stronger regularization.
+
+The QAT itself runs **without** the regularizer. Keeping it during QAT made this model
+sparser but cost more accuracy than the 99% target for the 8-bit model allowed, while
+the sparsity gained in float training mostly survives QAT without it. The strength
+(2e-6) is the one that met that target over three training seeds. With HwPr mapping,
+the 8-bit sparse model needs **15% fewer cycles** than
+the dense 8-bit model, and the 4-bit sparse model 17%
+fewer than the dense 4-bit one, at some cost in accuracy (97.88%
+against 98.97%).
+
+This recipe is what worked for this model, not a general rule: the
+[Speech Commands example](../speech_commands) keeps the regularizer through QAT, and
+the best way to train sparse Akida 2 models is still being worked out across the model
+zoo.
 
 **Akida 2 hardware benchmark (FPGA @ 25 MHz)**
 
@@ -119,6 +161,56 @@ rescale of the measured cycles.
       <td align="center">192.066</td>
       <td align="center">4.802</td>
     </tr>
+    <tr>
+      <td rowspan="3">8-bit sparse</td>
+      <td>Minimal</td>
+      <td align="center">66</td>
+      <td align="center">3</td>
+      <td align="center">6774535</td>
+      <td align="center">270.981</td>
+      <td align="center">6.775</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">67</td>
+      <td align="center">3</td>
+      <td align="center">6752715</td>
+      <td align="center">270.109</td>
+      <td align="center">6.753</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">94</td>
+      <td align="center">4</td>
+      <td align="center">4891084</td>
+      <td align="center">195.643</td>
+      <td align="center">4.891</td>
+    </tr>
+    <tr>
+      <td rowspan="3">4-bit sparse (QAT)</td>
+      <td>Minimal</td>
+      <td align="center">39</td>
+      <td align="center">2</td>
+      <td align="center">7366025</td>
+      <td align="center">294.641</td>
+      <td align="center">7.366</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">40</td>
+      <td align="center">2</td>
+      <td align="center">7346439</td>
+      <td align="center">293.858</td>
+      <td align="center">7.346</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">94</td>
+      <td align="center">4</td>
+      <td align="center">3991030</td>
+      <td align="center">159.641</td>
+      <td align="center">3.991</td>
+    </tr>
   </tbody>
 </table>
 
@@ -143,6 +235,18 @@ non-zero activations it receives; sparsity is measured on real dataset samples.
 <img src="docs/ref_benchmark_results_full_mobilenet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
+
+#### 8-bit sparse (w8 / a8, QAT)
+
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_sparse_i8_w8_a8_qat.png" alt="8-bit sparse full-model benchmark results" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_sparse_i8_w8_a8_qat.png" alt="8-bit sparse per-layer benchmark results" width="700"/>
+
+#### 4-bit sparse (w4 / a4, QAT)
+
+<img src="docs/ref_benchmark_results_full_mobilenet_plant_village_sparse_i8_w4_a4_qat.png" alt="4-bit sparse full-model benchmark results" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_mobilenet_plant_village_sparse_i8_w4_a4_qat.png" alt="4-bit sparse per-layer benchmark results" width="700"/>
 
 The model is a **MobileNet (V1)** with width multiplier **alpha = 0.5** and input
 resolution **224 × 224**, using transfer learning from an ImageNet-pretrained
@@ -222,6 +326,7 @@ several variants, each converted to Akida format:
 | Full-precision | Float32 training from scratch |
 | 8-bit quantization | `quantizeml quantize` to 8-bit weights and activations (8-bit input), calibrated on real samples; no QAT required |
 | 4-bit quantization | `quantizeml quantize` to 4-bit weights and activations (8-bit input), calibrated on real samples, with QAT fine-tuning — 4-bit PTQ accuracy is poor so only the QAT model is kept |
+| Sparse variants | Float fine-tuning from the ImageNet backbone with Hoyer-Square activity regularization (`-reg 2e-6`), then 8-bit and 4-bit quantization, each with QAT without the regularizer |
 | Conversion to Akida | Automated conversion of each quantized model to Akida 2 format with `cnn2snn convert` |
 
 ## Reference Models
@@ -291,6 +396,14 @@ python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_i
 python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.h5 --save-metrics
 python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.fbz --save-metrics
 python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_i8_w4_a4_qat.fbz --save-metrics
+
+# Sparse variants (Hoyer-Square regularized, QAT)
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_sparse_i8_w8_a8_qat.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_sparse_i8_w8_a8_qat.fbz --save-metrics
+python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_sparse_i8_w8_a8_qat.fbz --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_sparse_i8_w4_a4_qat.h5 --save-metrics
+python plant_village_eval.py -l pretrained_models/mobilenet_plant_village_sparse_i8_w4_a4_qat.fbz --save-metrics
+python plant_village_benchmark.py -l pretrained_models/mobilenet_plant_village_sparse_i8_w4_a4_qat.fbz --save-metrics
 
 python update_readme.py
 ```

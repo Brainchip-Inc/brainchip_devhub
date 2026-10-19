@@ -6,7 +6,8 @@
 
 Float accuracy: **{float_acc}** &nbsp;|&nbsp; Parameters: **{params}**
 
-The quantized variants below all share the same float backbone. On Akida 2 the
+The dense 8-bit and 4-bit variants below share the same float backbone; the sparse
+variants are trained separately (see [Sparse variants](#sparse-variants)). On Akida 2 the
 model is quantized with **`quantizeml`**: 8-bit weights and activations need no
 quantization-aware training (QAT), while a lower-precision 4-bit variant (4-bit
 weights and activations, 8-bit input layer) uses QAT to recover accuracy — 4-bit

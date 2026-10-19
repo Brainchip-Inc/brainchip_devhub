@@ -20,6 +20,8 @@ here = pathlib.Path(__file__).parent
 VARIANT_MODEL_STEMS = {
     "w8a8": "mobilenet_plant_village_i8_w8_a8",
     "w4a4_qat": "mobilenet_plant_village_i8_w4_a4_qat",
+    "sparse_w8a8": "mobilenet_plant_village_sparse_i8_w8_a8_qat",
+    "sparse_w4a4_qat": "mobilenet_plant_village_sparse_i8_w4_a4_qat",
 }
 
 metrics = json.loads((here / "docs" / "metrics.json").read_text())
@@ -33,6 +35,14 @@ context = dict(metrics)
 for variant, stem in VARIANT_MODEL_STEMS.items():
     context[f"{variant}_layers_plot"] = f"docs/ref_benchmark_results_layers_{stem}.png"
     context[f"{variant}_full_plot"] = f"docs/ref_benchmark_results_full_{stem}.png"
+
+# How many fewer cycles each sparse variant needs than the dense one at the same bit width,
+# per mapping mode, as `{sparse_<variant>_<mode>_cycle_reduction}` (e.g. "15%").
+for variant in ("w8a8", "w4a4_qat"):
+    for mode in ("minimal", "allnps", "hwpr"):
+        dense, sparse = (metrics.get(f"{p}{variant}_{mode}_cycles") for p in ("", "sparse_"))
+        if dense and sparse:
+            context[f"sparse_{variant}_{mode}_cycle_reduction"] = f"{1 - float(sparse) / float(dense):.0%}"
 
 (here / "README.md").write_text(template.format_map(context))
 print("README.md updated.")
