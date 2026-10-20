@@ -18,8 +18,10 @@ Benchmark details:
     at the AKD2500 target clock. Cycle count is fixed for a given model and
     mapping regardless of clock speed, so projected_latency_ms = cycles / target_clock.
   * Power is not measured: the FPGA has no power measurement path.
-  * The FPGA has 6 nodes (24 NPs). The larger models need more NPs in a single
-    pass than it has, so they don't map, and the script says so and exits.
+  * The FPGA has 6 nodes (24 NPs). The benchmark maps the whole model in one
+    hardware sequence (hw_only=True). The larger models need more NPs in a
+    single pass than the FPGA has, so they don't fit in one sequence, and the
+    script says so and exits.
 
 By default the benchmark runs on the 10-image ImageNet-like sample pack (cycled
 up to 100 inferences), so it needs no dataset setup. Akida is event-driven and
@@ -144,8 +146,9 @@ if __name__ == '__main__':
               f'{res["projected_clk_ms"]:.3f} ms')
 
     if not full_results:
-        sys.exit(f'{loadmodel.name} does not map onto {device.desc} in any mode: '
-                 'it needs a larger Akida 2 device. Nothing to benchmark.')
+        sys.exit(f'{loadmodel.name} does not fit onto {device.desc} in a single '
+                 'hardware sequence in any mode: it needs a larger Akida 2 device. '
+                 'Nothing to benchmark.')
 
     # -------------------------------------------------------------------------
     # Full-model plot and metrics

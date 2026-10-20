@@ -35,7 +35,8 @@ for another task:
   dense layer runs on a single dedicated dense-layer NP (FNP), whereas a 1 x 1
   convolution with 1000 filters is spread over many convolutional NPs (CNPs).
   On the 6-node Akida 2 FPGA that convolution needs more CNPs than a single
-  pass has from alpha 0.75 up, so those models don't map at all. A classifier
+  pass has from alpha 0.75 up, so those models don't fit in a single hardware
+  sequence. A classifier
   with few classes is a different case: see below.
 
 * **Dropout is kept** in the V1 head. It has no effect at inference and
@@ -43,8 +44,10 @@ for another task:
   models on another task and still convert them as they are.
 
 **Which models fit the 6-node Akida 2 FPGA.** MobileNetV1 at alpha 0.25, 0.5
-and 0.75, and MobileNetV2 at 0.35 and 0.5, map onto it. The other three need a
-larger Akida 2 device, and map onto a 12-node one: in each, a single layer needs
+and 0.75, and MobileNetV2 at 0.35 and 0.5, map onto it in a single hardware
+sequence. The other three fit in one sequence on a 12-node Akida 2 device; on
+the FPGA they only run split into several sequences (``hw_only=False``), with
+the values between sequences leaving the chip. In each, a single layer needs
 more NPs than one pass on the FPGA offers (NP counts from the akida 2.19 mapper).
 
 * MobileNetV2 0.75 and 1.0: ``block_1_depthwise`` needs 21 NPs. That is driven
@@ -55,10 +58,10 @@ more NPs than one pass on the FPGA offers (NP counts from the akida 2.19 mapper)
   classifier must share a pass with it (a layer writes its outputs into the next
   layer's input buffers, so every pass holds at least two layers), so no dense
   classifier can follow it. Without the 1000-class ImageNet classifier the
-  model does map, though: as a backbone (for object detection, say), or with a
-  small classifier for an edge task, written as a 1 x 1 convolution after
-  pooling. A 30-class one maps (it needs one more NP); a 100-class one needs
-  three and doesn't. So MobileNetV1 1.0 remains a good starting point for
+  model does fit in one sequence, though: as a backbone (for object detection,
+  say), or with a small classifier for an edge task, written as a 1 x 1
+  convolution after pooling. A 30-class one fits (it needs one more NP); a
+  100-class one needs three and doesn't. So MobileNetV1 1.0 remains a good starting point for
   transfer learning on the FPGA.
 
 **2. Resolve a model file from (version, alpha, variant).**

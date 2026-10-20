@@ -120,6 +120,9 @@ passes.**
 - The advantage: even in HwPr, the values passed between layers never leave the chip,
   across any number of passes. That is a defining difference from sequences, whose final
   values must leave the chip.
+- A model that doesn't fit in one sequence can still run on the device if the mapper may
+  split it into several (`map(device, hw_only=False)`). The three MobileNets above map
+  onto the FPGA that way, as two or three hardware sequences (akida 2.19, 2026-10-20).
 - Whether Akida 1's HwPr (AKD1500) works the same way is **(unconfirmed)**: ask
   BrainChip engineering.
 

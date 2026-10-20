@@ -30,7 +30,7 @@ on 1,024 ImageNet train images; **Akida** is that model converted with `cnn2snn`
 Akida software backend. Sparsity is the mean activation sparsity of the Akida model, the
 fraction of activations that are zero, and so the work the hardware skips. **Fits the FPGA**
 says whether the model maps onto the 6-node Akida 2 FPGA that the hardware benchmark runs
-on.
+on, in a single hardware sequence (see [Which models fit the FPGA](#which-models-fit-the-fpga)).
 
 <table>
   <thead>
@@ -473,9 +473,11 @@ the per-layer plot shows each layer's latency, input sparsity and NPs under Mini
 
 #### Models that need a larger device
 
-MobileNetV1 at alpha 1.0 and MobileNetV2 at 0.75 and 1.0 don't map onto the 6-node FPGA,
-so they have no hardware figures here. All three map onto a 12-node Akida 2 device. See
-[Which models fit the FPGA](#which-models-fit-the-fpga) for the layer that stops each one.
+MobileNetV1 at alpha 1.0 and MobileNetV2 at 0.75 and 1.0 don't fit onto the 6-node FPGA
+in a single hardware sequence, so they have no hardware figures here. All three fit in one
+sequence on a 12-node Akida 2 device. See
+[Which models fit the FPGA](#which-models-fit-the-fpga) for the layer that stops each one,
+and for how they can still run on the FPGA as several sequences.
 
 ## The models
 
@@ -509,9 +511,10 @@ The classifier heads differ between the two versions:
 
 Akida maps each layer onto as many NPs as it needs, and with HwPr it can spread a model
 over many passes. But a layer is never split across passes, and every pass holds at least
-two layers, because a layer writes its outputs into the next layer's input buffers. So the
-FPGA must hold the largest layer and its neighbour in a single pass. Three models have a
-layer that is too big for that:
+two layers, because a layer writes its outputs into the next layer's input buffers. So,
+for a model to run in a single hardware *sequence*, the device must hold its largest layer
+and that layer's neighbour in one pass. Three models have a layer that is too big for that
+on the FPGA:
 
 - **MobileNetV2 0.75 and 1.0:** `block_1_depthwise` needs 21 NPs. That is driven by its
   large input volume, 112 × 112 × 96 (the block has 96 channels at both widths).
@@ -519,10 +522,16 @@ layer that is too big for that:
   1024 × 1024 weights. Those include the NPs that host the FNPs, so the dense classifier,
   which must share its pass, can't map.
 
-All three map onto a 12-node Akida 2 device. And MobileNetV1 1.0 only fails with the
-1000-class ImageNet classifier: without it, it maps onto the FPGA as a backbone (for object
-detection, say), or with a small classifier for an edge task, written as a 1 × 1
-convolution after the pooling. A 30-class one maps; a 100-class one doesn't. The
+All three fit in a single sequence on a 12-node Akida 2 device. They do also run on the
+FPGA, if you let the mapper split them into several sequences (`map(device,
+hw_only=False)`): two for MobileNetV1 1.0, three for each MobileNetV2. Within a sequence,
+even across passes, the values passed between layers stay on the chip; between sequences
+they leave it. The benchmark here measures single-sequence mappings only.
+
+And MobileNetV1 1.0 only misses the single sequence because of the 1000-class ImageNet
+classifier: without it, it fits as a backbone (for object detection, say), or with a small
+classifier for an edge task, written as a 1 × 1 convolution after the pooling. A 30-class
+one fits; a 100-class one doesn't. The
 [evaluation notebook](imagenet_mobilenet_notebook_evaluation.ipynb) maps every model onto
 both devices.
 

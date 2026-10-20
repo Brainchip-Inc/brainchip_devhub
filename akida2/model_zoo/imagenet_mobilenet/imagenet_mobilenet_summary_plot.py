@@ -3,8 +3,8 @@
 """Summary scatter plot for the README: accuracy against latency.
 
 Akida top-1 accuracy against the latency projected to the AKD2500 target clock,
-for every model that maps onto the 6-node Akida 2 FPGA. The models that need a
-larger device have no hardware numbers and are left out.
+for every model that fits onto the 6-node Akida 2 FPGA in a single hardware
+sequence. The others have no hardware numbers and are left out.
 
 We deliberately use points here, not lines: a few widely spaced widths per
 version are far too few to justify joining, and a line would suggest a smooth
@@ -32,7 +32,7 @@ MAP_MODES = {'minimal': 'Minimal', 'allnps': 'AllNPs', 'hwpr': 'HwPr'}
 TIE_TOLERANCE = 0.01
 
 # Series are the two MobileNet versions, in fixed order, identified by both
-# colour and marker shape. Only the widths that map onto the FPGA are listed.
+# colour and marker shape. Only the widths benchmarked on the FPGA are listed.
 SERIES = [
     {'prefix': 'v1', 'alphas': [0.25, 0.5, 0.75], 'color': '#2a78d6', 'marker': 'o',
      'label': 'MobileNetV1'},

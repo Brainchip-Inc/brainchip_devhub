@@ -67,8 +67,8 @@ def evaluate_akida_model(akida_model, dataset, num_samples=None):
             print('Running inference on Akida hardware device')
             akida_model.summary()
         except RuntimeError as e:
-            # The larger models need more NPs than the device has
-            print(f'Model does not map onto {device.desc} ({e}) - '
+            # The larger models don't fit on the FPGA in a single hardware sequence
+            print(f'Model does not fit onto {device.desc} in one sequence ({e}) - '
                   'running on the software backend')
             akida_model.map(None)
     else:
