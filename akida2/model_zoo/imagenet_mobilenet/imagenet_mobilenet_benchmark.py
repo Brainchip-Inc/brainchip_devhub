@@ -148,37 +148,12 @@ if __name__ == '__main__':
                  'it needs a larger Akida 2 device. Nothing to benchmark.')
 
     # -------------------------------------------------------------------------
-    # Per-layer benchmark. Minimal mapping mode, batch-size 1
-    # -------------------------------------------------------------------------
-    ak_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
-    ak_model.summary()
-
-    # Check sparsity per-layer (for the plot only: the sparsity recorded in
-    # metrics.json is measured over the validation set by imagenet_mobilenet_eval.py)
-    sparsity_dict = compute_sparsity(ak_model, samples=samples)
-    pretty_print_sparsity(sparsity_dict)
-
-    print(f'Running per-layer benchmark ({NUM_SAMPLES} samples)...')
-    per_layer_results = per_layer_benchmark(ak_model, device, samples,
-                                            repeats=NUM_SAMPLES,
-                                            clock_freq=MEASURED_CLOCK)
-
-    # -------------------------------------------------------------------------
-    # Plots
+    # Full-model plot and metrics
     # -------------------------------------------------------------------------
     # Map without hw_only so ak_model.sequences is available for plot_mapping.
     # Plot filenames include the model stem so benchmarking different models
     # doesn't overwrite the previous run's plots.
     ak_model.map(device, mode=akida.MapMode.Minimal)
-    perlayer_savepath = f'benchmark_results_layers_{model_stem}.png'
-    if args.save_metrics:
-        perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + perlayer_savepath)
-    plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
-                           model_name=loadmodel.name,
-                           example='ImageNet MobileNet (Akida 2)',
-                           savepath=perlayer_savepath)
-    print('\nPer-layer results plot saved to ' + str(perlayer_savepath))
-
     full_savepath = f'benchmark_results_full_{model_stem}.png'
     if args.save_metrics:
         full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + full_savepath)
@@ -192,8 +167,9 @@ if __name__ == '__main__':
     if args.save_metrics:
         # Updates the stored metrics used to generate the README performance
         # tables. For code maintenance only, run against the pretrained models.
-        # Sparsity is deliberately not written here (see above), and power keys
-        # are absent: the FPGA benchmark is latency-only.
+        # Sparsity is deliberately not written here (it is measured over the
+        # validation set by imagenet_mobilenet_eval.py), and power keys are
+        # absent: the FPGA benchmark is latency-only.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
         prefix = metrics_prefix(args.version, args.alpha)
@@ -206,3 +182,35 @@ if __name__ == '__main__':
             metrics[f'{prefix}{mode}_projected_ms'] = f'{res["projected_clk_ms"]:.3f}'
         metrics_path.write_text(json.dumps(metrics, indent=4, sort_keys=True) + '\n')
         print(f'Metrics saved to {metrics_path}')
+
+    # -------------------------------------------------------------------------
+    # Per-layer benchmark. Minimal mapping mode, batch-size 1
+    # -------------------------------------------------------------------------
+    ak_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
+    ak_model.summary()
+
+    # Check sparsity per-layer (for the plot only, see above)
+    sparsity_dict = compute_sparsity(ak_model, samples=samples)
+    pretty_print_sparsity(sparsity_dict)
+
+    # The per-layer benchmark times sub-models cut after each layer in turn, which
+    # only works for a model without branches: cutting MobileNetV2 inside a residual
+    # block leaves a skip connection that can't be mapped.
+    print(f'Running per-layer benchmark ({NUM_SAMPLES} samples)...')
+    try:
+        per_layer_results = per_layer_benchmark(ak_model, device, samples,
+                                                repeats=NUM_SAMPLES,
+                                                clock_freq=MEASURED_CLOCK)
+    except RuntimeError as e:
+        sys.exit(f'Per-layer benchmark not available for this model ({e}). '
+                 'The full-model results above are complete.')
+
+    ak_model.map(device, mode=akida.MapMode.Minimal)
+    perlayer_savepath = f'benchmark_results_layers_{model_stem}.png'
+    if args.save_metrics:
+        perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_' + perlayer_savepath)
+    plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
+                           model_name=loadmodel.name,
+                           example='ImageNet MobileNet (Akida 2)',
+                           savepath=perlayer_savepath)
+    print('\nPer-layer results plot saved to ' + str(perlayer_savepath))

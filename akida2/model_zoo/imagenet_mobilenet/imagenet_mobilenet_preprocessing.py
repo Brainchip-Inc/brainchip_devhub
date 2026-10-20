@@ -39,7 +39,9 @@ __all__ = ["preprocess_image", "RESIZE_RATIO"]
 RESIZE_RATIO = 1.143
 
 
-@tf.function
+# reduce_retracing: the sample pack's JPEGs differ in size, and each new shape would
+# otherwise trigger a retrace, and a warning
+@tf.function(reduce_retracing=True)
 def preprocess_image(image, image_size):
     """ImageNet validation/inference preprocessing.
 
