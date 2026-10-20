@@ -51,8 +51,10 @@ more NPs than one pass on the FPGA offers (NP counts from the akida 2.19 mapper)
   by its large input volume, 112 x 112 x 96 (the block has 96 channels at both
   widths).
 * MobileNetV1 1.0: ``conv_pw_13`` needs 22 NPs, driven by the filter memory for
-  its 1024 x 1024 weights. Those include the NPs that host the FNPs, so no
-  dense classifier can follow it. Without the 1000-class ImageNet classifier the
+  its 1024 x 1024 weights. Those include the NPs that host the FNPs, and the
+  classifier must share a pass with it (a layer writes its outputs into the next
+  layer's input buffers, so every pass holds at least two layers), so no dense
+  classifier can follow it. Without the 1000-class ImageNet classifier the
   model does map, though: as a backbone (for object detection, say), or with a
   small classifier for an edge task, written as a 1 x 1 convolution after
   pooling. A 30-class one maps (it needs one more NP); a 100-class one needs

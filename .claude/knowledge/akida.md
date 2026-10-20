@@ -106,6 +106,26 @@ exception (see above).
   (`arrhythmia_classification`). So benchmark all three modes; don't assume.
   *Source: measured, AKD1500, 2026-10-09 (#58); numbers in each example's `metrics.json`.*
 
+**[Akida 2] Every pass holds at least two layers, and a layer is never split across
+passes.**
+- A layer writes its outputs into the input buffers of another layer in the same pass;
+  it can't write to its own input buffers. So each layer shares its pass with the layer
+  it feeds.
+- So HwPr can't rescue a model with one very large layer. That layer and its neighbour
+  must fit in a single pass together, and the mapper's error names whichever of the two
+  ran out of NPs. In `akida2/model_zoo/imagenet_mobilenet`, MobileNetV1 1.0's last
+  pointwise layer takes 22 of the FPGA's 24 NPs, so the classifier that must share its
+  pass can't map, and the error names the classifier. MobileNetV2 0.75 and 1.0 fail on a
+  single 21-NP depthwise layer.
+- The advantage: even in HwPr, the values passed between layers never leave the chip,
+  across any number of passes. That is a defining difference from sequences, whose final
+  values must leave the chip.
+- Whether Akida 1's HwPr (AKD1500) works the same way is **(unconfirmed)**: ask
+  BrainChip engineering.
+
+*Source: BrainChip engineering (repo owner), 2026-10-20; mapped with akida 2.19 on the
+Akida 2 FPGA, 2026-10-20 (HUB-19).*
+
 ## Platforms and clocks
 
 | | NPs | HwPr | Clock | Notes |
@@ -117,6 +137,12 @@ exception (see above).
 
 **[both] A node is 4 NPs.** Akida 2 hardware is often described in nodes, so the
 6-node FPGA has 24 NPs.
+
+**[Akida 2] On the 6-node FPGA, 3 of the 24 NPs can run dense layers** (one FNP2, with
+external weight memory, and two FNP3), and those 3 also serve as convolutional NPs
+(CNPs). A large convolution can therefore take them and leave no FNP for a dense layer
+in the same pass. *Source: `akida.SixNodesIPv2().mesh`, which matches the FPGA's mesh
+(akida 2.19, checked 2026-10-20).*
 
 *Source: akida1/README.md; `brainchip_utils/hardware_utils.py` (`AKIDA_CLOCKS_HZ`);
 BrainChip engineering, 2026-10-09 (Akida 2 HwPr, nodes and NP counts).*
