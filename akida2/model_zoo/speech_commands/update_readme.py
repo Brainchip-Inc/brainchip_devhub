@@ -16,7 +16,8 @@ import runpy
 here = pathlib.Path(__file__).parent
 
 # Variant -> model filename stem. Must match the .fbz names produced by
-# speech_commands_train.sh and the variant keys written into metrics.json.
+# speech_commands_train.sh and speech_commands_train_sparse.sh, and the variant keys
+# written into metrics.json.
 VARIANT_MODEL_STEMS = {
     "w8a8": "ds_cnn_speech_commands_i8_w8_a8",
     "w4a4_qat": "ds_cnn_speech_commands_i8_w4_a4_qat",

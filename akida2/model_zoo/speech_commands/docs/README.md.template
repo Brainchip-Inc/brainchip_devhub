@@ -60,27 +60,6 @@ PTQ accuracy is poor, so only the QAT result is reported.
   </tbody>
 </table>
 
-### Sparse variants
-
-Akida processes events, the non-zero activations, so a sparser model does less work.
-The sparse variants are trained with an activity regularizer on every ReLU
-(Hoyer-Square, `HoyerSquare` in [brainchip_utils/training_utils.py](../../../brainchip_utils/training_utils.py)),
-which pushes activations to zero without shrinking the ones that matter. It is applied
-during float training and again during QAT, so the model stays sparse after
-quantization. The 8-bit sparse model therefore goes through QAT as well: post-training
-quantization is not reliable on a model regularized this way.
-
-The regularization strength trades accuracy for sparsity. Each bit width uses the
-strongest value that kept the Akida accuracy above target over three training seeds:
-1e-4 for 8-bit, 2e-5 for 4-bit (4-bit quantization costs more accuracy on a sparse
-model). With HwPr mapping, an inference takes **{sparse_w8a8_hwpr_cycles} cycles** on the
-8-bit sparse model against {w8a8_hwpr_cycles} on the dense one, and {sparse_w4a4_qat_hwpr_cycles}
-against {w4a4_qat_hwpr_cycles} at 4 bits.
-
-This recipe is what worked for this model, not a general rule. The
-[PlantVillage example](../plant_village) needed a different one, and the best way to
-train sparse Akida 2 models is still being worked out across the model zoo.
-
 **Akida 2 hardware benchmark (FPGA @ 25 MHz)**
 
 Latency is measured on the Akida 2 FPGA reference platform, which runs at
@@ -212,37 +191,50 @@ rescale of the measured cycles.
 
 ### Benchmark plots
 
-For each variant, two plots are shown below. The **full-model** plot shows the
-hardware mapping (NPs used per layer, with pass boundaries) under each mapping
-mode (Minimal, AllNPs and HwPr): Minimal mapping schedules the model onto the
-fewest NPs required, while AllNPs and HwPr spread it across more NPs. The
-**per-layer** plot shows per-layer latency, input sparsity and NP mapping under
-Minimal mapping. Akida is event-driven, so a layer's cost depends on how many
-non-zero activations it receives; sparsity is measured on real dataset samples.
+For each variant, two plots are shown below; click a variant to open them. The
+**full-model** plot shows the hardware mapping (NPs used per layer, with pass
+boundaries) under each mapping mode (Minimal, AllNPs and HwPr): Minimal mapping
+schedules the model onto the fewest NPs required, while AllNPs and HwPr spread
+it across more NPs. The **per-layer** plot shows per-layer latency, input
+sparsity and NP mapping under Minimal mapping. Akida is event-driven, so a
+layer's cost depends on how many non-zero activations it receives; sparsity is
+measured on real dataset samples.
 
-#### 8-bit (w8 / a8)
+<details>
+<summary><b>8-bit (w8 / a8)</b></summary>
 
 <img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w8_a8.png" alt="8-bit per-layer benchmark results" width="700"/>
 
-#### 4-bit (w4 / a4, QAT)
+</details>
+
+<details>
+<summary><b>4-bit (w4 / a4, QAT)</b></summary>
 
 <img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_i8_w4_a4_qat.png" alt="4-bit QAT per-layer benchmark results" width="700"/>
 
-#### 8-bit sparse (w8 / a8, QAT)
+</details>
+
+<details>
+<summary><b>8-bit sparse (w8 / a8, QAT)</b></summary>
 
 <img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_sparse_i8_w8_a8_qat.png" alt="8-bit sparse full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_sparse_i8_w8_a8_qat.png" alt="8-bit sparse per-layer benchmark results" width="700"/>
 
-#### 4-bit sparse (w4 / a4, QAT)
+</details>
+
+<details>
+<summary><b>4-bit sparse (w4 / a4, QAT)</b></summary>
 
 <img src="docs/ref_benchmark_results_full_ds_cnn_speech_commands_sparse_i8_w4_a4_qat.png" alt="4-bit sparse full-model benchmark results" width="1050"/>
 
 <img src="docs/ref_benchmark_results_layers_ds_cnn_speech_commands_sparse_i8_w4_a4_qat.png" alt="4-bit sparse per-layer benchmark results" width="700"/>
+
+</details>
 
 The model used is **DS-CNN** (Depthwise Separable CNN), a popular lightweight architecture
 for keyword spotting drawn from the [MLPerf Tiny](https://mlcommons.org/en/inference-tiny-10/)
@@ -326,8 +318,8 @@ This way the scripts work out of the box without any extra arguments.
 
 Quantization with `quantizeml` is calibrated on real data, so a batch of 1024
 KWS samples is needed in addition to the dataset itself. A prepared batch is
-published on the BrainChip mirror, and `speech_commands_train.sh` fetches it into `data/`
-automatically:
+published on the BrainChip mirror, and both `speech_commands_train.sh` and
+`speech_commands_train_sparse.sh` fetch it into `data/` automatically:
 
 ```bash
 wget -N https://data.brainchip.com/dataset-mirror/samples/kws/kws_batch1024.npz -P data/
@@ -350,6 +342,30 @@ several variants, each converted to Akida format:
 | 4-bit quantization | `quantizeml quantize` to 4-bit weights and activations (8-bit input), calibrated on real samples, with QAT fine-tuning — 4-bit PTQ accuracy is poor so only the QAT model is kept |
 | Sparse variants | Float training from scratch with Hoyer-Square activity regularization (`-reg`), then quantization and QAT with the same regularization, at 8-bit (strength 1e-4) and 4-bit (strength 2e-5) |
 | Conversion to Akida | Automated conversion of each quantized model to Akida 2 format with `cnn2snn convert` |
+
+### Sparse variants
+
+Akida processes events, the non-zero activations, so a sparser model does less work.
+The sparse variants are trained with an activity regularizer on every ReLU
+(Hoyer-Square, `HoyerSquare` in [brainchip_utils/training_utils.py](../../../brainchip_utils/training_utils.py)),
+which pushes activations to zero without shrinking the ones that matter. It is applied
+during float training and again during QAT, so the model stays sparse after
+quantization. The 8-bit sparse model therefore goes through QAT as well: post-training
+quantization is not reliable on a model regularized this way.
+
+The regularization strength trades accuracy for sparsity. Each bit width uses the
+strongest value that kept the Akida accuracy above target over three training seeds:
+1e-4 for 8-bit, 2e-5 for 4-bit (4-bit quantization costs more accuracy on a sparse
+model). With HwPr mapping, an inference takes **{sparse_w8a8_hwpr_cycles} cycles** on the
+8-bit sparse model against {w8a8_hwpr_cycles} on the dense one, and {sparse_w4a4_qat_hwpr_cycles}
+against {w4a4_qat_hwpr_cycles} at 4 bits.
+
+This recipe is what worked for this model, not a general rule. The
+[PlantVillage example](../plant_village) needed a different one, and the best way to
+train sparse Akida 2 models is still being worked out across the model zoo.
+
+The sparse variants are trained by their own script, `speech_commands_train_sparse.sh`
+(see [Script](#script)).
 
 ## Reference Models
 
@@ -395,8 +411,14 @@ the full pipeline in one shot:
 bash speech_commands_train.sh [DATADIR]
 ```
 
-The optional `DATADIR` argument overrides the default dataset location
-(`./data/speech_commands`).
+The sparse variants (see [Sparse variants](#sparse-variants)) are trained separately:
+
+```bash
+bash speech_commands_train_sparse.sh [DATADIR]
+```
+
+For both scripts, the optional `DATADIR` argument overrides the default dataset
+location (`./data/speech_commands`).
 
 ## Contributing and Maintenance
 
