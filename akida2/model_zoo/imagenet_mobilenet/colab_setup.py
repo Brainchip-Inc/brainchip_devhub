@@ -1,3 +1,4 @@
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """Colab setup for the MobileNet/ImageNet (Akida 2) notebooks.
 
 IF YOU ARE RUNNING THIS LOCALLY: you can ignore this file completely.

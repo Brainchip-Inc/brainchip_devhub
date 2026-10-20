@@ -1,0 +1,718 @@
+<img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+
+# MobileNet on ImageNet — Akida 2
+
+The ImageNet-pretrained **MobileNetV1** and **MobileNetV2** models from
+`tf_keras.applications`, prepared for Akida 2, quantized to 8 bits, converted, and
+evaluated on ImageNet and on the Akida 2 FPGA. Eight models in all, at 224 × 224 input:
+MobileNetV1 at width multipliers (alpha) 0.25, 0.5, 0.75 and 1.0, and MobileNetV2 at 0.35,
+0.5, 0.75 and 1.0. The example serves two purposes:
+
+1. **Evaluation and benchmarking**: how much accuracy each step costs, from the float
+   model through 8-bit quantization to the Akida model, and what each model costs to run
+   on Akida 2 hardware, or whether it fits at all.
+2. **A reference for the model definitions.** `build_mobilenet()` shows the small changes
+   that make an off-the-shelf Keras model ready for Akida 2, and the models are the
+   starting point for transfer learning onto your own task.
+
+There is **no training stage**: the float models are the Keras ImageNet weights, and the
+8-bit models come from post-training quantization (PTQ) alone, without quantization-aware
+training (QAT). For the full train → quantize → convert pipeline on a dataset that trains in
+minutes, see [plant_village](../plant_village), which fine-tunes the MobileNetV1 alpha 0.5
+backbone.
+
+## Model Card
+
+ImageNet-1k top-1 and top-5 accuracy, measured over the full 50,000-image validation set.
+**Float** is the Keras model with its ImageNet weights; **8-bit PTQ** is the model quantized
+with `quantizeml` (8-bit weights and activations, and 8-bit input layer weights), calibrated
+on 1,024 ImageNet train images; **Akida** is that model converted with `cnn2snn`, run on the
+Akida software backend. Sparsity is the mean activation sparsity of the Akida model, the
+fraction of activations that are zero, and so the work the hardware skips. **Fits the FPGA**
+says whether the model maps onto the 6-node Akida 2 FPGA that the hardware benchmark runs
+on.
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2">Alpha</th>
+      <th colspan="2">Float</th>
+      <th colspan="2">8-bit PTQ</th>
+      <th colspan="2">Akida</th>
+      <th rowspan="2">Sparsity</th>
+      <th rowspan="2">Params</th>
+      <th rowspan="2">Fits the FPGA</th>
+    </tr>
+    <tr>
+      <th>top-1</th><th>top-5</th>
+      <th>top-1</th><th>top-5</th>
+      <th>top-1</th><th>top-5</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="10"><b>MobileNetV1</b></td></tr>
+    <tr>
+      <td align="center">0.25</td>
+      <td align="center">51.58%</td>
+      <td align="center">75.82%</td>
+      <td align="center">47.89%</td>
+      <td align="center">72.82%</td>
+      <td align="center">47.89%</td>
+      <td align="center">72.81%</td>
+      <td align="center">24.48%</td>
+      <td align="center">475,544</td>
+      <td align="center"><a href="#bench-v1-a25">yes</a></td>
+    </tr>
+    <tr>
+      <td align="center">0.5</td>
+      <td align="center">64.42%</td>
+      <td align="center">85.65%</td>
+      <td align="center">62.81%</td>
+      <td align="center">84.57%</td>
+      <td align="center">62.77%</td>
+      <td align="center">84.57%</td>
+      <td align="center">28.35%</td>
+      <td align="center">1,342,536</td>
+      <td align="center"><a href="#bench-v1-a50">yes</a></td>
+    </tr>
+    <tr>
+      <td align="center">0.75</td>
+      <td align="center">68.42%</td>
+      <td align="center">88.22%</td>
+      <td align="center">67.47%</td>
+      <td align="center">87.70%</td>
+      <td align="center">67.47%</td>
+      <td align="center">87.72%</td>
+      <td align="center">33.48%</td>
+      <td align="center">2,601,976</td>
+      <td align="center"><a href="#bench-v1-a75">yes</a></td>
+    </tr>
+    <tr>
+      <td align="center">1.0</td>
+      <td align="center">70.62%</td>
+      <td align="center">89.47%</td>
+      <td align="center">69.25%</td>
+      <td align="center">88.66%</td>
+      <td align="center">69.23%</td>
+      <td align="center">88.68%</td>
+      <td align="center">34.87%</td>
+      <td align="center">4,253,864</td>
+      <td align="center"><a href="#models-that-need-a-larger-device">no</a></td>
+    </tr>
+    <tr><td colspan="10"><b>MobileNetV2</b></td></tr>
+    <tr>
+      <td align="center">0.35</td>
+      <td align="center">60.98%</td>
+      <td align="center">83.04%</td>
+      <td align="center">58.98%</td>
+      <td align="center">81.69%</td>
+      <td align="center">58.98%</td>
+      <td align="center">81.69%</td>
+      <td align="center">22.62%</td>
+      <td align="center">1,691,208</td>
+      <td align="center"><a href="#bench-v2-a35">yes</a></td>
+    </tr>
+    <tr>
+      <td align="center">0.5</td>
+      <td align="center">65.74%</td>
+      <td align="center">86.40%</td>
+      <td align="center">63.55%</td>
+      <td align="center">85.05%</td>
+      <td align="center">63.55%</td>
+      <td align="center">85.05%</td>
+      <td align="center">23.49%</td>
+      <td align="center">1,987,224</td>
+      <td align="center"><a href="#bench-v2-a50">yes</a></td>
+    </tr>
+    <tr>
+      <td align="center">0.75</td>
+      <td align="center">70.08%</td>
+      <td align="center">89.51%</td>
+      <td align="center">68.07%</td>
+      <td align="center">88.39%</td>
+      <td align="center">68.08%</td>
+      <td align="center">88.39%</td>
+      <td align="center">25.82%</td>
+      <td align="center">2,663,064</td>
+      <td align="center"><a href="#models-that-need-a-larger-device">no</a></td>
+    </tr>
+    <tr>
+      <td align="center">1.0</td>
+      <td align="center">71.74%</td>
+      <td align="center">90.44%</td>
+      <td align="center">70.81%</td>
+      <td align="center">89.91%</td>
+      <td align="center">70.83%</td>
+      <td align="center">89.96%</td>
+      <td align="center">27.05%</td>
+      <td align="center">3,538,984</td>
+      <td align="center"><a href="#models-that-need-a-larger-device">no</a></td>
+    </tr>
+  </tbody>
+</table>
+
+### Reading the table
+
+Four patterns in these numbers are worth knowing before you pick a model.
+
+**Conversion to Akida is free.** The Akida columns match the 8-bit PTQ columns to within a
+few hundredths of a point on every model. Conversion changes the representation, not the
+computation, so this is the expected result, and a useful check: if you convert a model of
+your own and see a real drop, something has gone wrong.
+
+**All of the accuracy cost is in quantization, and it is uneven.** Most models lose one to
+two points of top-1 to 8-bit PTQ. The narrowest MobileNetV1 loses the most, from
+51.58% to 47.89%. At alpha 0.5 and 0.75 MobileNetV2 loses more
+than MobileNetV1 (at 0.75, MobileNetV1 goes from 68.42% to
+67.47%, MobileNetV2 from 70.08% to 68.07%), but
+not at 1.0. These are PTQ results, with no quantization-aware training (QAT).
+
+Don't read these figures as the cost of 8-bit quantization in general, though. The drop is
+strongly task dependent, and ImageNet-1k, with 1000 classes and fine distinctions between
+many of them, is about the hardest task for a model of this size. Fine-tuned on
+[PlantVillage](../plant_village/README.md), the MobileNetV1 alpha 0.5 backbone goes from
+99.61% float to 99.43% after 8-bit PTQ.
+
+**MobileNetV2 is more accurate at the same width, but less sparse.** In float, MobileNetV2
+is ahead of MobileNetV1 at every width both share, and it stays ahead after quantization.
+But its activations are less sparse at every width, and Akida skips zero activations, so
+sparsity is work saved. A likely reason is MobileNetV2's linear bottlenecks: the last layer
+of each block has no ReLU, so its outputs are dense. Whether accuracy or speed wins depends on the
+model: the benchmark below has the latencies.
+
+**Wider models are sparser.** In both versions, mean activation sparsity rises with width.
+
+### Akida 2 hardware benchmark
+
+Latency is measured on the **Akida 2 FPGA** reference platform, which has 6 nodes (24
+neural processors, NPs) and runs at **25 MHz**. The latency projected to the **1 GHz**
+AKD2500 target clock is also shown: the cycle count is fixed for a given model and mapping
+regardless of clock rate, so the projection is an exact rescale of the measured cycles.
+
+> **Note:** 1 GHz is BrainChip's current **target** for AKD2500 production silicon, which
+> does not exist yet; treat it as a target, not a measured value. The FPGA has no power
+> measurement, so only latency is reported.
+
+Each model is benchmarked in three mapping modes. **Minimal** maps the model onto the
+fewest NPs. **AllNPs** uses as many NPs as possible while keeping the minimum number of
+hardware passes. **HwPr** (hardware partial reconfiguration) splits the model into more
+passes so that each layer can use more NPs, reloading the weights between passes on every
+inference; the values passed between layers stay on the chip throughout. The benchmark
+runs on 100 inferences of a 10-image ImageNet-like sample pack (see [Dataset](#dataset)).
+
+#### All FPGA models at a glance
+
+<img src="docs/ref_benchmark_summary.png" alt="Akida top-1 accuracy plotted against projected AKD2500 latency for the five models that fit the FPGA" width="700">
+
+Each model is plotted at its fastest mapping mode. Three things stand out:
+
+- **No model is dominated.** Ordered by latency, the five models are also ordered by
+  accuracy, so each one is the most accurate available at its latency. Pick by the
+  latency you can afford.
+- **MobileNetV1 and MobileNetV2 at alpha 0.5 cost about the same.** MobileNetV2 is the more
+  accurate (63.55% against 62.77%) for 6.883 ms
+  against 6.703 ms in HwPr.
+- **HwPr is the fastest mode on every model.** On MobileNetV1 alpha 0.75 it produces the
+  same mapping as AllNPs: the model already needs 7 passes on the
+  FPGA, so there is no room to split it further.
+
+*Each model below is collapsed: click one to open its mapping table and plots, or click
+**yes** in the Model Card's **Fits the FPGA** column to jump straight to it. The
+full-model plot shows the NPs each layer uses, with pass boundaries, in each mapping mode;
+the per-layer plot shows each layer's latency, input sparsity and NPs under Minimal mapping.*
+
+<details id="bench-v1-a25">
+<summary><b>MobileNetV1 &middot; alpha = 0.25</b></summary>
+
+<br>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency @ 25 MHz (ms)</th>
+      <th>Projected @ 1 GHz (ms) <i>(target)</i></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">37</td>
+      <td align="center">2</td>
+      <td align="center">4606311</td>
+      <td align="center">184.252</td>
+      <td align="center">4.606</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">39</td>
+      <td align="center">2</td>
+      <td align="center">4525231</td>
+      <td align="center">181.009</td>
+      <td align="center">4.525</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">94</td>
+      <td align="center">4</td>
+      <td align="center">2835712</td>
+      <td align="center">113.428</td>
+      <td align="center">2.836</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_mobilenet_v1_imagenet_224_alpha_0.25_i8_w8_a8.png" alt="MobileNetV1 alpha 0.25: hardware mapping in each mapping mode" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_mobilenet_v1_imagenet_224_alpha_0.25_i8_w8_a8.png" alt="MobileNetV1 alpha 0.25: per-layer latency, input sparsity and mapping" width="700"/>
+
+</details>
+
+<details id="bench-v1-a50">
+<summary><b>MobileNetV1 &middot; alpha = 0.5</b></summary>
+
+<br>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency @ 25 MHz (ms)</th>
+      <th>Projected @ 1 GHz (ms) <i>(target)</i></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">66</td>
+      <td align="center">3</td>
+      <td align="center">8791713</td>
+      <td align="center">351.669</td>
+      <td align="center">8.792</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">67</td>
+      <td align="center">3</td>
+      <td align="center">8765160</td>
+      <td align="center">350.606</td>
+      <td align="center">8.765</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">94</td>
+      <td align="center">4</td>
+      <td align="center">6703166</td>
+      <td align="center">268.127</td>
+      <td align="center">6.703</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_mobilenet_v1_imagenet_224_alpha_0.5_i8_w8_a8.png" alt="MobileNetV1 alpha 0.5: hardware mapping in each mapping mode" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_mobilenet_v1_imagenet_224_alpha_0.5_i8_w8_a8.png" alt="MobileNetV1 alpha 0.5: per-layer latency, input sparsity and mapping" width="700"/>
+
+</details>
+
+<details id="bench-v1-a75">
+<summary><b>MobileNetV1 &middot; alpha = 0.75</b></summary>
+
+<br>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency @ 25 MHz (ms)</th>
+      <th>Projected @ 1 GHz (ms) <i>(target)</i></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">133</td>
+      <td align="center">7</td>
+      <td align="center">9130939</td>
+      <td align="center">365.238</td>
+      <td align="center">9.131</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">157</td>
+      <td align="center">7</td>
+      <td align="center">7849797</td>
+      <td align="center">313.992</td>
+      <td align="center">7.850</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">157</td>
+      <td align="center">7</td>
+      <td align="center">7849819</td>
+      <td align="center">313.993</td>
+      <td align="center">7.850</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_mobilenet_v1_imagenet_224_alpha_0.75_i8_w8_a8.png" alt="MobileNetV1 alpha 0.75: hardware mapping in each mapping mode" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_mobilenet_v1_imagenet_224_alpha_0.75_i8_w8_a8.png" alt="MobileNetV1 alpha 0.75: per-layer latency, input sparsity and mapping" width="700"/>
+
+</details>
+
+<details id="bench-v2-a35">
+<summary><b>MobileNetV2 &middot; alpha = 0.35</b></summary>
+
+<br>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency @ 25 MHz (ms)</th>
+      <th>Projected @ 1 GHz (ms) <i>(target)</i></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">86</td>
+      <td align="center">4</td>
+      <td align="center">7143321</td>
+      <td align="center">285.733</td>
+      <td align="center">7.143</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">87</td>
+      <td align="center">4</td>
+      <td align="center">7079797</td>
+      <td align="center">283.192</td>
+      <td align="center">7.080</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">172</td>
+      <td align="center">8</td>
+      <td align="center">5671083</td>
+      <td align="center">226.843</td>
+      <td align="center">5.671</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_mobilenet_v2_imagenet_224_alpha_0.35_i8_w8_a8.png" alt="MobileNetV2 alpha 0.35: hardware mapping in each mapping mode" width="1050"/>
+
+*No per-layer breakdown for MobileNetV2: it is measured on sub-models cut after each layer, and a cut inside a residual block leaves a skip connection that can't be mapped.*
+
+</details>
+
+<details id="bench-v2-a50">
+<summary><b>MobileNetV2 &middot; alpha = 0.5</b></summary>
+
+<br>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles</th>
+      <th>Latency @ 25 MHz (ms)</th>
+      <th>Projected @ 1 GHz (ms) <i>(target)</i></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">96</td>
+      <td align="center">5</td>
+      <td align="center">9549747</td>
+      <td align="center">381.990</td>
+      <td align="center">9.550</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">116</td>
+      <td align="center">5</td>
+      <td align="center">8546514</td>
+      <td align="center">341.861</td>
+      <td align="center">8.547</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">202</td>
+      <td align="center">10</td>
+      <td align="center">6883443</td>
+      <td align="center">275.338</td>
+      <td align="center">6.883</td>
+    </tr>
+  </tbody>
+</table>
+
+<img src="docs/ref_benchmark_results_full_mobilenet_v2_imagenet_224_alpha_0.5_i8_w8_a8.png" alt="MobileNetV2 alpha 0.5: hardware mapping in each mapping mode" width="1050"/>
+
+*No per-layer breakdown for MobileNetV2: it is measured on sub-models cut after each layer, and a cut inside a residual block leaves a skip connection that can't be mapped.*
+
+</details>
+
+#### Models that need a larger device
+
+MobileNetV1 at alpha 1.0 and MobileNetV2 at 0.75 and 1.0 don't map onto the 6-node FPGA,
+so they have no hardware figures here. All three map onto a 12-node Akida 2 device. See
+[Which models fit the FPGA](#which-models-fit-the-fpga) for the layer that stops each one.
+
+## The models
+
+`build_mobilenet()` in [imagenet_mobilenet_model.py](imagenet_mobilenet_model.py) loads a
+MobileNet from `tf_keras.applications` with its ImageNet weights and makes two changes.
+Neither changes the model's predictions:
+
+- **A `Rescaling` layer up front.** The Keras MobileNets expect inputs in [-1, 1]. With
+  the scaling inside the model (inserted with `quantizeml`'s `insert_rescaling`), the
+  model takes uint8 pixels in [0, 255], as the Akida model does, and the data pipeline
+  never normalises.
+- **No softmax.** The classifier outputs logits. Quantization and conversion would drop a
+  final softmax anyway, since Akida doesn't run it, but with a warning; removing it here
+  avoids that. The ranking of the logits is that of the probabilities, so top-1 and top-5
+  are unaffected. To get class probabilities, apply a softmax to the output on the host.
+
+The classifier heads differ between the two versions:
+
+- **MobileNetV2** keeps its own head: global average pooling, then a `Dense` classifier.
+- **MobileNetV1** ships with global average pooling, dropout, a 1 × 1 `Conv2D` classifier
+  and a `Reshape` that drops the singleton dimensions. Here the convolution becomes the
+  equivalent `Dense` layer, with the same weights, and the `Reshape` goes with it. On
+  Akida 2 a 1000-class dense layer runs on a single dedicated dense-layer NP (an FNP),
+  whereas a 1 × 1 convolution with 1000 filters is spread over many convolutional NPs;
+  from alpha 0.75 up, that convolution needs more NPs than one pass on the FPGA offers.
+- **Dropout is kept** in the MobileNetV1 head. It has no effect at inference and
+  conversion removes it, so you can keep using dropout when you fine-tune these models on
+  another task, and still convert them as they are.
+
+### Which models fit the FPGA
+
+Akida maps each layer onto as many NPs as it needs, and with HwPr it can spread a model
+over many passes. But a layer is never split across passes, and every pass holds at least
+two layers, because a layer writes its outputs into the next layer's input buffers. So the
+FPGA must hold the largest layer and its neighbour in a single pass. Three models have a
+layer that is too big for that:
+
+- **MobileNetV2 0.75 and 1.0:** `block_1_depthwise` needs 21 NPs. That is driven by its
+  large input volume, 112 × 112 × 96 (the block has 96 channels at both widths).
+- **MobileNetV1 1.0:** `conv_pw_13` needs 22 NPs, driven by the filter memory for its
+  1024 × 1024 weights. Those include the NPs that host the FNPs, so the dense classifier,
+  which must share its pass, can't map.
+
+All three map onto a 12-node Akida 2 device. And MobileNetV1 1.0 only fails with the
+1000-class ImageNet classifier: without it, it maps onto the FPGA as a backbone (for object
+detection, say), or with a small classifier for an edge task, written as a 1 × 1
+convolution after the pooling. A 30-class one maps; a 100-class one doesn't. The
+[evaluation notebook](imagenet_mobilenet_notebook_evaluation.ipynb) maps every model onto
+both devices.
+
+## Requirements
+
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README.
+
+## Dataset
+
+**ImageNet-1k** (ILSVRC 2012) is the standard large-scale image classification
+benchmark: 1000 object categories, 1,281,167 training images and 50,000 validation
+images. Accuracy here is measured on the full validation split, and the PTQ calibration
+images come from the train split.
+
+Images are preprocessed with the conventional ImageNet validation recipe: an
+aspect-preserving resize so the shorter side becomes 256, then a 224 × 224 centre crop.
+There is no mean subtraction and no division by 255: the scaling is a layer inside the
+model. See [imagenet_mobilenet_preprocessing.py](imagenet_mobilenet_preprocessing.py), a
+self-contained copy of the `akida_models` implementation.
+
+For quick checks and for hardware benchmarking, a small **ImageNet-like sample pack** of
+10 labelled images is fetched on demand from BrainChip's dataset mirror. It needs no setup
+and is not subject to ImageNet's redistribution terms.
+
+<img src="docs/sample_mosaic.png" alt="The 10 images of the ImageNet-like sample pack with their labels" width="700">
+
+*The 10-image sample pack is enough to check the pipeline and to drive a hardware
+benchmark with realistic activity, but nowhere near enough to measure accuracy.*
+
+> ImageNet is distributed under its own terms, which permit non-commercial research and
+> educational use and do **not** permit redistribution. No ImageNet imagery is included
+> in this repository; you must obtain it yourself.
+>
+> Deng, J., Dong, W., Socher, R., Li, L.-J., Li, K. and Fei-Fei, L.,
+> *"ImageNet: A Large-Scale Hierarchical Image Database"*, CVPR 2009.
+
+The MobileNet weights are those published with `tf_keras.applications` (Apache 2.0):
+
+> Howard, A. G., Zhu, M., Chen, B., Kalenichenko, D., Wang, W., Weyand, T., Andreetto, M.
+> and Adam, H., *"MobileNets: Efficient Convolutional Neural Networks for Mobile Vision
+> Applications"*, arXiv:1704.04861, 2017.
+>
+> Sandler, M., Howard, A., Zhu, M., Zhmoginov, A. and Chen, L.-C., *"MobileNetV2:
+> Inverted Residuals and Linear Bottlenecks"*, CVPR 2018.
+
+## Dataset setup
+
+ImageNet can't be downloaded automatically: it requires registration and acceptance of
+its terms. Follow the instructions on the TensorFlow Datasets catalog page:
+
+https://www.tensorflow.org/datasets/catalog/imagenet2012
+
+In short: register at [image-net.org](https://image-net.org/), download the two archives
+`ILSVRC2012_img_train.tar` and `ILSVRC2012_img_val.tar`, and place them in a directory of
+your choice. That directory is what you pass as `--data`. TensorFlow Datasets then
+prepares the dataset into a `tfds/` subdirectory on first use, a one-off step that takes a
+while and needs roughly 150 GB:
+
+```bash
+python -c "import tensorflow_datasets as tfds; import os; \
+  d='/path/to/imagenet'; \
+  tfds.load('imagenet2012', data_dir=os.path.join(d,'tfds','data'), split='validation', \
+    download_and_prepare_kwargs=dict(download_dir=os.path.join(d,'tfds','downloaded'), \
+      download_config=tfds.download.DownloadConfig(manual_dir=d)))"
+```
+
+The expected layout is:
+
+```
+/path/to/imagenet/
+├── ILSVRC2012_img_train.tar
+├── ILSVRC2012_img_val.tar
+└── tfds/
+    ├── data/          <- prepared dataset (TFDS data_dir)
+    └── downloaded/    <- TFDS working directory
+```
+
+Scripts default to `./data/imagenet_tfds`. Either pass your path with `-d`, or create a
+symbolic link once so everything works without arguments:
+
+```bash
+ln -s /path/to/imagenet ./data/imagenet_tfds
+```
+
+If you only want to run the hardware benchmark or a quick smoke test, you can skip all of
+this: both work from the 10-image sample pack.
+
+## Pipeline
+
+| Stage | Description |
+|---|---|
+| Float model | `build_mobilenet()`: the Keras ImageNet MobileNet, with a `Rescaling` layer up front and no softmax |
+| Calibration samples | 1,024 images from the ImageNet train split, preprocessed as for evaluation (`imagenet_mobilenet_data.py`) |
+| 8-bit quantization | `quantizeml quantize -i 8 -w 8 -a 8`, calibrated on those samples; PTQ only, no QAT |
+| Conversion to Akida | `cnn2snn convert` to an Akida 2 model |
+| Evaluation | Top-1 and top-5 for all three variants, plus activation sparsity |
+| Hardware benchmark | Akida 2 FPGA latency in three mapping modes, for the models that fit |
+
+## Reference Models
+
+The quantized and converted models are in `pretrained_models/`, handled with `git-lfs`
+(git large file storage). To get the real files rather than text pointers, you need
+`git-lfs` set up: see the [Trained models](../../../README.md#trained-models) section of
+the top-level README.
+
+```
+mobilenet_<VERSION>_imagenet_224_alpha_<A>_i8_w8_a8.h5     8-bit quantized Keras model
+mobilenet_<VERSION>_imagenet_224_alpha_<A>_i8_w8_a8.fbz    converted Akida model
+```
+
+where `<VERSION>` is `v1` or `v2` and `<A>` is the width multiplier. The float models
+aren't stored: `build_mobilenet()` rebuilds them from the Keras weights, which `tf_keras`
+downloads on first use.
+
+### Using these models for transfer learning
+
+`build_mobilenet()` is the starting point for a model of your own: take the features that
+feed the classifier, and attach a head for your task.
+
+```python
+from tf_keras import Model
+from tf_keras.layers import Dense
+from imagenet_mobilenet_model import build_mobilenet
+
+base = build_mobilenet('v1', 0.5)
+features = base.layers[-2].output   # pooled features (after dropout in V1)
+outputs = Dense(NUM_CLASSES, name='predictions')(features)
+model = Model(base.input, outputs, name='mobilenet_my_task')
+```
+
+Feed the model uint8 images and don't normalise them: the rescaling is inside the model.
+Then fine-tune, quantize and convert as in [plant_village](../plant_village), which does
+exactly this with the MobileNetV1 alpha 0.5 backbone. If you target the 6-node FPGA with
+MobileNetV1 alpha 1.0, use a 1 × 1 convolution after global average pooling (with
+`keepdims=True`) rather than a `Dense` layer as the classifier; see
+[Which models fit the FPGA](#which-models-fit-the-fpga).
+
+## Usage
+
+### Notebooks
+
+[imagenet_mobilenet_notebook_evaluation.ipynb](imagenet_mobilenet_notebook_evaluation.ipynb)
+takes one model from the Keras weights to an Akida model: preparation, 8-bit PTQ,
+conversion, evaluation at each step, and a check of which Akida 2 devices each model fits
+on. Without ImageNet it runs on the sample pack and loads the published quantized model.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida2/model_zoo/imagenet_mobilenet/imagenet_mobilenet_notebook_evaluation.ipynb)
+
+[imagenet_mobilenet_notebook_benchmark.ipynb](imagenet_mobilenet_notebook_benchmark.ipynb)
+benchmarks one model on the Akida 2 FPGA: latency in each mapping mode, and per layer.
+
+> **Note:** the hardware benchmark requires a physical Akida 2 FPGA platform.
+
+### Script
+
+To reproduce one model end to end (build, evaluate, calibrate, quantize, convert and
+evaluate again) into `models/`:
+
+```bash
+bash imagenet_mobilenet_eval.sh [VERSION] [ALPHA] [DATADIR]
+```
+
+for example `bash imagenet_mobilenet_eval.sh v2 0.5`. This needs ImageNet set up (see
+[Dataset setup](#dataset-setup)). To benchmark a published model on the FPGA, which needs
+no dataset:
+
+```bash
+python imagenet_mobilenet_benchmark.py -v v1 -a 0.5
+```
+
+## Contributing and Maintenance
+
+This README is generated from `docs/README.md.template`, so that the accuracy and
+hardware benchmark values are written directly by the code (via `docs/metrics.json`).
+
+When the models or the pipeline change, rerun the evaluations of all three variants and
+the hardware benchmark with `--save-metrics`, then regenerate the README, which also
+redraws the summary figure:
+
+```bash
+# For each model, e.g. MobileNetV2 alpha 0.5
+python imagenet_mobilenet_eval.py -v v2 -a 0.5 --variant float --save-metrics
+python imagenet_mobilenet_eval.py -v v2 -a 0.5 --variant quantized --save-metrics
+python imagenet_mobilenet_eval.py -v v2 -a 0.5 --variant akida --save-metrics
+python imagenet_mobilenet_benchmark.py -v v2 -a 0.5 --save-metrics   # FPGA models only
+
+python update_readme.py
+```
+
+Then commit the changed files (template, metrics, figures and the regenerated README).
+To edit this README, edit `docs/README.md.template`, not the README itself, and run
+`python update_readme.py`.
