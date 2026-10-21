@@ -6,6 +6,12 @@ VWW per-layer hardware benchmark.
 Runs a per-layer timing benchmark on an Akida VWW model, prints a summary
 table, and generates a summary plot.
 
+The results behind the plots are saved to benchmark_results.json (with
+--save-metrics, docs/ref_benchmark_results.json), so the plots can be redrawn
+later without hardware:
+
+    python -m brainchip_utils.benchmark_results docs/ref_benchmark_results.json
+
 Example
 -------
     python vww_benchmark.py -l pretrained_models/akidanet_vww.fbz
@@ -22,7 +28,8 @@ from akida_models.sparsity import compute_sparsity
 
 from vww_data import get_samples
 from brainchip_utils.hardware_utils import get_mapping_stats, get_akida_device, per_layer_benchmark, full_model_benchmark
-from brainchip_utils.plot_utils import plot_full_model_results, plot_per_layer_results, pretty_print_sparsity
+from brainchip_utils.plot_utils import mapping_summary, pretty_print_sparsity
+from brainchip_utils.benchmark_results import save_benchmark_results, plot_benchmark_results
 
 
 if __name__ == '__main__':
@@ -114,6 +121,8 @@ if __name__ == '__main__':
         num_nps, num_passes, num_sequences = get_mapping_stats(ak_model)
         full_results[mm]['num_nps'] = num_nps
         full_results[mm]['num_passes'] = num_passes
+        full_results[mm]['num_sequences'] = num_sequences
+        full_results[mm]['mapping'] = mapping_summary(ak_model)
         print(f'  Mapping: {num_nps} NP(s), {num_passes} pass(es), {num_sequences} sequence(s)')
         if num_sequences>1:
             print('WARNING: note, model not completely mapped to hardware')
@@ -133,27 +142,28 @@ if __name__ == '__main__':
     per_layer_results = per_layer_benchmark(ak_model, device, samples, repeats=NUM_SAMPLES)
 
     # -------------------------------------------------------------------------
-    # Plots
+    # Results file and plots
     # -------------------------------------------------------------------------
-    # Map without hw_only so ak_model.sequences is available for plot_mapping
+    # Map without hw_only so ak_model.sequences is available for the mapping plot
     ak_model.map(device, mode=akida.MapMode.Minimal)
-    perlayer_savepath = 'benchmark_results_layers.png'
-    if args.save_metrics:
-        perlayer_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_'+perlayer_savepath)
-    plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
-                           model_name=args.loadmodel,
-                           example='Visual Wake Words',
-                           savepath=perlayer_savepath)
-    print('\nPer-layer results plot saved to ' + str(perlayer_savepath))
 
-    full_savepath = 'benchmark_results_full.png'
+    # Save everything the plots need, then plot from what was saved, so the
+    # figures can be redrawn later from the file alone (see the docstring above).
+    outdir, prefix = pathlib.Path('.'), ''
     if args.save_metrics:
-        full_savepath = pathlib.Path(__file__).parent / 'docs' / ('ref_'+full_savepath)
-    plot_full_model_results(full_results, ak_model, device,
-                            model_name=args.loadmodel,
-                            example='Visual Wake Words',
-                            savepath=full_savepath)
-    print('Full model results plot saved to ' + str(full_savepath))
+        outdir, prefix = pathlib.Path(__file__).parent / 'docs', 'ref_'
+    results_path = outdir / f'{prefix}benchmark_results.json'
+    results = save_benchmark_results(
+        results_path, full_results, per_layer_results, mapping_summary(ak_model), sparsity_dict,
+        model_name=args.loadmodel, example='Visual Wake Words',
+        figures={'full': f'{prefix}benchmark_results_full.png',
+                 'layers': f'{prefix}benchmark_results_layers.png'},
+        device=str(device.desc), akida_version=akida.__version__, clock_hz=CLOCK_FREQUENCY)
+    print(f'\nBenchmark results saved to {results_path}')
+
+    plot_benchmark_results(results, outdir)
+    for name in results['figures'].values():
+        print(f'Plot saved to {outdir / name}')
 
 
     if args.save_metrics:
