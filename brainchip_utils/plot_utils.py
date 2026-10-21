@@ -77,13 +77,13 @@ def _mapping_legend_handles(has_pass, has_seq):
 
 def plot_per_layer_timing(results, ax, colors=None):
     layer_names = results['layer_names']
-    per_layer_ms = results['per_layer_ms']
+    per_layer_ms = np.asarray(results['per_layer_ms'], dtype=float)  # null (saved NaN) -> NaN
     num_layers = len(layer_names)
 
     if colors is None:
         colors = ['steelblue'] * num_layers
 
-    raw_times = np.asarray(results['cumulative_times'])  # (num_layers, repeats) in ns
+    raw_times = np.asarray(results['cumulative_times'], dtype=float)  # (num_layers, repeats) in ns
     per_layer_raw = np.copy(raw_times)
     per_layer_raw[1:] = raw_times[1:] - raw_times[:-1]
     per_layer_ms_std = np.std(per_layer_raw / 1e6, axis=1)
@@ -104,7 +104,7 @@ def plot_cumulative_timing(results, ax, colors=None):
     if colors is None:
         colors = ['seagreen'] * num_layers
 
-    cumulative_ms = np.mean(np.asarray(results['cumulative_times']), axis=1) / 1e6
+    cumulative_ms = np.mean(np.asarray(results['cumulative_times'], dtype=float), axis=1) / 1e6
 
     x = np.arange(num_layers)
     ax.bar(x, cumulative_ms, color=colors, edgecolor='white')

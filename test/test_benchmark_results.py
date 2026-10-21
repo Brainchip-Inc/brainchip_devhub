@@ -110,6 +110,25 @@ def test_plots_from_saved_results_match_plots_from_live_results(tmp_path):
                     [t.get_text() for t in live_ax.get_xticklabels()])
 
 
+def test_skipped_layers_are_stored_as_null_and_read_back_as_nan(tmp_path):
+    # A layer the per-layer benchmark couldn't measure on its own (e.g. an Add in
+    # a model with skip connections) has NaN timings
+    model, full_results, per_layer, sparsity = _fake_benchmark(np.random.default_rng(0))
+    for key in ('per_layer_clocks', 'per_layer_ms'):
+        per_layer[key][2] = np.nan
+    for key in ('cumulative_clocks', 'cumulative_times'):
+        per_layer[key][2, :] = np.nan
+    results = save_benchmark_results(
+        tmp_path / 'results.json', full_results, per_layer, mapping_summary(model), sparsity,
+        model_name='x', example='Example', figures={'full': 'full.png', 'layers': 'layers.png'})
+    assert 'NaN' not in (tmp_path / 'results.json').read_text()   # strict JSON
+    assert results['per_layer']['per_layer_ms'][2] is None
+    assert set(results['per_layer']['cumulative_times'][2]) == {None}
+    assert results['per_layer']['cumulative_times'][1][0] == round(per_layer['cumulative_times'][1, 0])
+    _, layers_fig = plot_benchmark_results(results, tmp_path)
+    assert np.isnan(layers_fig.axes[0].patches[2].get_height())
+
+
 def test_results_without_power_redraw_without_a_power_row(tmp_path):
     *_, results = _save(tmp_path, np.random.default_rng(0), with_power=False)
     results['show_power'] = False

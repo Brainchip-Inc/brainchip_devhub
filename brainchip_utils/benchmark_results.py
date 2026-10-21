@@ -30,14 +30,28 @@ _POWER_KEYS = ('avg_floor_mw', 'avg_total_mw', 'avg_dynamic_mw', 'avg_energy_mj'
                'avg_dynamic_energy_mj')
 
 
-def _round(values, decimals):
-    """Round a number or nested list of numbers, to keep the file compact."""
-    return np.round(np.asarray(values, dtype=float), decimals).tolist()
+def _nan_to_none(values):
+    """Nested lists with NaN (e.g. a layer the per-layer benchmark skipped) as None,
+    which JSON stores as null. The plot helpers read null back as NaN."""
+    if isinstance(values, list):
+        return [_nan_to_none(v) for v in values]
+    return None if isinstance(values, float) and np.isnan(values) else values
+
+
+def _floats(values, decimals=None):
+    """A number or nested list of numbers, optionally rounded to keep the file compact."""
+    values = np.asarray(values, dtype=float)
+    if decimals is not None:
+        values = np.round(values, decimals)
+    return _nan_to_none(values.tolist())
 
 
 def _ints(values):
     """Whole-number arrays (clock counts, nanoseconds) as nested lists of ints."""
-    return np.rint(np.asarray(values, dtype=float)).astype(np.int64).tolist()
+    values = np.asarray(values, dtype=float)
+    ints = np.rint(np.nan_to_num(values)).astype(np.int64).astype(object)
+    ints[np.isnan(values)] = None
+    return ints.tolist()
 
 
 def _full_model_entry(result):
@@ -47,9 +61,9 @@ def _full_model_entry(result):
     if power is not None:
         trace = power_trace(power)
         if trace is not None:
-            trace = {'t_s': _round(trace['t_s'], 5),
-                     'repeats_mw': _round(trace['repeats_mw'], 2),
-                     'inf_duration_s': _round(trace['inf_duration_s'], 6),
+            trace = {'t_s': _floats(trace['t_s'], 5),
+                     'repeats_mw': _floats(trace['repeats_mw'], 2),
+                     'inf_duration_s': _floats(trace['inf_duration_s'], 6),
                      'inferences_per_repeat': trace['inferences_per_repeat']}
         power = {**{k: power[k] for k in _POWER_KEYS}, 'trace': trace}
     entry['power'] = power
@@ -59,8 +73,8 @@ def _full_model_entry(result):
 def _per_layer_entry(per_layer_results, mapping, sparsity_dict):
     return {
         'layer_names':       list(per_layer_results['layer_names']),
-        'per_layer_clocks':  np.asarray(per_layer_results['per_layer_clocks']).tolist(),
-        'per_layer_ms':      np.asarray(per_layer_results['per_layer_ms']).tolist(),
+        'per_layer_clocks':  _floats(per_layer_results['per_layer_clocks']),
+        'per_layer_ms':      _floats(per_layer_results['per_layer_ms']),
         # Raw (num_layers, repeats) arrays, behind the per-layer spread
         'cumulative_clocks': _ints(per_layer_results['cumulative_clocks']),
         'cumulative_times':  _ints(per_layer_results['cumulative_times']),
@@ -106,7 +120,7 @@ def save_benchmark_results(path, full_results, per_layer_results, per_layer_mapp
         'per_layer':      _per_layer_entry(per_layer_results, per_layer_mapping, sparsity_dict),
     }
     path = pathlib.Path(path)
-    path.write_text(json.dumps(results, separators=(',', ':')) + '\n')
+    path.write_text(json.dumps(results, separators=(',', ':'), allow_nan=False) + '\n')
     return load_benchmark_results(path)
 
 
