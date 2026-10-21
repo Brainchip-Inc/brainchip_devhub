@@ -350,20 +350,6 @@ def get_samples(data_path, data_transform=None, num_samples=1024):
 
 
 # ---------------------------------------------------------------------------
-# Sanity check
-# ---------------------------------------------------------------------------
-
-if __name__ == '__main__':
-    DATA_DIR = '/mnt/data/sc10/'
-    data_transform = compute_mfcc_range(data_dir=DATA_DIR)
-    ds_train, ds_test, ds_val = get_datasets(
-        data_dir=DATA_DIR, batch_size=100, data_transform=data_transform
-    )
-    for features, labels in ds_train.take(1):
-        print(f"Feature batch shape: {features.shape}, dtype: {features.dtype}")
-        print(f"Label batch shape:   {labels.shape}")
-
-# ---------------------------------------------------------------------------
 # Public data entry point
 # ---------------------------------------------------------------------------
 
@@ -382,3 +368,26 @@ def get_data(data_path, batch_size=100, data_transform=None, seed=42, **kwargs):
         aug_seed=seed,
         **kwargs,
     )
+
+
+# ---------------------------------------------------------------------------
+# Sanity check
+# ---------------------------------------------------------------------------
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Load one batch of Speech Commands MFCC features and '
+                    'print its shape')
+    parser.add_argument('-d', '--data', default='./data/speech_commands',
+                        help='TFDS data directory holding speech_commands')
+    args = parser.parse_args()
+
+    data_transform = compute_mfcc_range(data_dir=args.data)
+    ds_train, ds_test, ds_val = get_datasets(
+        data_dir=args.data, batch_size=100, data_transform=data_transform
+    )
+    for features, labels in ds_train.take(1):
+        print(f"Feature batch shape: {features.shape}, dtype: {features.dtype}")
+        print(f"Label batch shape:   {labels.shape}")
