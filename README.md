@@ -57,7 +57,7 @@ Akida 1 and Akida 2 examples are available today; more Akida 2 models can be fou
 | --- | --- | --- | --- |
 | **Chip** | AKD1500 | AKD2500 | — |
 | **Typical use cases** | Image classification, keyword spotting, object detection | Larger models, higher accuracy targets | Always-on sensing, edge inference |
-| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) · [Image Classification (PlantVillage)](akida2/model_zoo/plant_village) · [Keyword Spotting](akida2/model_zoo/speech_commands) | 🔜 Coming soon |
+| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) · [Image Classification (PlantVillage)](akida2/model_zoo/plant_village) · [Keyword Spotting](akida2/model_zoo/speech_commands) · [ImageNet / MobileNetV1](akida2/model_zoo/imagenet_mobilenet) · [ImageNet / MobileNetV2](akida2/model_zoo/imagenet_mobilenet) | 🔜 Coming soon |
 
 ---
 

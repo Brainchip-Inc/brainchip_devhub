@@ -1,0 +1,56 @@
+{
+    "domain": "Image",
+    "order": 5,
+    "rows": [
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "variant": "8-bit",
+            "metric_key": "v1_a75_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "v1_a75_",
+            "notes": "MobileNetV1 &alpha;=0.75"
+        },
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "variant": "8-bit",
+            "metric_key": "v1_a50_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "v1_a50_",
+            "notes": "MobileNetV1 &alpha;=0.5"
+        },
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "variant": "8-bit",
+            "metric_key": "v1_a25_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "v1_a25_",
+            "notes": "MobileNetV1 &alpha;=0.25"
+        },
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "variant": "8-bit",
+            "metric_key": "v2_a50_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "v2_a50_",
+            "notes": "MobileNetV2 &alpha;=0.5"
+        },
+        {
+            "task": "General image classification",
+            "category": "Classification",
+            "dataset": "ImageNet-1k",
+            "variant": "8-bit",
+            "metric_key": "v2_a35_akida_t1",
+            "metric_label": "top-1",
+            "bench_prefix": "v2_a35_",
+            "notes": "MobileNetV2 &alpha;=0.35"
+        }
+    ]
+}
