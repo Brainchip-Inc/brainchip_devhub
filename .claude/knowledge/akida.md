@@ -106,7 +106,7 @@ exception (see above).
   (`arrhythmia_classification`). So benchmark all three modes; don't assume.
   *Source: measured, AKD1500, 2026-10-09 (#58); numbers in each example's `metrics.json`.*
 
-**[Akida 2] Every pass holds at least two layers, and a layer is never split across
+**[both] Every pass holds at least two layers, and a layer is never split across
 passes.**
 - A layer writes its outputs into the input buffers of another layer in the same pass;
   it can't write to its own input buffers. So each layer shares its pass with the layer
@@ -123,11 +123,10 @@ passes.**
 - A model that doesn't fit in one sequence can still run on the device if the mapper may
   split it into several (`map(device, hw_only=False)`). The three MobileNets above map
   onto the FPGA that way, as two or three hardware sequences (akida 2.19, 2026-10-20).
-- Whether Akida 1's HwPr (AKD1500) works the same way is **(unconfirmed)**: ask
-  BrainChip engineering.
+- Akida 1's HwPr (AKD1500) works the same way. The examples above were mapped on Akida 2.
 
-*Source: BrainChip engineering (repo owner), 2026-10-20; mapped with akida 2.19 on the
-Akida 2 FPGA, 2026-10-20 (HUB-19).*
+*Source: BrainChip engineering (repo owner), 2026-10-20 (Akida 2) and 2026-10-21
+(Akida 1); mapped with akida 2.19 on the Akida 2 FPGA, 2026-10-20 (HUB-19).*
 
 ## Platforms and clocks
 

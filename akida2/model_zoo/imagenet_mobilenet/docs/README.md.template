@@ -21,16 +21,19 @@ training (QAT). For the full train → quantize → convert pipeline on a datase
 minutes, see [plant_village](../plant_village), which fine-tunes the MobileNetV1 alpha 0.5
 backbone.
 
+> **Note:** these are the original ImageNet weights published with `tf_keras.applications`,
+> with the accuracy of the original models. Modern training recipes have since produced
+> models with identical architectures and higher accuracy: the
+> [MobileNetV4 paper](https://arxiv.org/abs/2404.10518) retrains MobileNetV1 1.0 to 74.0%
+> top-1 and MobileNetV2 1.0 to 73.4%, and the
+> [timm MobileNet baselines](https://huggingface.co/blog/rwightman/mobilenet-baselines) go
+> further. That gain is on the training side and unrelated to Akida.
+> 📝 Planned: an example that imports the timm versions of these models from PyTorch and
+> deploys them to Akida.
+
 ## Model Card
 
 ImageNet-1k top-1 and top-5 accuracy, measured over the full 50,000-image validation set.
-**Float** is the Keras model with its ImageNet weights; **8-bit PTQ** is the model quantized
-with `quantizeml` (8-bit weights and activations, and 8-bit input layer weights), calibrated
-on 1,024 ImageNet train images; **Akida** is that model converted with `cnn2snn`, run on the
-Akida software backend. Sparsity is the mean activation sparsity of the Akida model, the
-fraction of activations that are zero, and so the work the hardware skips. **Fits the FPGA**
-says whether the model maps onto the 6-node Akida 2 FPGA that the hardware benchmark runs
-on, in a single hardware sequence (see [Which models fit the FPGA](#which-models-fit-the-fpga)).
 
 <table>
   <thead>
@@ -41,7 +44,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <th colspan="2">Akida</th>
       <th rowspan="2">Sparsity</th>
       <th rowspan="2">Params</th>
-      <th rowspan="2">Fits the FPGA</th>
+      <th rowspan="2">Fits the FPGA<sup>*</sup></th>
     </tr>
     <tr>
       <th>top-1</th><th>top-5</th>
@@ -57,7 +60,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v1_a25_float_t5}</td>
       <td align="center">{v1_a25_quantized_t1}</td>
       <td align="center">{v1_a25_quantized_t5}</td>
-      <td align="center">{v1_a25_akida_t1}</td>
+      <td align="center"><b>{v1_a25_akida_t1}</b></td>
       <td align="center">{v1_a25_akida_t5}</td>
       <td align="center">{v1_a25_sparsity}</td>
       <td align="center">{v1_a25_params}</td>
@@ -69,7 +72,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v1_a50_float_t5}</td>
       <td align="center">{v1_a50_quantized_t1}</td>
       <td align="center">{v1_a50_quantized_t5}</td>
-      <td align="center">{v1_a50_akida_t1}</td>
+      <td align="center"><b>{v1_a50_akida_t1}</b></td>
       <td align="center">{v1_a50_akida_t5}</td>
       <td align="center">{v1_a50_sparsity}</td>
       <td align="center">{v1_a50_params}</td>
@@ -81,7 +84,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v1_a75_float_t5}</td>
       <td align="center">{v1_a75_quantized_t1}</td>
       <td align="center">{v1_a75_quantized_t5}</td>
-      <td align="center">{v1_a75_akida_t1}</td>
+      <td align="center"><b>{v1_a75_akida_t1}</b></td>
       <td align="center">{v1_a75_akida_t5}</td>
       <td align="center">{v1_a75_sparsity}</td>
       <td align="center">{v1_a75_params}</td>
@@ -93,7 +96,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v1_a100_float_t5}</td>
       <td align="center">{v1_a100_quantized_t1}</td>
       <td align="center">{v1_a100_quantized_t5}</td>
-      <td align="center">{v1_a100_akida_t1}</td>
+      <td align="center"><b>{v1_a100_akida_t1}</b></td>
       <td align="center">{v1_a100_akida_t5}</td>
       <td align="center">{v1_a100_sparsity}</td>
       <td align="center">{v1_a100_params}</td>
@@ -106,7 +109,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v2_a35_float_t5}</td>
       <td align="center">{v2_a35_quantized_t1}</td>
       <td align="center">{v2_a35_quantized_t5}</td>
-      <td align="center">{v2_a35_akida_t1}</td>
+      <td align="center"><b>{v2_a35_akida_t1}</b></td>
       <td align="center">{v2_a35_akida_t5}</td>
       <td align="center">{v2_a35_sparsity}</td>
       <td align="center">{v2_a35_params}</td>
@@ -118,7 +121,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v2_a50_float_t5}</td>
       <td align="center">{v2_a50_quantized_t1}</td>
       <td align="center">{v2_a50_quantized_t5}</td>
-      <td align="center">{v2_a50_akida_t1}</td>
+      <td align="center"><b>{v2_a50_akida_t1}</b></td>
       <td align="center">{v2_a50_akida_t5}</td>
       <td align="center">{v2_a50_sparsity}</td>
       <td align="center">{v2_a50_params}</td>
@@ -130,7 +133,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v2_a75_float_t5}</td>
       <td align="center">{v2_a75_quantized_t1}</td>
       <td align="center">{v2_a75_quantized_t5}</td>
-      <td align="center">{v2_a75_akida_t1}</td>
+      <td align="center"><b>{v2_a75_akida_t1}</b></td>
       <td align="center">{v2_a75_akida_t5}</td>
       <td align="center">{v2_a75_sparsity}</td>
       <td align="center">{v2_a75_params}</td>
@@ -142,7 +145,7 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
       <td align="center">{v2_a100_float_t5}</td>
       <td align="center">{v2_a100_quantized_t1}</td>
       <td align="center">{v2_a100_quantized_t5}</td>
-      <td align="center">{v2_a100_akida_t1}</td>
+      <td align="center"><b>{v2_a100_akida_t1}</b></td>
       <td align="center">{v2_a100_akida_t5}</td>
       <td align="center">{v2_a100_sparsity}</td>
       <td align="center">{v2_a100_params}</td>
@@ -151,38 +154,14 @@ on, in a single hardware sequence (see [Which models fit the FPGA](#which-models
   </tbody>
 </table>
 
-### Reading the table
-
-Four patterns in these numbers are worth knowing before you pick a model.
-
-**Conversion to Akida is free.** The Akida columns match the 8-bit PTQ columns to within a
-few hundredths of a point on every model. Conversion changes the representation, not the
-computation, so this is the expected result, and a useful check: if you convert a model of
-your own and see a real drop, something has gone wrong.
-
-**All of the accuracy cost is in quantization, and it is uneven.** Most models lose one to
-two points of top-1 to 8-bit PTQ. The narrowest MobileNetV1 loses the most, from
-{v1_a25_float_t1} to {v1_a25_quantized_t1}. At alpha 0.5 and 0.75 MobileNetV2 loses more
-than MobileNetV1 (at 0.75, MobileNetV1 goes from {v1_a75_float_t1} to
-{v1_a75_quantized_t1}, MobileNetV2 from {v2_a75_float_t1} to {v2_a75_quantized_t1}), but
-not at 1.0. These are PTQ results, with no quantization-aware training (QAT).
-
-Don't read these figures as the cost of 8-bit quantization in general, though. The drop is
-strongly task dependent, and ImageNet-1k, with 1000 classes and fine distinctions between
-many of them, is about the hardest task for a model of this size. Fine-tuned on
-[PlantVillage](../plant_village/README.md), the MobileNetV1 alpha 0.5 backbone goes from
-99.61% float to 99.43% after 8-bit PTQ.
-
-**MobileNetV2 is more accurate at the same width, but less sparse.** In float, MobileNetV2
-is ahead of MobileNetV1 at every width both share, and it stays ahead after quantization.
-But its activations are less sparse at every width, and Akida skips zero activations, so
-sparsity is work saved. A likely reason is MobileNetV2's linear bottlenecks: the last layer
-of each block has no ReLU, so its outputs are dense. Whether accuracy or speed wins depends on the
-model: the benchmark below has the latencies.
-
-**Wider models are sparser.** In both versions, mean activation sparsity rises with width.
+<sup>*</sup> *Maps onto the 6-node Akida 2 FPGA that the hardware benchmark runs on, in a
+single hardware sequence. See [Which models fit the FPGA](#which-models-fit-the-fpga).*
 
 ### Akida 2 hardware benchmark
+
+#### All FPGA models at a glance
+
+<img src="docs/ref_benchmark_summary.png" alt="Akida top-1 accuracy plotted against projected AKD2500 latency for the five models that fit the FPGA" width="700">
 
 Latency is measured on the **Akida 2 FPGA** reference platform, which has 6 nodes (24
 neural processors, NPs) and runs at **25 MHz**. The latency projected to the **1 GHz**
@@ -199,22 +178,6 @@ hardware passes. **HwPr** (hardware partial reconfiguration) splits the model in
 passes so that each layer can use more NPs, reloading the weights between passes on every
 inference; the values passed between layers stay on the chip throughout. The benchmark
 runs on 100 inferences of a 10-image ImageNet-like sample pack (see [Dataset](#dataset)).
-
-#### All FPGA models at a glance
-
-<img src="docs/ref_benchmark_summary.png" alt="Akida top-1 accuracy plotted against projected AKD2500 latency for the five models that fit the FPGA" width="700">
-
-Each model is plotted at its fastest mapping mode. Three things stand out:
-
-- **No model is dominated.** Ordered by latency, the five models are also ordered by
-  accuracy, so each one is the most accurate available at its latency. Pick by the
-  latency you can afford.
-- **MobileNetV1 and MobileNetV2 at alpha 0.5 cost about the same.** MobileNetV2 is the more
-  accurate ({v2_a50_akida_t1} against {v1_a50_akida_t1}) for {v2_a50_hwpr_projected_ms} ms
-  against {v1_a50_hwpr_projected_ms} ms in HwPr.
-- **HwPr is the fastest mode on every model.** On MobileNetV1 alpha 0.75 it produces the
-  same mapping as AllNPs: the model already needs {v1_a75_minimal_passes} passes on the
-  FPGA, so there is no room to split it further.
 
 *Each model below is collapsed: click one to open its mapping table and plots, or click
 **yes** in the Model Card's **Fits the FPGA** column to jump straight to it. The
@@ -630,6 +593,13 @@ this: both work from the 10-image sample pack.
 | Conversion to Akida | `cnn2snn convert` to an Akida 2 model |
 | Evaluation | Top-1 and top-5 for all three variants, plus activation sparsity |
 | Hardware benchmark | Akida 2 FPGA latency in three mapping modes, for the models that fit |
+
+> **Note on 8-bit PTQ:** smaller models that are already capacity-limited for the task lose
+> more from quantization. Don't read these figures as the cost of 8-bit quantization in
+> general, though. The drop is strongly task dependent, and ImageNet-1k, with 1000 classes
+> and fine distinctions between many of them, is about the hardest task for a model of this
+> size. Fine-tuned on [PlantVillage](../plant_village/README.md), the MobileNetV1 alpha 0.5
+> backbone goes from 99.61% float to 99.43% after 8-bit PTQ.
 
 ## Reference Models
 
