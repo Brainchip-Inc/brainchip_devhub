@@ -72,6 +72,36 @@ unrepresentative activity and gives misleading timings. The input layer is the
 exception (see above).
 *Source: akida1/README.md, "The technology"; benchmark notebooks in this repo.*
 
+**[Akida 2] Activity regularization raises sparsity and cuts latency, but the training
+recipe has to be found per model.** Both Akida 2 sparse variants use Hoyer-Square on
+every ReLU (`brainchip_utils.training_utils.HoyerSquare`), but they needed different
+recipes:
+
+| | Regularizer in QAT? | Sparsity, dense → sparse | Akida acc., dense → sparse | HwPr cycles |
+| --- | --- | --- | --- | --- |
+| Speech Commands 8-bit (1e-4) | yes | 44.81 % → 75.01 % | 95.77 % → 93.69 % | −31 % |
+| Speech Commands 4-bit (2e-5) | yes | 50.49 % → 70.00 % | 94.67 % → 93.37 % | −15 % |
+| PlantVillage 8-bit (2e-6) | no | 29.04 % → 45.03 % | 99.43 % → 99.28 % | −15 % |
+| PlantVillage 4-bit (2e-6) | no | 33.69 % → 48.90 % | 98.97 % → 97.88 % | −17 % |
+
+- Post-training quantization of a regularized model can fail outright: PlantVillage at
+  strength 1e-4 went from 75.1 % float to 1.6 % after 8-bit PTQ. So QAT is used at 8
+  bits as well. *Source: BrainChip engineering (repo owner), 2026-10-16; measured.*
+- Keeping the regularizer during QAT worked for Speech Commands: 8-bit QAT accuracy was
+  at or above the regularized float model's (QAT without it wasn't tried there). On
+  PlantVillage it lost 0.1–0.65 points against PTQ at every strength tried (5e-7 to
+  1e-5), so the 99 % target was only met with QAT *without* the regularizer. The
+  sparsity from float training mostly survived that (47.5 % after PTQ, 45.0 % after QAT,
+  at 2e-6).
+- **Not a general conclusion** (repo owner, 2026-10-19). Keep comparing strategies on
+  the next sparse models (regularizer in QAT or not, PTQ or QAT, strength per bit
+  width) before writing one-size-fits-all guidance.
+- During QAT a `QuantizedReLU` outputs a quantizeml `FixedPoint`, so a custom
+  activity regularizer must convert it with `to_float()`, as `HoyerSquare` does.
+
+*Source: measured on the Akida 2 FPGA, 2026-10-16 to 2026-10-19 (HUB-21), values from
+each example's `docs/metrics.json`; sweep trials in the HUB-21 PR.*
+
 ## Mapping modes
 
 **[both] `akida.MapMode` has three strategies.**

@@ -25,6 +25,15 @@ def test_zero_tensor_gives_zero_not_nan():
     assert float(HoyerSquare(1.0)(np.zeros(8, dtype=np.float32))) == 0.0
 
 
+def test_quantized_tensor_matches_its_float_value():
+    from quantizeml.tensors import FixedPoint
+    # Per-channel fractional bits, as a QuantizedReLU outputs: values [[4, 0], [2, 6]]
+    # with frac_bits [1, 2] are [[2.0, 0.0], [1.0, 1.5]]
+    x = FixedPoint(np.array([[4, 0], [2, 6]], dtype=np.float32), 8, np.array([1, 2], dtype=np.float32))
+    expected = float(HoyerSquare(1.0)(np.array([[2.0, 0.0], [1.0, 1.5]], dtype=np.float32)))
+    assert float(HoyerSquare(1.0)(x)) == pytest.approx(expected, rel=1e-5)
+
+
 def test_serialization_round_trip():
     reg = HoyerSquare(2.5e-5)
     config = tf_keras.regularizers.serialize(reg)
