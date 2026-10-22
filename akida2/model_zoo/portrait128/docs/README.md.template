@@ -180,8 +180,24 @@ Computer Graphics Forum (Eurographics), 2016 (the PFCN dataset).
 
 The dataset is distributed by the Portrait-Segmentation project as
 [Portseg_128](https://drive.google.com/file/d/1UBLzvcqvt_fin9Y-48I_-lWQYfYpt_6J/view)
-(Google Drive). The scripts expect its two arrays, `img_uint8.npy` (images) and
-`msk_uint8.npy` (masks, 0 or 255), in one folder.
+(Google Drive). Download the archive and extract it: the scripts need its two arrays,
+`img_uint8.npy` (images) and `msk_uint8.npy` (masks, 0 or 255), directly in one folder,
+not in a subfolder:
+
+```
+data/portrait128/
+├── img_uint8.npy
+└── msk_uint8.npy
+```
+
+To check the arrays before training:
+
+```bash
+python -c "import numpy as np; x = np.load('data/portrait128/img_uint8.npy', mmap_mode='r'); y = np.load('data/portrait128/msk_uint8.npy', mmap_mode='r'); print(x.shape, x.dtype, y.shape, y.dtype, np.unique(y[:20]))"
+```
+
+You should see `(18698, 128, 128, 3) uint8 (18698, 128, 128, 1) uint8 [  0 255]`. Masks
+stored as 0/1 instead of 0/255 would be read as all background.
 
 The scripts default to looking for the data at `./data/portrait128`. If you
 want to store the dataset on a dedicated data drive, you can pass the path
@@ -192,6 +208,8 @@ location and create a symbolic link from the default path (one-off step):
 ```bash
 ln -s /path/to/your/data/portrait128 ./data/portrait128
 ```
+
+Here `/path/to/your/data/portrait128` is the folder that holds the two arrays.
 
 This way the scripts work out of the box without any extra arguments.
 
@@ -230,9 +248,10 @@ several variants, each converted to Akida format:
 
 ## Reference Models
 
-📝 Planned: pretrained models will be made available in a `pretrained_models/`
-folder once the training pipeline has been run. They are handled using the `git-lfs`
-package (git large file storage); for set-up instructions, see the
+Pretrained models are made available here, within the `pretrained_models/`
+folder. However, those are handled using the `git-lfs` package (git large
+file storage). For those to be downloaded with the repo, you will need to
+set up `git-lfs`. For further instructions, see the
 [Trained models](../../../README.md#trained-models) section of the top-level README.
 
 ## Usage
@@ -249,6 +268,11 @@ quantization constraints mean in practice, and what the conversion step does. St
 here if you want to understand *why* the pipeline is structured the way it is.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida2/model_zoo/portrait128/portrait128_notebook_training.ipynb)
+
+On Colab, the setup cell installs the toolchain but can't download the dataset, which is
+only distributed through Google Drive. Copy `img_uint8.npy` and `msk_uint8.npy` into the
+notebook's `data/portrait128` folder before running the data cells; the setup cell prints
+where, and how to mount your Drive.
 
 [portrait128_notebook_benchmark.ipynb](portrait128_notebook_benchmark.ipynb) walks through
 evaluation of model accuracy on Akida and, if a hardware device is available, covers benchmarking
