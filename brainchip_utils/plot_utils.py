@@ -3,7 +3,6 @@ import pathlib
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-import akida
 
 
 MAPPING_COLOR = 'steelblue'
@@ -14,6 +13,9 @@ MEAN_STYLE = dict(lw=1.5, color='steelblue')
 INF_START_STYLE = dict(color='seagreen', ls='--', lw=1.2)
 INF_END_STYLE = dict(color='firebrick', ls='--', lw=1.2)
 FLOOR_STYLE = dict(color='gray', ls=':', lw=1.0)
+
+# Points per repeat in a power trace, on a grid shared by every repeat of a map mode
+POWER_TRACE_POINTS = 500
 
 
 def pretty_print_sparsity(sparsity_dict):
@@ -75,13 +77,13 @@ def _mapping_legend_handles(has_pass, has_seq):
 
 def plot_per_layer_timing(results, ax, colors=None):
     layer_names = results['layer_names']
-    per_layer_ms = results['per_layer_ms']
+    per_layer_ms = np.asarray(results['per_layer_ms'], dtype=float)  # null (saved NaN) -> NaN
     num_layers = len(layer_names)
 
     if colors is None:
         colors = ['steelblue'] * num_layers
 
-    raw_times = results['cumulative_times']  # (num_layers, repeats) in ns
+    raw_times = np.asarray(results['cumulative_times'], dtype=float)  # (num_layers, repeats) in ns
     per_layer_raw = np.copy(raw_times)
     per_layer_raw[1:] = raw_times[1:] - raw_times[:-1]
     per_layer_ms_std = np.std(per_layer_raw / 1e6, axis=1)
@@ -102,7 +104,7 @@ def plot_cumulative_timing(results, ax, colors=None):
     if colors is None:
         colors = ['seagreen'] * num_layers
 
-    cumulative_ms = np.mean(results['cumulative_times'], axis=1) / 1e6
+    cumulative_ms = np.mean(np.asarray(results['cumulative_times'], dtype=float), axis=1) / 1e6
 
     x = np.arange(num_layers)
     ax.bar(x, cumulative_ms, color=colors, edgecolor='white')
@@ -112,16 +114,26 @@ def plot_cumulative_timing(results, ax, colors=None):
     ax.set_xticklabels(layer_names, rotation=45, ha='right', fontsize=8)
 
 
-def plot_mapping(ak_model, ax, colors=None, legend=True):
-    """Bar chart of NPs per layer, with pass and sequence boundaries.
+def mapping_summary(ak_model):
+    """NPs per layer in mapping order, with the pass and sequence boundaries.
 
-    Returns (has_pass_boundary, has_sequence_boundary), so a caller drawing
-    several panels can build one shared legend (pass legend=False).
+    ak_model must be mapped without hw_only=True, so that ak_model.sequences is
+    populated. The result is a plain dict that plot_mapping() draws and that a
+    benchmark results file stores, so the mapping can be plotted again without
+    a device.
+
+    Returns:
+        dict with keys:
+            layer_names   - list of layer names, in mapping order
+            layer_nps     - list of NPs used by each layer
+            pass_ends     - indices of layers that end a pass (within a sequence)
+            sequence_ends - indices of layers that end a sequence
+        The last layer of the model ends neither.
     """
     layer_names = []
     layer_nps = []
     pass_ends = []
-    seq_ends = []
+    sequence_ends = []
 
     for si, seq in enumerate(ak_model.sequences):
         for pi, hwpass in enumerate(seq.passes):
@@ -131,17 +143,35 @@ def plot_mapping(ak_model, ax, colors=None, legend=True):
             is_last_pass = (pi == len(seq.passes) - 1)
             is_last_seq = (si == len(ak_model.sequences) - 1)
             if not (is_last_pass and is_last_seq):
-                pass_end_idx = len(layer_names) - 0.5
                 if is_last_pass:
-                    seq_ends.append(pass_end_idx)
+                    sequence_ends.append(len(layer_names) - 1)
                 else:
-                    pass_ends.append(pass_end_idx)
+                    pass_ends.append(len(layer_names) - 1)
+
+    return {'layer_names': layer_names, 'layer_nps': layer_nps,
+            'pass_ends': pass_ends, 'sequence_ends': sequence_ends}
+
+
+def plot_mapping(mapping, ax, colors=None, legend=True):
+    """Bar chart of NPs per layer, with pass and sequence boundaries.
+
+    mapping is either a mapped akida.Model (see mapping_summary()) or the dict
+    mapping_summary() returns.
+
+    Returns (has_pass_boundary, has_sequence_boundary), so a caller drawing
+    several panels can build one shared legend (pass legend=False).
+    """
+    if hasattr(mapping, 'sequences'):
+        mapping = mapping_summary(mapping)
+    layer_names = mapping['layer_names']
+    pass_ends = [i + 0.5 for i in mapping['pass_ends']]
+    seq_ends = [i + 0.5 for i in mapping['sequence_ends']]
 
     if colors is None:
         colors = MAPPING_COLOR
 
     x = np.arange(len(layer_names))
-    ax.bar(x, layer_nps, color=colors, edgecolor='white')
+    ax.bar(x, mapping['layer_nps'], color=colors, edgecolor='white')
 
     for pos in pass_ends:
         ax.axvline(x=pos, **PASS_STYLE)
@@ -170,28 +200,34 @@ def _fit_layer_labels(ax, max_slanted=20):
         plt.setp(labels, fontsize=11)
 
 
-def plot_power_trace(power_data, ax, legend=True, stats=True):
-    """Plot per-repeat power traces with the mean overlaid.
+def power_trace(power_data, num_points=POWER_TRACE_POINTS):
+    """Per-repeat power traces on a common time grid, t=0 at inference start.
 
-    Each repeat is time-normalised so that t=0 coincides with the start of the
-    inference window.  Individual repeat traces are drawn with transparency;
-    the mean trace is drawn on top.
+    This is the data plot_power_trace() draws, and what a benchmark results
+    file stores instead of the raw sensor readings (which run to hundreds of
+    thousands of points per map mode).
 
     Args:
-        power_data: The 'power' dict returned by full_model_benchmark, which
-                    must contain 'readings' and 'repeat_meta'.
-        legend:     Draw a legend on the axes. Pass False when the figure has a
-                    shared legend.
-        stats:      Draw the time/power/energy summary box on the axes.
+        power_data: The 'power' dict returned by full_model_benchmark (with
+                    'readings' and 'repeat_meta'), or a dict that already holds
+                    a 'trace', which is returned as it is.
+        num_points: Points per repeat on the common time grid.
+
+    Returns:
+        dict with keys:
+            t_s                   - common time grid (s), t=0 at inference start
+            repeats_mw            - one power trace (mW) per repeat on that grid
+            inf_duration_s        - length of each repeat's inference run (s)
+            inferences_per_repeat - forward calls in each inference run
+        or None if no repeat has enough readings to draw.
     """
+    if 'trace' in power_data:
+        return power_data['trace']
+
     readings_arr = np.array(power_data['readings'])
     abs_times = readings_arr[:, 0]
     powers    = readings_arr[:, 1] * readings_arr[:, 2]  # V × mA = mW
-
     repeat_meta = power_data['repeat_meta']
-    avg_floor   = power_data['avg_floor_mw']
-    avg_dyn     = power_data['avg_dynamic_mw']
-    avg_dyn_e   = power_data['avg_dynamic_energy_mj']
 
     # Build one time-normalised power trace per repeat
     repeat_traces = []  # list of (t_rel, p) arrays, t=0 at inference start
@@ -206,29 +242,56 @@ def plot_power_trace(power_data, ax, legend=True, stats=True):
             repeat_traces.append((t_rel, p_sel))
 
     if not repeat_traces:
-        return
+        return None
 
     # Common time grid spanning all repeats
     t_grid = np.linspace(
         min(tr[0][0]  for tr in repeat_traces),
         max(tr[0][-1] for tr in repeat_traces),
-        500,
+        num_points,
     )
+    return {
+        't_s':                   t_grid.tolist(),
+        'repeats_mw':            [np.interp(t_grid, t_rel, p_sel).tolist()
+                                  for t_rel, p_sel in repeat_traces],
+        'inf_duration_s':        [meta['inf_timestamps'][-1] - meta['inf_timestamps'][0]
+                                  for meta in repeat_meta],
+        'inferences_per_repeat': len(repeat_meta[0]['inf_timestamps']) - 1,
+    }
 
-    interp_powers = []
-    for t_rel, p_sel in repeat_traces:
-        p_interp = np.interp(t_grid, t_rel, p_sel)
-        interp_powers.append(p_interp)
+
+def plot_power_trace(power_data, ax, legend=True, stats=True):
+    """Plot per-repeat power traces with the mean overlaid.
+
+    Each repeat is time-normalised so that t=0 coincides with the start of the
+    inference window.  Individual repeat traces are drawn with transparency;
+    the mean trace is drawn on top.
+
+    Args:
+        power_data: The 'power' dict returned by full_model_benchmark (with
+                    'readings' and 'repeat_meta'), or its saved form, with a
+                    'trace' from power_trace() in their place.
+        legend:     Draw a legend on the axes. Pass False when the figure has a
+                    shared legend.
+        stats:      Draw the time/power/energy summary box on the axes.
+    """
+    trace = power_trace(power_data)
+    if trace is None:
+        return
+
+    avg_floor   = power_data['avg_floor_mw']
+    avg_dyn     = power_data['avg_dynamic_mw']
+    avg_dyn_e   = power_data['avg_dynamic_energy_mj']
+
+    t_grid = np.asarray(trace['t_s'])
+    interp_powers = np.asarray(trace['repeats_mw'])
+    for p_interp in interp_powers:
         ax.plot(t_grid, p_interp, **REPEAT_STYLE)
 
     ax.plot(t_grid, np.mean(interp_powers, axis=0), label='Mean power', **MEAN_STYLE)
 
-    mean_inf_duration = np.mean([
-        meta['inf_timestamps'][-1] - meta['inf_timestamps'][0]
-        for meta in repeat_meta
-    ])
-    n_inf = len(repeat_meta[0]['inf_timestamps']) - 1
-    avg_inf_time_ms = mean_inf_duration / n_inf * 1000
+    mean_inf_duration = np.mean(trace['inf_duration_s'])
+    avg_inf_time_ms = mean_inf_duration / trace['inferences_per_repeat'] * 1000
 
     ax.axvline(0, label='Inference start', **INF_START_STYLE)
     ax.axvline(mean_inf_duration, label='Inference end', **INF_END_STYLE)
@@ -277,8 +340,8 @@ def _mode_summary(result):
     return ' · '.join(parts)
 
 
-def plot_full_model_results(full_results, ak_model, device, model_name=None, savepath=None,
-                            show_power=True, example=None):
+def plot_full_model_results(full_results, ak_model=None, device=None, model_name=None,
+                            savepath=None, show_power=True, example=None):
     """Plot power trace and hardware mapping for each map mode.
 
     Layout: rows = plot type (power, mapping); cols = map mode. If show_power is
@@ -290,9 +353,12 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
     Args:
         full_results: dict mapping mode name (e.g. 'Minimal', 'AllNps') to the
                       result dict returned by full_model_benchmark(), optionally
-                      with 'num_nps' and 'num_passes' added.
-        ak_model:     akida.Model — re-mapped internally for each mode. Left in
-                      the state of the last mode after this call returns.
+                      with 'num_nps' and 'num_passes' added. A result that holds
+                      a 'mapping' (from mapping_summary()) is plotted from it, as
+                      results loaded from a benchmark results file are.
+        ak_model:     akida.Model, re-mapped for each mode without a 'mapping'.
+                      Left in the state of the last mode re-mapped. Not needed
+                      when every result holds a 'mapping'.
         device:       Akida device passed to ak_model.map().
         model_name:   Model name or path; a path is shown as its file stem.
         savepath:     If provided, save the figure to this path (PNG).
@@ -314,7 +380,11 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
     has_pass = has_seq = False
     for i, mode_name in enumerate(modes):
         result = full_results[mode_name]
-        ak_model.map(device, mode=getattr(akida.MapMode, mode_name))
+        mapping = result.get('mapping')
+        if mapping is None:
+            import akida
+            ak_model.map(device, mode=getattr(akida.MapMode, mode_name))
+            mapping = ak_model
 
         ax_top = axs[0, i]
         ax_map = axs[nrows - 1, i]
@@ -330,7 +400,7 @@ def plot_full_model_results(full_results, ak_model, device, model_name=None, sav
             else:
                 _power_placeholder(axs[0, i])
 
-        p, q = plot_mapping(ak_model, ax_map, legend=False)
+        p, q = plot_mapping(mapping, ax_map, legend=False)
         has_pass, has_seq = has_pass or p, has_seq or q
         ax_map.yaxis.label.set_fontsize(12)
         ax_map.tick_params(axis='y', labelsize=11)
@@ -384,7 +454,8 @@ def plot_per_layer_results(per_layer_results, ak_model, sparsity_dict,
 
     Args:
         per_layer_results: Result dict from per_layer_benchmark().
-        ak_model:          akida.Model with sequences populated by a prior map() call.
+        ak_model:          akida.Model with sequences populated by a prior map() call,
+                           or the dict mapping_summary() returns for it.
         sparsity_dict:     dict[layer_name, float] of output sparsity per layer,
                            as returned by compute_sparsity(). Shifted by one position
                            to derive per-layer input sparsity (first layer = 0).
