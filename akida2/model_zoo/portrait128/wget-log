@@ -1,6 +1,0 @@
---2026-10-21 13:42:16--  https://data.brainchip.com/dataset-mirror/samples/portrait128/portrait128_batch1024.npz
-Resolving data.brainchip.com (data.brainchip.com)... 146.59.209.152, 2001:41d0:301::31
-Connecting to data.brainchip.com (data.brainchip.com)|146.59.209.152|:443... connected.
-HTTP request sent, awaiting response... 304 Not Modified
-File ‘data/portrait128_batch1024.npz’ not modified on server. Omitting download.
-

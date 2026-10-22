@@ -26,10 +26,9 @@
 #
 # The pipeline follows the standard Akida workflow:
 # 1. Train a float model
-# 2. 8-bit quantization (PTQ)
-# 3. 4-bit quantization with QAT fine-tuning
-# 4. Conversion to Akida `.fbz` format
-# 5. Evaluation on Akida
+# 2. 8-bit quantization (PTQ), then one epoch of QAT
+# 3. Conversion to Akida `.fbz` format
+# 4. Evaluation on Akida
 #
 # The focus is on the **Akida-specific** aspects of the pipeline. The data loading,
 # model definition and training loop live in the accompanying Python files: they are
@@ -57,9 +56,9 @@ if 'google.colab' in sys.modules:
 # `img_uint8.npy` and `msk_uint8.npy`. See the [README](README.md) for where to get
 # them and for symlink setup. Update `DATA_PATH` below if you keep them elsewhere.
 #
-# Setting `RUN_FLOAT_TRAINING` or `RUN_QAT_TRAINING` to `False` skips that training
-# run and loads the model saved in `MODELS_DIR` by an earlier run of this notebook or
-# of `portrait128_train.sh`.
+# Setting `RUN_FLOAT_TRAINING` to `False` skips the training run and loads the float
+# model saved in `MODELS_DIR` by an earlier run of this notebook or of
+# `portrait128_train.sh`.
 
 # %%
 import os
@@ -72,7 +71,6 @@ MODELS_DIR = './models'
 os.makedirs(MODELS_DIR, exist_ok=True)
 
 RUN_FLOAT_TRAINING = True
-RUN_QAT_TRAINING = True
 
 SEED = 42
 
@@ -198,17 +196,17 @@ print(f'Float binary IoU: {float_iou:.4f}, pixel accuracy: {float_accuracy:.4f}'
 # ## Quantization (quantizeml)
 #
 # Akida runs on integers, so the weights and activations have to be quantized. Akida 2
-# quantizes with **quantizeml** (not `cnn2snn.quantize`). We produce two variants:
+# quantizes with **quantizeml** (not `cnn2snn.quantize`). We quantize to **8 bits**
+# (i8/w8/a8) by post-training quantization (PTQ) only: 256 levels per weight and
+# activation track the float values closely enough that no retraining is needed.
+# `input_weight_bits` sets the input layer separately, because it runs on Akida's
+# dedicated input processor; here it is 8-bit like everything else.
 #
-# * **8-bit** (i8/w8/a8): post-training quantization (PTQ) only. 256 levels per weight
-#   and activation track the float values closely enough that no retraining is needed.
-# * **4-bit** (i8/w4/a4): quantization-aware training (QAT). With only 16 levels the
-#   rounding error is large enough to cost real accuracy after PTQ, so the model is
-#   fine-tuned with the quantization in place.
-#
-# In both variants the **input layer's weights stay 8-bit** (`input_weight_bits=8`). The
-# input layer runs on Akida's dedicated input processor and sees the raw image, where
-# precision matters most; it is also a small share of the total weights.
+# **Why no 4-bit variant?** Other Akida 2 examples also offer a 4-bit model, fine-tuned
+# with quantization-aware training (QAT). This one can't. The decoder upsamples with
+# transposed depthwise convolutions, and on Akida 2 those layers need 8-bit inputs and
+# 8-bit weights. In a model quantized to 4 bits throughout, all five of them would fall
+# back to software, so the model would no longer run fully on the hardware.
 #
 # Quantization with `quantizeml` requires **calibration samples**. Calibration runs real
 # inputs through the model to measure the range of every layer's activations, and those
@@ -224,17 +222,44 @@ from portrait128_data import get_samples
 NUM_SAMPLES = 1024
 samples = get_samples(DATA_PATH, INPUT_SHAPE, num_samples=NUM_SAMPLES)
 
-# --- 8-bit variant (i8 / w8 / a8), PTQ only ---
+# --- 8-bit (i8 / w8 / a8), PTQ ---
 qparams_8bit = QuantizationParams(input_weight_bits=8, weight_bits=8, activation_bits=8)
 model_8bit = quantize(model, qparams=qparams_8bit, samples=samples)
 
-q8_path = os.path.join(MODELS_DIR, 'akida_unet_portrait128_i8_w8_a8.h5')
+model_8bit.compile(metrics=get_metrics())
+ptq_results = model_8bit.evaluate(val_ds, verbose=0, return_dict=True)
+iou_ptq, acc_ptq = ptq_results['binary_iou'], ptq_results['accuracy']
+print(f'8-bit PTQ binary IoU: {iou_ptq:.4f}, pixel accuracy: {acc_ptq:.4f}')
+
+# %% [markdown]
+# ### One epoch of QAT
+#
+# The 8-bit model then gets one epoch of quantization-aware training (QAT), as the
+# model in BrainChip's model zoo does. During QAT the forward pass uses the quantized
+# weights and activations, while the gradients update an underlying float copy of the
+# weights, so the network adjusts to the rounding that PTQ introduced.
+#
+# QAT starts from a model that is already close to a good solution, so it uses a lower
+# learning rate: a tenth of the float rate here. A higher rate would undo the float
+# training rather than refine it.
+#
+# A model quantized with `quantizeml` is a standard Keras model, so it goes straight
+# back into the same training function used for float training. The PTQ model itself
+# is not kept; compare its result above with the one after QAT.
+
+# %%
+QAT_EPOCHS = 1
+QAT_LR = 3e-6
+train_ds, val_ds = get_data(DATA_PATH, INPUT_SHAPE, BATCH_SIZE, seed=SEED)
+train_portrait128(model_8bit, train_ds, val_ds, QAT_EPOCHS, QAT_LR, seed=SEED)
+
+q8_path = os.path.join(MODELS_DIR, 'akida_unet_portrait128_i8_w8_a8_qat.h5')
 model_8bit.save(q8_path, include_optimizer=False)
 
 model_8bit.compile(metrics=get_metrics())
 q8_results = model_8bit.evaluate(val_ds, verbose=0, return_dict=True)
 iou_8bit, acc_8bit = q8_results['binary_iou'], q8_results['accuracy']
-print(f'8-bit binary IoU: {iou_8bit:.4f}, pixel accuracy: {acc_8bit:.4f}')
+print(f'8-bit QAT binary IoU: {iou_8bit:.4f}, pixel accuracy: {acc_8bit:.4f}')
 
 # %% [markdown]
 # Note: the quantized model can be saved using the standard method. However,
@@ -250,54 +275,12 @@ from quantizeml.model_io import load_model
 model_8bit = load_model(q8_path)
 
 # %% [markdown]
-# ### 4-bit variant with QAT
-#
-# At 4 bits, PTQ alone loses noticeable accuracy, so the quantized model is fine-tuned.
-# During QAT the forward pass uses the quantized weights and activations, while the
-# gradients update an underlying float copy of the weights. The network therefore
-# learns weights that still work after rounding to 16 levels.
-#
-# QAT starts from a model that is already close to a good solution, so it uses a lower
-# learning rate: a tenth of the float rate here. A higher rate would undo the float
-# training rather than refine it.
-#
-# A model quantized with `quantizeml` is a standard Keras model, so it goes straight
-# back into the same training function used for float training. The intermediate PTQ
-# model is not kept.
-
-# %%
-if RUN_QAT_TRAINING:
-    # --- 4-bit variant (i8 / w4 / a4), QAT ---
-    qparams_4bit = QuantizationParams(input_weight_bits=8, weight_bits=4, activation_bits=4)
-    model_4bit = quantize(model, qparams=qparams_4bit, samples=samples)
-
-    # QAT fine-tune the quantized 4-bit model
-    QAT_EPOCHS = 10
-    QAT_LR = 3e-6
-    train_ds, val_ds = get_data(DATA_PATH, INPUT_SHAPE, BATCH_SIZE, seed=SEED)
-    train_portrait128(model_4bit, train_ds, val_ds, QAT_EPOCHS, QAT_LR, seed=SEED)
-
-    q4_path = os.path.join(MODELS_DIR, 'akida_unet_portrait128_i8_w4_a4_qat.h5')
-    model_4bit.save(q4_path, include_optimizer=False)
-else:
-    # Note the use of the quantizeml load_model wrapper to handle the
-    # custom quantized layer types
-    from quantizeml.model_io import load_model
-    print('Training skipped. Loading an existing 4-bit model...')
-    model_4bit = load_model(os.path.join(MODELS_DIR, 'akida_unet_portrait128_i8_w4_a4_qat.h5'))
-
-model_4bit.compile(metrics=get_metrics())
-q4_results = model_4bit.evaluate(val_ds, verbose=0, return_dict=True)
-iou_4bit, acc_4bit = q4_results['binary_iou'], q4_results['accuracy']
-print(f'4-bit QAT binary IoU: {iou_4bit:.4f}, pixel accuracy: {acc_4bit:.4f}')
-
-# %% [markdown]
 # ## Conversion to Akida Format
 #
 # `cnn2snn.convert` compiles the quantized Keras model into an Akida `.fbz`
 # model that can be loaded and executed directly on an Akida 2 hardware device.
 # The converter verifies hardware compatibility and maps each layer to its
-# corresponding Akida primitive. We convert both quantized variants.
+# corresponding Akida primitive.
 #
 # In the summary below, note the following:
 #
@@ -305,7 +288,8 @@ print(f'4-bit QAT binary IoU: {iou_4bit:.4f}, pixel accuracy: {acc_4bit:.4f}')
 #   convolution.
 # * Each decoder block becomes a `DepthwiseConv2DTranspose` followed by a pointwise
 #   `Conv2D`. On Akida 2 the depthwise and pointwise parts of a separable convolution
-#   are two separate layers.
+#   are two separate layers. The `DepthwiseConv2DTranspose` layers are the ones that
+#   need 8 bits to run on the hardware.
 # * The last layer is a `Dequantizer`, so the model outputs float logits of shape
 #   `(128, 128, 1)`, which can be thresholded at 0 just like the Keras model's.
 
@@ -313,10 +297,7 @@ print(f'4-bit QAT binary IoU: {iou_4bit:.4f}, pixel accuracy: {acc_4bit:.4f}')
 from cnn2snn import convert
 
 akida_8bit = convert(model_8bit)
-akida_8bit.save(os.path.join(MODELS_DIR, 'akida_unet_portrait128_i8_w8_a8.fbz'))
-
-akida_4bit = convert(model_4bit)
-akida_4bit.save(os.path.join(MODELS_DIR, 'akida_unet_portrait128_i8_w4_a4_qat.fbz'))
+akida_8bit.save(os.path.join(MODELS_DIR, 'akida_unet_portrait128_i8_w8_a8_qat.fbz'))
 
 akida_8bit.summary()
 
@@ -351,9 +332,7 @@ def evaluate_akida(akida_model, ds):
     return float(iou_metric.result()), float(acc_metric.result())
 
 akida_iou_8bit, akida_acc_8bit = evaluate_akida(akida_8bit, val_ds)
-akida_iou_4bit, akida_acc_4bit = evaluate_akida(akida_4bit, val_ds)
-print(f'Akida 8-bit binary IoU: {akida_iou_8bit:.4f}, pixel accuracy: {akida_acc_8bit:.4f}')
-print(f'Akida 4-bit QAT binary IoU: {akida_iou_4bit:.4f}, pixel accuracy: {akida_acc_4bit:.4f}')
+print(f'Akida 8-bit QAT binary IoU: {akida_iou_8bit:.4f}, pixel accuracy: {akida_acc_8bit:.4f}')
 
 # %% [markdown]
 # ## Activation Sparsity
@@ -376,10 +355,7 @@ from akida_models.sparsity import compute_sparsity
 from brainchip_utils.plot_utils import pretty_print_sparsity
 
 # Reuse the calibration samples built earlier (sparsity needs real activations too).
-print('8-bit sparsity:')
 pretty_print_sparsity(compute_sparsity(akida_8bit, samples=samples))
-print('\n4-bit QAT sparsity:')
-pretty_print_sparsity(compute_sparsity(akida_4bit, samples=samples))
 
 # %% [markdown]
 # ## Summary
@@ -387,5 +363,5 @@ pretty_print_sparsity(compute_sparsity(akida_4bit, samples=samples))
 # %%
 print(f'{"Variant":<16}{"Keras IoU":<12}{"Keras acc":<12}{"Akida IoU":<12}{"Akida acc":<12}')
 print(f'{"float":<16}{float_iou:<12.4f}{float_accuracy:<12.4f}{"-":<12}{"-":<12}')
-print(f'{"8-bit (w8a8)":<16}{iou_8bit:<12.4f}{acc_8bit:<12.4f}{akida_iou_8bit:<12.4f}{akida_acc_8bit:<12.4f}')
-print(f'{"4-bit QAT":<16}{iou_4bit:<12.4f}{acc_4bit:<12.4f}{akida_iou_4bit:<12.4f}{akida_acc_4bit:<12.4f}')
+print(f'{"8-bit PTQ":<16}{iou_ptq:<12.4f}{acc_ptq:<12.4f}{"-":<12}{"-":<12}')
+print(f'{"8-bit QAT":<16}{iou_8bit:<12.4f}{acc_8bit:<12.4f}{akida_iou_8bit:<12.4f}{akida_acc_8bit:<12.4f}')

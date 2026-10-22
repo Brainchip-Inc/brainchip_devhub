@@ -16,11 +16,16 @@ thresholded at 0 (a probability of 0.5):
 - **Pixel accuracy**: the fraction of pixels labeled correctly. Background covers
   much of each image, so this is always high and says less about mask quality.
 
-The quantized variants below all share the same float model. On Akida 2 the
-model is quantized with **`quantizeml`**: 8-bit weights and activations need no
-quantization-aware training (QAT), while a lower-precision 4-bit variant (4-bit
-weights and activations, 8-bit input layer) uses QAT to recover accuracy — 4-bit
-PTQ accuracy is poor, so only the QAT result is reported.
+On Akida 2 the model is quantized with **`quantizeml`** to 8-bit weights and
+activations. Post-training quantization (PTQ) is followed by one epoch of
+quantization-aware training (QAT), which fine-tunes the model with the quantization in
+place, as for this model in BrainChip's model zoo.
+
+There is no 4-bit variant. The decoder upsamples with transposed depthwise
+convolutions, and on Akida 2 those layers need 8-bit inputs and 8-bit weights, so a
+model quantized to 4 bits throughout can't run fully on the hardware. BrainChip's
+[model zoo](https://doc.brainchipinc.com/model_zoo_performance.html#segmentation) also
+publishes this model at 8 bits only.
 
 <table>
   <thead>
@@ -39,21 +44,11 @@ PTQ accuracy is poor, so only the QAT result is reported.
     <tr>
       <td>8-bit</td>
       <td align="center">w8 / a8</td>
-      <td align="center">-</td>
-      <td align="center">0.8861</td>
-      <td align="center">94.19%</td>
-      <td align="center">0.8861</td>
-      <td align="center">94.19%</td>
-      <td align="center">TBD</td>
-    </tr>
-    <tr>
-      <td>4-bit</td>
-      <td align="center">w4 / a4</td>
-      <td align="center">yes</td>
-      <td align="center">0.9091</td>
-      <td align="center">95.48%</td>
-      <td align="center">0.9091</td>
-      <td align="center">95.48%</td>
+      <td align="center">1 epoch</td>
+      <td align="center">0.9185</td>
+      <td align="center">95.96%</td>
+      <td align="center">0.9185</td>
+      <td align="center">95.96%</td>
       <td align="center">TBD</td>
     </tr>
   </tbody>
@@ -110,37 +105,12 @@ rescale of the measured cycles.
       <td align="center">TBD</td>
       <td align="center">TBD</td>
     </tr>
-    <tr>
-      <td rowspan="3">4-bit (QAT)</td>
-      <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-    </tr>
-    <tr>
-      <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-    </tr>
-    <tr>
-      <td>HwPr</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-    </tr>
   </tbody>
 </table>
 
 ### Benchmark plots
 
-📝 Planned: the full-model and per-layer benchmark plots for each variant are added
+📝 Planned: the full-model and per-layer benchmark plots are added
 when the FPGA benchmark is run with `--save-metrics` (see
 [Contributing and Maintenance](#contributing-and-maintenance)).
 
@@ -236,15 +206,14 @@ python portrait128_data.py --extract data/portrait128_batch1024.npz
 
 ## Pipeline
 
-Training produces a float model, then quantizes it with `quantizeml` into
-several variants, each converted to Akida format:
+Training produces a float model, quantizes it to 8 bits with `quantizeml`, fine-tunes
+it for one epoch of QAT, and converts the result to Akida format:
 
 | Stage | Description |
 |---|---|
 | Full-precision | Float32 training of the full model, starting from an ImageNet-trained AkidaNet encoder |
-| 8-bit quantization | `quantizeml quantize` to 8-bit weights and activations (8-bit input), calibrated on real samples; no QAT required |
-| 4-bit quantization | `quantizeml quantize` to 4-bit weights and activations (8-bit input), calibrated on real samples, with QAT fine-tuning — 4-bit PTQ accuracy is poor so only the QAT model is kept |
-| Conversion to Akida | Automated conversion of each quantized model to Akida 2 format with `cnn2snn convert` |
+| 8-bit quantization | `quantizeml quantize` to 8-bit weights and activations (8-bit input), calibrated on real samples, then one epoch of QAT at a tenth of the float learning rate; the PTQ model itself is not kept |
+| Conversion to Akida | Automated conversion of the quantized model to Akida 2 format with `cnn2snn convert` |
 
 ## Reference Models
 
@@ -308,15 +277,10 @@ using `update_readme.py`:
 # Float model
 python portrait128_eval.py -l pretrained_models/akida_unet_portrait128.h5 --save-metrics
 
-# 8-bit variant
-python portrait128_eval.py -l pretrained_models/akida_unet_portrait128_i8_w8_a8.h5 --save-metrics
-python portrait128_eval.py -l pretrained_models/akida_unet_portrait128_i8_w8_a8.fbz --save-metrics
-python portrait128_benchmark.py -l pretrained_models/akida_unet_portrait128_i8_w8_a8.fbz --save-metrics
-
-# 4-bit variant (QAT)
-python portrait128_eval.py -l pretrained_models/akida_unet_portrait128_i8_w4_a4_qat.h5 --save-metrics
-python portrait128_eval.py -l pretrained_models/akida_unet_portrait128_i8_w4_a4_qat.fbz --save-metrics
-python portrait128_benchmark.py -l pretrained_models/akida_unet_portrait128_i8_w4_a4_qat.fbz --save-metrics
+# 8-bit model (QAT)
+python portrait128_eval.py -l pretrained_models/akida_unet_portrait128_i8_w8_a8_qat.h5 --save-metrics
+python portrait128_eval.py -l pretrained_models/akida_unet_portrait128_i8_w8_a8_qat.fbz --save-metrics
+python portrait128_benchmark.py -l pretrained_models/akida_unet_portrait128_i8_w8_a8_qat.fbz --save-metrics
 
 python update_readme.py
 ```

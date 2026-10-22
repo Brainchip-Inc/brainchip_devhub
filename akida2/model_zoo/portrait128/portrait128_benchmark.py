@@ -139,8 +139,8 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # Map without hw_only so ak_model.sequences is available for plot_mapping
     ak_model.map(device, mode=akida.MapMode.Minimal)
-    # Plot filenames include the model stem so that each variant (8-bit, 4-bit)
-    # keeps its own reference figures.
+    # Plot filenames include the model stem, so each benchmarked model keeps
+    # its own reference figures.
     model_stem = pathlib.Path(args.loadmodel).stem
     perlayer_savepath = f'benchmark_results_layers_{model_stem}.png'
     if args.save_metrics:
@@ -170,12 +170,7 @@ if __name__ == '__main__':
         # intentionally absent: benchmarking is latency-only until the FPGA power
         # path exists.
         stem = pathlib.Path(args.loadmodel).stem
-        if 'i8_w8_a8' in stem:
-            variant = 'w8a8'
-        elif 'i8_w4_a4' in stem:
-            variant = 'w4a4_qat'
-        else:
-            variant = 'w8a8'  # fallback; benchmarking is only meaningful for a quantized .fbz
+        variant = 'w8a8'  # the only quantized model; benchmarking needs its .fbz
 
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}

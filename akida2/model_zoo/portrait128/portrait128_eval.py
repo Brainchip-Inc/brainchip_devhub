@@ -102,14 +102,12 @@ if __name__ == '__main__':
         # Updates the stored metrics used to generate the README performance
         # tables. For code maintenance only, run against the pretrained models.
         #
-        # This example has two quantized variants, disambiguated by filename.
-        # Each variant contributes "quantized" metrics (from its .h5) and "akida"
-        # metrics (from its .fbz):
+        # Models are told apart by filename. The 8-bit model contributes
+        # "quantized" metrics (from its .h5) and "akida" metrics (from its .fbz):
         #   akida_unet_portrait128.h5                    -> float_iou, float_acc, params
-        #   akida_unet_portrait128_i8_w8_a8.{h5,fbz}     -> w8a8_quant_* / w8a8_akida_*
-        #   akida_unet_portrait128_i8_w4_a4_qat.{h5,fbz} -> w4a4_qat_quant_* / w4a4_qat_akida_*
-        # (The 4-bit PTQ model is a throwaway on the way to QAT -- it is never
-        #  evaluated or stored, so it has no metrics.)
+        #   akida_unet_portrait128_i8_w8_a8_qat.{h5,fbz} -> w8a8_quant_* / w8a8_akida_*
+        # (The PTQ model is a throwaway on the way to QAT: it is never evaluated
+        #  or stored, so it has no metrics.)
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
         iou_str = f'{binary_iou:.4f}'
@@ -119,8 +117,6 @@ if __name__ == '__main__':
         # Determine the variant prefix from the filename.
         if 'i8_w8_a8' in stem:
             variant = 'w8a8'
-        elif 'i8_w4_a4' in stem:
-            variant = 'w4a4_qat'
         else:
             variant = None  # float model
 

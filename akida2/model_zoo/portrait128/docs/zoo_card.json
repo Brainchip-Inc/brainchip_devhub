@@ -11,16 +11,6 @@
             "metric_label": "binary IoU",
             "bench_prefix": "w8a8_",
             "notes": ""
-        },
-        {
-            "task": "Portrait segmentation",
-            "category": "Segmentation",
-            "dataset": "Portrait128",
-            "variant": "4-bit QAT",
-            "metric_key": "w4a4_qat_akida_iou",
-            "metric_label": "binary IoU",
-            "bench_prefix": "w4a4_qat_",
-            "notes": ""
         }
     ]
 }

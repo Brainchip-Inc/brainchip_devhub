@@ -163,19 +163,11 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td></td>
     </tr>
     <tr>
-      <td rowspan="2"><a href="model_zoo/portrait128">Portrait segmentation</a></td>
-      <td rowspan="2">Segmentation</td>
-      <td rowspan="2">Portrait128</td>
+      <td><a href="model_zoo/portrait128">Portrait segmentation</a></td>
+      <td>Segmentation</td>
+      <td>Portrait128</td>
       <td>8-bit</td>
-      <td>0.8861 binary IoU</td>
-      <td>—</td>
-      <td align="right">—</td>
-      <td align="right">—</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>4-bit QAT</td>
-      <td>0.9091 binary IoU</td>
+      <td>0.9185 binary IoU</td>
       <td>—</td>
       <td align="right">—</td>
       <td align="right">—</td>

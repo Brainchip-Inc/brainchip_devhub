@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
 """
-Portrait128 training, for float training and quantization-aware training (QAT).
+Portrait128 training: float training, and the quantization-aware training (QAT)
+epoch of the 8-bit model.
 
 The model outputs one logit per pixel, so the loss is binary cross-entropy on
 logits. Training reports the binary IoU (mean of the person and background
