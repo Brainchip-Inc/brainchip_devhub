@@ -220,3 +220,7 @@ __marimo__/
 # Claude Code: personal, never shared
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Logs written by wget / nohup when run without a terminal
+wget-log*
+nohup.out

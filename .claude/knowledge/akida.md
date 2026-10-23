@@ -161,6 +161,24 @@ pipeline instead, so the deployed model receives an already-shaped tensor.
 how much pooling can come before it.
 *Source: `akida1/model_zoo/uored_vafcls/uored_vafcls_model.py` docstring.*
 
+**[Akida 2] `DepthwiseConv2DTranspose` maps to hardware only with 8-bit inputs and 8-bit
+weights.** At 4 bits the layer falls back to software. So a model with transposed
+depthwise convolutions, quantized to 4 bits throughout (`-w 4 -a 4`), no longer runs
+fully on hardware: the mapper splits it into hardware and software sequences, and
+mapping with `hw_only=True` fails with "Input should be 8-bit. Weights should be 8-bit."
+Regular `DepthwiseConv2D` and pointwise `Conv2D` layers map at 4 bits.
+- That's why `akida2/model_zoo/portrait128`, an AkidaUNet with five transposed depthwise
+  layers in its decoder, has no 4-bit variant. BrainChip's model zoo also lists that model
+  at 8 bits only.
+- A mixed-precision 4-bit model should be possible: `quantizeml.models.quantize` takes a
+  per-layer `q_config`, which could keep these layers, and the activations feeding them,
+  at 8 bits. **(unconfirmed)**: not yet built or benchmarked; mapping such a model with
+  `hw_only=True` would confirm it.
+
+*Source: measured with akida 2.19.3, mapping onto `akida.SixNodesIPv2()` and on the
+Akida 2 FPGA, 2026-10-22 (`akida2/model_zoo/portrait128`, HUB-43);
+[model zoo performance](https://doc.brainchipinc.com/model_zoo_performance.html#segmentation).*
+
 ## Backbones and blocks
 
 **[both] Separable convolutions: fused on Akida 1, two layers on Akida 2.**

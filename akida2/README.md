@@ -162,6 +162,17 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td align="right">3.991</td>
       <td></td>
     </tr>
+    <tr>
+      <td><a href="model_zoo/portrait128">Portrait segmentation</a></td>
+      <td>Segmentation</td>
+      <td>Portrait128</td>
+      <td>8-bit</td>
+      <td>0.9185 binary IoU</td>
+      <td>HwPr</td>
+      <td align="right">254.603</td>
+      <td align="right">6.365</td>
+      <td></td>
+    </tr>
   </tbody>
 </table>
 
