@@ -49,7 +49,7 @@ publishes this model at 8 bits only.
       <td align="center">95.96%</td>
       <td align="center">0.9185</td>
       <td align="center">95.96%</td>
-      <td align="center">TBD</td>
+      <td align="center">40.95%</td>
     </tr>
   </tbody>
 </table>
@@ -83,36 +83,49 @@ rescale of the measured cycles.
     <tr>
       <td rowspan="3">8-bit</td>
       <td>Minimal</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">67</td>
+      <td align="center">3</td>
+      <td align="center">9900830</td>
+      <td align="center">396.033</td>
+      <td align="center">9.901</td>
     </tr>
     <tr>
       <td>AllNPs</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">69</td>
+      <td align="center">3</td>
+      <td align="center">9891115</td>
+      <td align="center">395.645</td>
+      <td align="center">9.891</td>
     </tr>
     <tr>
       <td>HwPr</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
-      <td align="center">TBD</td>
+      <td align="center">187</td>
+      <td align="center">8</td>
+      <td align="center">6365085</td>
+      <td align="center">254.603</td>
+      <td align="center">6.365</td>
     </tr>
   </tbody>
 </table>
 
 ### Benchmark plots
 
-📝 Planned: the full-model and per-layer benchmark plots are added
-when the FPGA benchmark is run with `--save-metrics` (see
-[Contributing and Maintenance](#contributing-and-maintenance)).
+Two plots are shown below; click to open them. The **full-model** plot shows the
+hardware mapping (NPs used per layer, with pass boundaries) under each mapping mode
+(Minimal, AllNPs and HwPr): Minimal mapping schedules the model onto the fewest NPs
+required, while AllNPs and HwPr spread it across more NPs. The **per-layer** plot shows
+per-layer latency, input sparsity and NP mapping under Minimal mapping. Akida is
+event-driven, so a layer's cost depends on how many non-zero activations it receives;
+sparsity is measured on real dataset samples.
+
+<details>
+<summary><b>8-bit (w8 / a8, QAT)</b></summary>
+
+<img src="docs/ref_benchmark_results_full_akida_unet_portrait128_i8_w8_a8_qat.png" alt="8-bit full-model benchmark results" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_akida_unet_portrait128_i8_w8_a8_qat.png" alt="8-bit per-layer benchmark results" width="700"/>
+
+</details>
 
 The model is an **Akida U-Net** from `akida_models`: an **AkidaNet** encoder with
 width multiplier **alpha = 0.5**, initialized from ImageNet-trained weights, takes the

@@ -168,9 +168,9 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>Portrait128</td>
       <td>8-bit</td>
       <td>0.9185 binary IoU</td>
-      <td>—</td>
-      <td align="right">—</td>
-      <td align="right">—</td>
+      <td>HwPr</td>
+      <td align="right">254.603</td>
+      <td align="right">6.365</td>
       <td></td>
     </tr>
   </tbody>

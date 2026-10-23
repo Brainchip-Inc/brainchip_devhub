@@ -345,10 +345,12 @@ print(f'Akida 8-bit QAT binary IoU: {akida_iou_8bit:.4f}, pixel accuracy: {akida
 # The input layer is the exception. It runs on the dedicated input processor, a
 # conventional convolution whose cost doesn't depend on how many of its inputs are zero.
 #
-# For this model, look at the decoder. Its last blocks run at 64 × 64 and 128 × 128, so
-# they process far more activations than the encoder layers at 8 × 8 or 4 × 4. Their
-# sparsity is therefore likely to have the most effect on latency; the per-layer
-# benchmark in `portrait128_notebook_benchmark.ipynb` measures it.
+# For this model, the per-layer benchmark in `portrait128_notebook_benchmark.ipynb` shows
+# where the time goes. The slowest layers are the encoder's first full convolutions
+# (`conv_1` to `conv_3`), which apply 3 × 3 kernels across every channel of the 64 × 64 and
+# 32 × 32 feature maps. The decoder's upsampling layers, which run at up to 128 × 128, come
+# next, and the deep encoder layers at 8 × 8 and 4 × 4 cost little. So sparsity in those
+# early convolutions has the most room to reduce latency.
 
 # %%
 from akida_models.sparsity import compute_sparsity

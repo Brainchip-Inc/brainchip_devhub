@@ -118,7 +118,11 @@ def check_text(files, added):
                 where = rel if path.suffix == ".ipynb" else f"{rel}:{lineno}"
                 yield "machine-path", where, PATH_RE.search(line).group(0)
         is_new_zoo_script = rel in added and "model_zoo" in rel and path.suffix == ".py"
-        if is_new_zoo_script and not any(COPYRIGHT in l for l in lines[:3]):
+        # A Jupytext notebook mirror (`*_notebook.py`) must start with its YAML header,
+        # so it can't carry the copyright line; its .ipynb is the notebook itself.
+        is_jupytext_mirror = bool(lines) and lines[0].strip() == "# ---" and any(
+            "jupytext:" in l for l in lines[:6])
+        if is_new_zoo_script and not is_jupytext_mirror and not any(COPYRIGHT in l for l in lines[:3]):
             yield "copyright", rel, "missing copyright header in first 3 lines"
 
 
