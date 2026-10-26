@@ -165,6 +165,37 @@ benchmarks for every mapping, and the steps to reproduce them.
   </tbody>
 </table>
 
+### Video
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Category</th>
+      <th>Dataset</th>
+      <th>Variant</th>
+      <th>Performance</th>
+      <th>Mapping</th>
+      <th>Latency @ 25 MHz FPGA (ms)</th>
+      <th>Projected @ 1 GHz AKD2500 (ms)</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="model_zoo/jester">Hand gesture recognition</a></td>
+      <td>Classification</td>
+      <td>Jester (BrainChip subset)</td>
+      <td>8-bit</td>
+      <td>94.64% clip acc.</td>
+      <td>—</td>
+      <td align="right">—</td>
+      <td align="right">—</td>
+      <td>TENN spatiotemporal, streaming; latency per frame</td>
+    </tr>
+  </tbody>
+</table>
+
 ### Audio
 
 <table>
