@@ -1,0 +1,22 @@
+[package]
+name = "akida-rust-quickstart"
+version = "0.1.0"
+edition = "2024"
+description = "Quick-start example: deploy Akida models with pure Rust"
+license = "Apache-2.0"
+
+[dependencies]
+akida-driver = { git = "https://github.com/syntheticChemistry/rustChip.git" }
+akida-models = { git = "https://github.com/syntheticChemistry/rustChip.git" }
+
+[[example]]
+name = "enumerate"
+path = "examples/enumerate.rs"
+
+[[example]]
+name = "parse_model"
+path = "examples/parse_model.rs"
+
+[[example]]
+name = "capabilities"
+path = "examples/capabilities.rs"

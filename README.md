@@ -43,7 +43,7 @@ Resources for developing and deploying AI models on BrainChip Akida neuromorphic
 | Goal | Where to go |
 | --- | --- |
 | Train, convert, and evaluate a model | [Akida 1](akida1) · [Akida 2](akida2) · Akida Pico (**COMING SOON**) |
-| Deploy to hardware and benchmark | Deployment (**COMING SOON**) |
+| Deploy to hardware and benchmark | [Rust (no Python, no kernel module)](deployment/rust) · Python (**COMING SOON**) |
 | Understand how Akida works | Concepts (**COMING SOON**) |
 | New to Akida — not sure where to start | [Getting Started](#getting-started) |
 
@@ -233,6 +233,7 @@ brainchip_devhub/
 │   ├── model_zoo/
 │   └── notebooks/
 ├── deployment/          # Hardware deployment and benchmarking
+│   ├── rust/            # Pure Rust deployment — no Python, no kernel module
 │   ├── akida1/
 │   ├── akida2/
 │   └── akida_pico/
