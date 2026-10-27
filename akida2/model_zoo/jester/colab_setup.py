@@ -8,8 +8,8 @@ jester_data.py, jester_model.py and
 jester_eval.py for that).
 
 If you ARE on Colab, this is the file that gets you running:
-  - Clones this repo, fetching the Git LFS model weights, since unlike the
-    training examples this one has nothing to run *without* them
+  - Clones this repo and fetches this example's Git LFS model weights, which
+    the notebooks need
   - Points Python at the right folders (repo root for brainchip_utils,
     this example's folder for the local modules)
   - Installs akida_models, tf_keras and quantizeml
@@ -43,9 +43,8 @@ def setup():
         return
 
     if not os.path.exists(REPO_DIR):
-        # Unlike the training examples, this one is *about* the pretrained
-        # models, so the LFS weights are fetched rather than skipped. Only the
-        # models for this example are pulled, to keep the download small.
+        # Clone without LFS files, then pull only this example's models, to keep
+        # the download small.
         os.environ['GIT_LFS_SKIP_SMUDGE'] = '1'
         _run(f'git clone --depth 1 {REPO_URL} {REPO_DIR}')
         _run(f'cd {REPO_DIR} && git lfs pull --include "{EXAMPLE_SUBDIR}/pretrained_models/*"')

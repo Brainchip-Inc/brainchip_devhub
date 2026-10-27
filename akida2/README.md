@@ -188,9 +188,9 @@ benchmarks for every mapping, and the steps to reproduce them.
       <td>Jester (BrainChip subset)</td>
       <td>8-bit</td>
       <td>94.64% clip acc.</td>
-      <td>—</td>
-      <td align="right">—</td>
-      <td align="right">—</td>
+      <td>HwPr</td>
+      <td align="right">168.036</td>
+      <td align="right">4.201</td>
       <td>TENN spatiotemporal, streaming; latency per frame</td>
     </tr>
   </tbody>

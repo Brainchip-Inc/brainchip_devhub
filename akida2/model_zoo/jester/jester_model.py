@@ -19,10 +19,9 @@ three variants, stored in ``pretrained_models/`` (Git LFS):
              converted by ``cnn2snn convert``, which names its output after its
              input.
 
-The files are the ones ``akida_models.tenn_spatiotemporal_jester_pretrained``
-downloads, checked against our own sha256 pins (:data:`SHA256`). akida_models
-1.14.0 pins a stale hash for the float file and ``fetch_file`` ignores hash
-mismatches, so its own check does not hold.
+The ``.h5`` files are the ones ``akida_models.tenn_spatiotemporal_jester_pretrained``
+downloads. :func:`verify_model` checks each file against its sha256
+(:data:`SHA256`), which also catches a Git LFS pointer that was never pulled.
 
 **Quantization.** :func:`quantize_float_model` repeats BrainChip's quantization
 step, the ``quantizeml quantize`` call in ``train_spatiotemporal_jester.sh``, with

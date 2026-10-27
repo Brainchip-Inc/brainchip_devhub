@@ -187,9 +187,8 @@ if __name__ == '__main__':
     if args.save_metrics:
         # Updates the stored metrics used to generate the README performance
         # tables. For code maintenance only, run against the pretrained model.
-        # Sparsity is deliberately not written here (it is measured by
-        # jester_eval.py), and power keys are absent: the FPGA benchmark is
-        # latency-only.
+        # Sparsity is recorded by jester_eval.py, and the FPGA has no power
+        # measurement.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
         for mm, res in full_results.items():

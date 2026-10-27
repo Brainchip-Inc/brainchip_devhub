@@ -71,8 +71,8 @@ def get_data_dir(data_path=None):
     if data_path:
         return str(data_path)
     data_dir = DATA_DIR.resolve() / 'jester_subset'
-    # fetch_file extracts on every call, which rewrites the TFRecords under any other
-    # script reading them, so only call it when the extracted subset is missing.
+    # fetch_file re-extracts the archive on every call, so only call it when the
+    # extracted subset is missing.
     if not (data_dir / '.extracted').exists():
         fetch_file(SUBSET_URL, fname='jester_subset.tar.gz', file_hash=SUBSET_SHA256,
                    cache_subdir=str(DATA_DIR.resolve()), extract=True)

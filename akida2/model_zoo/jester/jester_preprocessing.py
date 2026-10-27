@@ -16,9 +16,9 @@ pixels high and of varying width. For evaluation, a clip becomes a
 * **Frames:** 16 frames, taking every other frame from the first one (frames 0,
   2, 4, ..., 30). A clip shorter than 32 frames wraps around to its start.
   Training uses the same stride from a random starting frame.
-* **Size:** each frame is centre-cropped (or zero-padded, if it is smaller) to
+* **Size:** each frame is center-cropped (or zero-padded, if it is smaller) to
   100 x 100. Frames are not resized.
-* **Values:** raw uint8 pixels in [0, 255]. **Do not normalise.** The model's
+* **Values:** raw uint8 pixels in [0, 255]. **Do not normalize.** The model's
   first layer is a ``Rescaling(1.)`` placeholder that only exists so the model
   can take uint8 input, because this model was trained on unscaled pixels.
 
@@ -80,7 +80,7 @@ def decode_clip(encoded_frames, frame_count, frames_per_clip=FRAMES_PER_CLIP,
     frames = tf.TensorArray(tf.uint8, size=frames_per_clip)
     for i in tf.range(frames_per_clip):
         image = tf.io.decode_jpeg(tf.gather(encoded_frames, indices[i]))
-        # Centre crop (or pad) without resizing. The float round trip matches the
+        # Center crop (or pad) without resizing. The float round trip matches the
         # reference implementation, and is exact for uint8 pixels.
         image = tf.image.convert_image_dtype(image, tf.float32)
         image = tf.image.resize_with_crop_or_pad(image, frame_size[0], frame_size[1])

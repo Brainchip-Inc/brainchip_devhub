@@ -136,7 +136,7 @@ The model is benchmarked in three mapping modes. **Minimal** maps the model onto
 fewest NPs. **AllNPs** uses as many NPs as possible while keeping the minimum number of
 hardware passes. **HwPr** (hardware partial reconfiguration) splits the model into more
 passes so that each layer can use more NPs, reloading the weights between passes on every
-inference. Even in Minimal mode this model needs more than one pass on the FPGA.
+inference.
 
 The benchmark streams 160 frames, 10 consecutive clips from the subset, one frame per
 inference and in order, so the temporal buffers hold real history as they would on a live
@@ -145,7 +145,17 @@ activation sparsity, which depends on the input. The buffers are not reset betwe
 inside the timed loop, which is how a continuous stream runs. Before timing, the benchmark
 checks that the hardware streams a clip bit-identically to the software backend.
 
-📝 Planned: what the three mapping modes show for this model, once the FPGA numbers are in.
+**What the mapping modes show.** The NP counts are summed over passes, which is why they
+can exceed the FPGA's 24. Minimal and AllNPs are almost the same for this model: both use
+{w8a8_minimal_passes} passes, and AllNPs finds room for only one more NP
+({w8a8_allnps_nps} against {w8a8_minimal_nps}), so the latency barely moves. **HwPr** is
+the fastest, at {w8a8_hwpr_projected_ms} ms per frame projected to 1 GHz against
+{w8a8_minimal_projected_ms} ms for Minimal. It splits the model into {w8a8_hwpr_passes}
+passes over {w8a8_hwpr_nps} NPs in total. Because this model already needs more than one
+pass in every mode, its weights are reloaded at every frame whichever mode you choose. The
+extra passes HwPr adds let each layer spread over more NPs, and here that gain outweighs
+the extra reloading. That isn't true of every model, so benchmark all three modes for your
+own.
 
 *The full-model plot shows the NPs each layer uses, with pass boundaries, in each mapping
 mode; the per-layer plot shows each layer's latency per frame, input sparsity and NPs
@@ -171,7 +181,7 @@ The float model is built from `Conv3D` layers and takes a whole clip, 16 frames 
   27-class `Dense` classifier. There is no softmax: the outputs are logits.
 - **No input scaling.** The first layer is a `Rescaling(1.)` placeholder, which only lets
   the model take uint8 input. The model was trained on raw pixels in [0, 255], so the
-  data pipeline must not normalise.
+  data pipeline must not normalize.
 
 The temporal convolutions are **causal**: their padding adds 4 frames before the clip and
 none after, so each frame's prediction depends only on that frame and the 4 before it at
@@ -348,7 +358,8 @@ The accuracy figures you get are then full-validation-set results.
 The float model was trained by BrainChip on the full Jester train split, with
 `train_spatiotemporal_jester.sh`. It is quoted here as the documented recipe; this
 example doesn't run it. `tenn_jester_train` comes with `akida_models`, and `-d` is a
-Jester directory in the layout above plus the train split's CSV and TFRecords:
+full Jester directory, train split included, in the layout described under
+[Using the full validation set](#using-the-full-validation-set):
 
 ```bash
 wget -N https://data.brainchip.com/dataset-mirror/samples/jester_video/jester_video_bs100.npz
@@ -391,11 +402,8 @@ tenn_spatiotemporal_jester_buffer_i8_w8_a8.fbz   converted Akida model
 The two `.h5` files are BrainChip's published models, the ones
 `akida_models.tenn_spatiotemporal_jester_pretrained` downloads, and the `.fbz` is the
 8-bit model converted with `cnn2snn`. The scripts check each file against a sha256 pinned
-in [jester_model.py](jester_model.py).
-
-> **Note:** `akida_models` 1.14.0 pins a different sha256 for the float file than the one
-> BrainChip serves, and its `fetch_file` re-downloads on a mismatch instead of failing, so
-> its check doesn't hold. The pins in `jester_model.py` are those of the served files.
+in [jester_model.py](jester_model.py), so a Git LFS pointer that was never pulled fails
+with a clear message.
 
 Reproducing the quantization gives the same model: identical structure and, after
 conversion, identical integer weights and thresholds. Only a few float values differ, by

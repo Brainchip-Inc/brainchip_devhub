@@ -190,8 +190,6 @@ if __name__ == '__main__':
         # maintenance step, run when the models or the pipeline change.
         metrics_path = pathlib.Path(__file__).parent / 'docs' / 'metrics.json'
         metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
-        # Keys follow the other Akida 2 examples: float_*, then w8a8_quant_* and
-        # w8a8_akida_* for the 8-bit model
         prefix = {'float': 'float', 'quantized': 'w8a8_quant', 'akida': 'w8a8_akida'}[args.variant]
         metrics[f'{prefix}_clip_acc'] = f'{result["clip_acc"] * 100:.2f}%'
         metrics[f'{prefix}_frame_acc'] = f'{result["frame_acc"] * 100:.2f}%'
