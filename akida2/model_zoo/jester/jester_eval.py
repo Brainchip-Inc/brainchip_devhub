@@ -44,7 +44,6 @@ from tqdm import tqdm
 
 import akida
 from akida_models.model_io import load_model
-from akida_models.sparsity import compute_sparsity
 from quantizeml.models import reset_buffers
 
 from jester_data import get_data, get_data_dir, get_clips
@@ -90,17 +89,21 @@ def quantized_frame_logits(model):
     return run
 
 
-def akida_frame_logits(model):
-    """Per-frame logits of the Akida model, streaming each clip frame by frame.
+def stream(model, clip):
+    """Outputs of an Akida model streaming one clip frame by frame, from empty buffers.
 
     An akida.Model has no buffer reset: a new model built from the same layers
-    starts with empty buffers, so one is built per clip. On a buffered model,
-    Akida reads the batch axis as time: forwarding a clip's 16 frames as one
-    batch is bit-identical to forwarding them one at a time.
+    starts with empty buffers, so one is built per clip. Each frame is its own
+    forward call, as in BrainChip's evaluate_bufferized_model.
     """
+    streaming = akida.Model(layers=model.layers)
+    return np.concatenate([streaming.forward(clip[t:t + 1]) for t in range(len(clip))])
+
+
+def akida_frame_logits(model):
+    """Per-frame logits of the Akida model, streaming each clip frame by frame."""
     def run(clips):
-        return np.stack([akida.Model(layers=model.layers).forward(clip).reshape(len(clip), -1)
-                         for clip in clips])
+        return np.stack([stream(model, clip).reshape(len(clip), -1) for clip in clips])
     return run
 
 
@@ -126,14 +129,32 @@ def evaluate(frame_logits_fn, dataset, num_clips=None, desc='Evaluating'):
             'n': clips_seen}
 
 
+def stream_sparsity(model, frames):
+    """Per-layer activation sparsity of an Akida model streaming frames in order.
+
+    Like ``akida_models.sparsity.compute_sparsity``, but each frame is its own
+    forward call. The model is sequential, so each layer's output comes from the
+    sub-model that ends at it, streamed from empty buffers. Same layers as
+    ``compute_sparsity``: all but InputData, Quantizer and Dequantizer.
+    """
+    skip = (akida.LayerType.InputData, akida.LayerType.Quantizer, akida.LayerType.Dequantizer)
+    results = {}
+    for i, layer in enumerate(model.layers):
+        if layer.parameters.layer_type in skip:
+            continue
+        output = stream(akida.Model(layers=model.layers[:i + 1]), frames)
+        results[layer.name] = np.count_nonzero(output == 0) / output.size
+    return results
+
+
 def akida_sparsity(model, data_dir, num_clips=SPARSITY_CLIPS):
     """Mean activation sparsity of the Akida model, streaming real clips.
 
-    ``compute_sparsity`` builds fresh sub-models, so each clip starts with empty
-    buffers. Returns the per-layer sparsity averaged over clips, and its mean.
+    Each clip starts from empty buffers. Returns the per-layer sparsity averaged
+    over clips, and its mean.
     """
     clips, _ = get_clips(data_dir, num_clips, one_per_class=True)
-    per_clip = [compute_sparsity(model, samples=clip, batch_size=len(clip)) for clip in clips]
+    per_clip = [stream_sparsity(model, clip) for clip in clips]
     per_layer = {name: float(np.mean([s[name] for s in per_clip])) for name in per_clip[0]}
     return per_layer, float(np.mean(list(per_layer.values())))
 

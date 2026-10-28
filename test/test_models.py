@@ -158,8 +158,7 @@ def test_float_model_quantize_sanity(float_spec):
                                      weight_quantization=4,
                                      activ_quantization=4)
     else:
-        # Spatiotemporal TENNs refuse to calibrate without an explicit batch_size;
-        # one batch of all the samples is also the default for every other model.
+        # Spatiotemporal TENNs refuse to calibrate without an explicit batch_size.
         quantized = quantizeml.models.quantize(model, num_samples=num_samples,
                                                batch_size=num_samples)
 

@@ -212,11 +212,9 @@ a time, and their buffers carry state from frame to frame, so evaluation follows
   gives the clip accuracy in the Model Card. Live, the same running total gives a decision
   at every frame.
 
-> **Note:** on a buffered model, Akida reads the batch axis as **time**. Forwarding a
-> clip's 16 frames as one batch is bit-identical to forwarding them one at a time, so
-> `jester_eval.py` forwards one clip per call. A batch of several clips would be one long
-> stream, not several clips. In Keras it's the other way round: the batch holds
-> independent clips, and you step through time yourself.
+> **Note:** in Keras the batch holds independent clips, and you step through time
+> yourself. On Akida, `jester_eval.py` does as `evaluate_bufferized_model` does: one clip
+> at a time, on a new model, one frame per `forward` call.
 
 ## Requirements
 

@@ -221,47 +221,7 @@ PlantVillage.
 measured on the Akida 2 FPGA, 2026-10-10 (`akida2/model_zoo/plant_village/docs/metrics.json`
 after #99, AkidaNet values from before it).*
 
-## Temporal models (TENNs)
-
-**[Akida 2] In a spatiotemporal TENN, quantization turns the model into a streaming one.**
-`quantizeml` replaces each temporal `Conv3D` (kernel `(k, 1, 1)`) with a
-`BufferTempConv` (or `DepthwiseBufferTempConv`) that keeps the last `k` frames' inputs in
-a FIFO, and each spatial `Conv3D` with a 2D convolution. The float model takes a whole
-clip and returns one output per frame; the quantized and Akida models take one frame per
-inference. The temporal padding in the float model is causal (`((k - 1, 0), ...)`), so its
-per-frame outputs match what streaming computes.
-*Source: `akida2/model_zoo/jester` (TENN spatiotemporal Jester, akida_models 1.14.0),
-2026-10-23.*
-
-**[Akida 2] On a buffered model, Akida reads the batch axis as time.** Forwarding a clip's
-16 frames as one batch is bit-identical to forwarding them one at a time, and differs
-from running them as independent samples. So `compute_sparsity(ak_model, samples=clip)`
-streams the clip correctly, and a multi-clip batch is *one* stream, not several.
-- An `akida.Model` has no buffer reset (akida 2.19.2). A new model built from the same
-  layers, `akida.Model(layers=model.layers)`, starts with empty buffers. In Keras,
-  `quantizeml.models.reset_buffers(model)` resets them, and there the batch axis holds
-  independent clips.
-- **(unconfirmed on hardware:** measured on the software backend. The `jester` benchmark
-  checks frame-by-frame streaming on the FPGA against software; batched streaming on
-  hardware isn't checked yet.)
-
-*Source: measured, software backend, akida 2.19.2, `akida2/model_zoo/jester`,
-2026-10-23.*
-
-**[Akida 2] Calibrating a spatiotemporal TENN needs `batch_size` set to the number of
-clips.** `quantize()` raises without it. The samples are a numpy array of frames in clip
-order, `(clips × frames, H, W, C)`, and `batch_size` tells the calibration how to cut it
-back into clips (BrainChip's Jester pack is 100 clips × 16 frames, with `-bs 100`).
-*Source: `quantizeml.models.calibrate` docstring (quantizeml 1.2.3).*
-
 ## Toolchain
-
-**[both] `akida_models.utils.fetch_file` does not enforce its `file_hash`.** On a
-mismatch it re-downloads and carries on, so a stale pin goes unnoticed: akida_models
-1.14.0 pins `fca52a…` for `tenn_spatiotemporal_jester.h5`, while the served file is
-`5950e4…`. Pin and check your own sha256 for files you depend on. With `extract=True` it
-also re-extracts on every call, which rewrites the files under any concurrent reader.
-*Source: akida_models 1.14.0 `utils.py`; measured 2026-10-23.*
 
 **[both] The default `cnn2snn` context is Akida 2.** Akida 1 model construction and
 conversion must be wrapped in `set_akida_version(AkidaVersion.v1)`, or the wrong

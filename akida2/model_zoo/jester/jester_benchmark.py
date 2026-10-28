@@ -31,7 +31,9 @@ Benchmark details:
     (hw_only=True), over more than one pass.
 
 Before timing, the script checks that the hardware streams a clip exactly as the
-software backend does, buffers included.
+software backend does, buffers included. It also reports whether forwarding a whole
+clip as one batch gives the same outputs on hardware (the batch axis read as time).
+Nothing depends on that check: every inference here is one frame per forward call.
 
 Example
 -------
@@ -44,9 +46,9 @@ import sys
 
 import numpy as np
 import akida
-from akida_models.sparsity import compute_sparsity
 
 from jester_data import get_data_dir, get_stream
+from jester_eval import stream, stream_sparsity
 from jester_model import model_path, verify_model
 from jester_preprocessing import FRAMES_PER_CLIP
 from brainchip_utils.hardware_utils import (get_mapping_stats, get_akida_device,
@@ -81,6 +83,25 @@ def check_hw_matches_sw(ak_model, device, clip):
     hw_out = np.concatenate([hw.forward(clip[t:t + 1]) for t in range(len(clip))])
     sw_out = np.concatenate([sw.forward(clip[t:t + 1]) for t in range(len(clip))])
     return np.array_equal(hw_out, sw_out)
+
+
+def check_batch_as_time(ak_model, device, clip):
+    """Forwards one clip on hardware as a single batch, from empty buffers.
+
+    Nothing else depends on it: it records whether the hardware, like the
+    software backend, reads the batch axis of a buffered model as time.
+
+    Returns:
+        bool or str: True if the outputs are bit-identical to streaming the clip
+        one frame per forward call, or the error if the batch is refused.
+    """
+    hw = akida.Model(layers=ak_model.layers)
+    hw.map(device, mode=akida.MapMode.Minimal, hw_only=True)
+    try:
+        batch_out = hw.forward(clip)
+    except Exception as e:  # noqa: BLE001 - report whatever the device raises
+        return f'refused ({type(e).__name__}: {e})'
+    return np.array_equal(batch_out, stream(ak_model, clip))
 
 
 if __name__ == '__main__':
@@ -129,6 +150,8 @@ if __name__ == '__main__':
     print(f'Hardware streams a clip bit-identically to the software backend: {match}')
     if not match:
         sys.exit('Hardware and software outputs differ - not benchmarking.')
+    batch_as_time = check_batch_as_time(ak_model, device, samples[:FRAMES_PER_CLIP])
+    print(f'Hardware gives the same outputs for a clip forwarded as one batch: {batch_as_time}')
 
     # -------------------------------------------------------------------------
     # Full-model benchmark (latency only): one forward call per frame
@@ -207,9 +230,9 @@ if __name__ == '__main__':
     ak_model.map(device, mode=akida.MapMode.Minimal, hw_only=True)
     ak_model.summary()
 
-    # Check sparsity per-layer (for the plot only, see above). compute_sparsity
-    # streams the frames in order from empty buffers.
-    sparsity_dict = compute_sparsity(ak_model, samples=samples, batch_size=num_frames)
+    # Check sparsity per-layer (for the plot only, see above), streaming the frames
+    # in order from empty buffers, one per forward call. Runs on the software backend.
+    sparsity_dict = stream_sparsity(ak_model, samples)
     pretty_print_sparsity(sparsity_dict)
 
     # Each sub-model is timed on the frames in stream order, so its buffers fill
