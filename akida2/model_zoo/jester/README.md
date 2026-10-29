@@ -71,11 +71,6 @@ figures.
   lower because a prediction made early in a clip has seen only the start of the gesture.
 - Sparsity is the mean over the Akida model's layers, streaming one clip of each class.
 
-BrainChip's [model zoo](https://doc.brainchipinc.com/model_zoo_performance.html) lists
-95.04 % for the 8-bit model, without stating which clips or which metric it was measured
-on. So it isn't directly comparable with the figures here, and a subset of this size can't
-resolve differences of a few tenths of a point either way.
-
 ### Akida 2 hardware benchmark
 
 Latency is measured **per frame**, on the **Akida 2 FPGA** reference platform, which has 6
@@ -104,23 +99,23 @@ measured cycles.
       <td>Minimal</td>
       <td align="center">44</td>
       <td align="center">2</td>
-      <td align="center">5233344</td>
-      <td align="center">209.334</td>
+      <td align="center">5233177</td>
+      <td align="center">209.327</td>
       <td align="center">5.233</td>
     </tr>
     <tr>
       <td>AllNPs</td>
       <td align="center">45</td>
       <td align="center">2</td>
-      <td align="center">5228090</td>
-      <td align="center">209.124</td>
+      <td align="center">5227878</td>
+      <td align="center">209.115</td>
       <td align="center">5.228</td>
     </tr>
     <tr>
       <td>HwPr</td>
       <td align="center">96</td>
       <td align="center">5</td>
-      <td align="center">4200889</td>
+      <td align="center">4200905</td>
       <td align="center">168.036</td>
       <td align="center">4.201</td>
     </tr>
