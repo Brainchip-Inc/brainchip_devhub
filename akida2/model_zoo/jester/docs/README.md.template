@@ -141,8 +141,10 @@ inside the timed loop, which is how a continuous stream runs. Before timing, the
 checks that the hardware streams a clip bit-identically to the software backend.
 
 **What the mapping modes show.** The NP counts are summed over passes, which is why they
-can exceed the FPGA's 24. Minimal and AllNPs are almost the same for this model: both use
-{w8a8_minimal_passes} passes, and AllNPs finds room for only one more NP
+can exceed the FPGA's 24. They also count the input layer's dedicated input processor as
+one NP, so they are one more than the count `ak_model.summary()` and BrainChip's
+[model zoo](https://doc.brainchipinc.com/model_zoo_performance.html) report. Minimal and
+AllNPs are almost the same for this model: both use {w8a8_minimal_passes} passes, and AllNPs finds room for only one more NP
 ({w8a8_allnps_nps} against {w8a8_minimal_nps}), so the latency barely moves. **HwPr** is
 the fastest, at {w8a8_hwpr_projected_ms} ms per frame projected to 1 GHz against
 {w8a8_minimal_projected_ms} ms for Minimal. It splits the model into {w8a8_hwpr_passes}
