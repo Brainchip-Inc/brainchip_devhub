@@ -158,10 +158,14 @@ def test_float_model_quantize_sanity(float_spec):
                                      weight_quantization=4,
                                      activ_quantization=4)
     else:
-        quantized = quantizeml.models.quantize(model, num_samples=num_samples)
+        # Spatiotemporal TENNs refuse to calibrate without an explicit batch_size.
+        quantized = quantizeml.models.quantize(model, num_samples=num_samples,
+                                               batch_size=num_samples)
 
     rng = np.random.default_rng(0)
-    inputs = rng.uniform(0, 255, (num_samples, *model.input_shape[1:])).astype(np.float32)
+    # Quantization can change the input shape: a spatiotemporal TENN takes whole clips
+    # as a float model and single frames once its Conv3D layers become buffered.
+    inputs = rng.uniform(0, 255, (num_samples, *quantized.input_shape[1:])).astype(np.float32)
     outputs = quantized.predict(inputs, verbose=0)
 
     assert outputs.shape[0] == num_samples

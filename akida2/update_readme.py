@@ -18,7 +18,7 @@ here = pathlib.Path(__file__).parent
 sys.path.insert(0, str(here.parent))  # brainchip_utils, without needing the package installed
 from brainchip_utils.zoo_table import domain_sections, html_table, load_cards, value  # noqa: E402
 
-DOMAINS = ["Image", "Audio", "Time series"]
+DOMAINS = ["Image", "Video", "Audio", "Time series"]
 MAPPINGS = {"minimal": "Minimal", "allnps": "AllNPs", "hwpr": "HwPr"}
 HEADERS = ["Task", "Category", "Dataset", "Variant", "Performance", "Mapping",
            "Latency @ 25 MHz FPGA (ms)", "Projected @ 1 GHz AKD2500 (ms)", "Notes"]

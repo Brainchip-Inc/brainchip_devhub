@@ -1,0 +1,462 @@
+<img src="../../../docs/assets/0.-BC-dev-hub-LOGO-flicker.svg" alt="BrainChip Dev Hub" width="200"/>
+
+# Hand Gesture Recognition (Jester) — Akida 2
+
+BrainChip's **TENN spatiotemporal** model for hand gesture recognition on
+[Jester](#dataset), quantized to 8 bits, converted, and evaluated on Akida 2. TENNs
+(temporal event-based neural networks) handle time with temporal convolutions. Once
+quantized for Akida they run as a **streaming** model: they take one video frame per
+inference and give a prediction every frame, keeping just enough of the past frames in
+on-chip buffers.
+
+The example serves two purposes:
+
+1. **Evaluation and benchmarking**: how much accuracy each step costs, from the float
+   model through 8-bit quantization to the Akida model, and what one frame costs to run on
+   Akida 2 hardware.
+2. **A worked example of streaming evaluation**: how the model changes when it is
+   quantized, and what changes when you evaluate a model that sees one frame at a time.
+
+There is **no training stage**: the float model is BrainChip's published one, and the
+8-bit model comes from post-training quantization (PTQ) alone. This example reproduces
+that quantization step and checks it against the published 8-bit model. BrainChip's
+[training recipe](#training-recipe) is quoted below. For the full train → quantize →
+convert pipeline on a dataset that trains in minutes, see
+[plant_village](../plant_village).
+
+## Model Card
+
+Accuracy on the **BrainChip Jester subset (541 clips)**, a public part of the
+Jester validation split (see [Dataset](#dataset)). These are not full validation-set
+figures.
+
+<table>
+  <thead>
+    <tr>
+      <th>Variant</th>
+      <th>Clip accuracy</th>
+      <th>Frame accuracy</th>
+      <th>Clips</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Float (whole clip)</td>
+      <td align="center">95.01%</td>
+      <td align="center">71.15%</td>
+      <td align="center">541</td>
+    </tr>
+    <tr>
+      <td>8-bit PTQ (streaming)</td>
+      <td align="center">94.64%</td>
+      <td align="center">70.52%</td>
+      <td align="center">541</td>
+    </tr>
+    <tr>
+      <td>Akida (streaming)</td>
+      <td align="center"><b>94.64%</b></td>
+      <td align="center">70.52%</td>
+      <td align="center">541</td>
+    </tr>
+  </tbody>
+</table>
+
+| Parameters | Activation sparsity (Akida) | Input |
+|---|---|---|
+| 1,353,895 | 56.63% | 100 × 100 RGB, 16 frames per clip |
+
+- **Clip accuracy** is the headline figure: one decision per clip, from the per-frame
+  predictions accumulated over its 16 frames (see [Streaming evaluation](#streaming-evaluation)).
+- **Frame accuracy** scores each frame's own prediction against the clip's label. It is
+  lower because a prediction made early in a clip has seen only the start of the gesture.
+- Sparsity is the mean over the Akida model's layers, streaming one clip of each class.
+
+### Akida 2 hardware benchmark
+
+Latency is measured **per frame**, on the **Akida 2 FPGA** reference platform, which has 6
+nodes (24 neural processors, NPs) and runs at **25 MHz**. The latency projected to the
+**1 GHz** AKD2500 target clock is also shown: the cycle count is fixed for a given model
+and mapping regardless of clock rate, so the projection is an exact rescale of the
+measured cycles.
+
+> **Note:** 1 GHz is BrainChip's current **target** for AKD2500 production silicon, which
+> does not exist yet; treat it as a target, not a measured value. The FPGA has no power
+> measurement, so only latency is reported.
+
+<table>
+  <thead>
+    <tr>
+      <th>Mapping</th>
+      <th>NPs</th>
+      <th>Passes</th>
+      <th>Cycles per frame</th>
+      <th>Latency per frame @ 25 MHz (ms)</th>
+      <th>Projected per frame @ 1 GHz (ms) <i>(target)</i></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal</td>
+      <td align="center">44</td>
+      <td align="center">2</td>
+      <td align="center">5233177</td>
+      <td align="center">209.327</td>
+      <td align="center">5.233</td>
+    </tr>
+    <tr>
+      <td>AllNPs</td>
+      <td align="center">45</td>
+      <td align="center">2</td>
+      <td align="center">5227878</td>
+      <td align="center">209.115</td>
+      <td align="center">5.228</td>
+    </tr>
+    <tr>
+      <td>HwPr</td>
+      <td align="center">96</td>
+      <td align="center">5</td>
+      <td align="center">4200905</td>
+      <td align="center">168.036</td>
+      <td align="center">4.201</td>
+    </tr>
+  </tbody>
+</table>
+
+**Why per frame.** The model emits a prediction after every frame, so the latency that
+matters is that of one frame: it is how far behind the live video the prediction is.
+Sixteen times the frame latency is not a "clip latency", because no inference waits for
+the end of a clip.
+
+The model is benchmarked in three mapping modes. **Minimal** maps the model onto the
+fewest NPs. **AllNPs** uses as many NPs as possible while keeping the minimum number of
+hardware passes. **HwPr** (hardware partial reconfiguration) splits the model into more
+passes so that each layer can use more NPs, reloading the weights between passes on every
+inference.
+
+The benchmark streams 160 frames, 10 consecutive clips from the subset, one frame per
+inference and in order, so the temporal buffers hold real history as they would on a live
+camera feed. Real frames matter because Akida is event-driven: its latency depends on
+activation sparsity, which depends on the input. The buffers are not reset between clips
+inside the timed loop, which is how a continuous stream runs. Before timing, the benchmark
+checks that the hardware streams a clip bit-identically to the software backend.
+
+**What the mapping modes show.** The NP counts are summed over passes, which is why they
+can exceed the FPGA's 24. They also count the input layer's dedicated input processor as
+one NP, so they are one more than the count `ak_model.summary()` and BrainChip's
+[model zoo](https://doc.brainchipinc.com/model_zoo_performance.html) report. Minimal and
+AllNPs are almost the same for this model: both use 2 passes, and AllNPs finds room for only one more NP
+(45 against 44), so the latency barely moves. **HwPr** is
+the fastest, at 4.201 ms per frame projected to 1 GHz against
+5.233 ms for Minimal. It splits the model into 5
+passes over 96 NPs in total. Because this model already needs more than one
+pass in every mode, its weights are reloaded at every frame whichever mode you choose. The
+extra passes HwPr adds let each layer spread over more NPs, and here that gain outweighs
+the extra reloading. That isn't true of every model, so benchmark all three modes for your
+own.
+
+*The full-model plot shows the NPs each layer uses, with pass boundaries, in each mapping
+mode; the per-layer plot shows each layer's latency per frame, input sparsity and NPs
+under Minimal mapping.*
+
+<img src="docs/ref_benchmark_results_full_tenn_spatiotemporal_jester_buffer_i8_w8_a8.png" alt="Jester TENN: hardware mapping in each mapping mode" width="1050"/>
+
+<img src="docs/ref_benchmark_results_layers_tenn_spatiotemporal_jester_buffer_i8_w8_a8.png" alt="Jester TENN: per-layer latency per frame, input sparsity and mapping" width="700"/>
+
+## The model
+
+The float model is built from `Conv3D` layers and takes a whole clip, 16 frames of
+100 × 100 RGB, returning a prediction for each frame:
+
+- **Input layer:** a 3 × 3 convolution with stride 2 and 8 filters, applied to each frame
+  on its own. On Akida it runs on the dedicated input processor, as `InputConv2D`.
+- **Five spatiotemporal blocks.** Each has a **temporal** convolution, kernel 5 over time
+  and 1 × 1 in space, followed by a **spatial** convolution, 3 × 3 with stride 2 and 1
+  over time. The first three blocks use full convolutions. The last two use depthwise
+  separable ones in both parts, a depthwise convolution followed by a pointwise one. The
+  channels grow from 8 to 640.
+- **Head:** average pooling over space (but not time), then `Dense(640)`, ReLU, and the
+  27-class `Dense` classifier. There is no softmax: the outputs are logits.
+- **No input scaling.** The first layer is a `Rescaling(1.)` placeholder, which only lets
+  the model take uint8 input. The model was trained on raw pixels in [0, 255], so the
+  data pipeline must not normalize.
+
+The temporal convolutions are **causal**: their padding adds 4 frames before the clip and
+none after, so each frame's prediction depends only on that frame and the 4 before it at
+the first layer, with the history growing through the five blocks.
+
+**Quantization makes it a streaming model.** `quantizeml` replaces each temporal
+`Conv3D` with a `BufferTempConv` (`DepthwiseBufferTempConv` in the last two blocks),
+which keeps the last 5 frames' inputs in a FIFO buffer, and each spatial `Conv3D` with a
+2D convolution. The quantized model takes one 100 × 100 × 3 frame and returns one
+prediction: the computation is the same as the float model's per-frame outputs, done one
+frame at a time. Because the convolutions are causal, nothing is lost. On Akida the
+buffered layers map onto `TNP_B` components, and each is allotted external memory: both
+show in the mapping summary (`ak_model.summary()` in the evaluation notebook).
+
+## Streaming evaluation
+
+The float model sees each clip whole. The quantized and Akida models see it one frame at
+a time, and their buffers carry state from frame to frame, so evaluation follows two rules:
+
+- **Reset the buffers at the start of every clip**, or a clip begins with the end of the
+  previous one. In Keras, `quantizeml.models.reset_buffers(model)` resets them. An
+  `akida.Model` has no reset: a new model built from the same layers,
+  `akida.Model(layers=model.layers)`, starts with empty buffers.
+- **Accumulate the per-frame predictions into a clip decision.** After each frame, the
+  running total of softmax outputs is multiplied by 0.8 and the new frame's softmax is
+  added, so recent frames count most; the clip's class is the largest entry after its last
+  frame. This is how BrainChip's `evaluate_bufferized_model` scores the model, and it
+  gives the clip accuracy in the Model Card. Live, the same running total gives a decision
+  at every frame.
+
+> **Note:** in Keras the batch holds independent clips, and you step through time
+> yourself. On Akida, `jester_eval.py` does as `evaluate_bufferized_model` does: one clip
+> at a time, on a new model, one frame per `forward` call.
+
+## Requirements
+
+For environment requirements and setup, see the [Requirements](../../../README.md#requirements)
+section of the top-level README.
+
+## Dataset
+
+**Jester** (20BN-jester, now distributed by Qualcomm) is a large collection of short video
+clips of people performing hand gestures in front of a camera: 148,092 clips of about 3
+seconds each, recorded by 1,376 actors, in **27 classes**. These are 25 gestures (swiping,
+sliding two fingers, rolling the hand, zooming, thumbs up and down, and so on), plus
+*No gesture* and *Doing other things*. The clips are split into train, validation and test
+sets in the ratio 8:1:1, with no actor appearing in both the training and the test splits.
+The validation split has 14,787 clips, as listed in the dataset's `jester-v1-validation.csv`.
+
+**This example evaluates on BrainChip's public Jester subset**: 541 clips from the
+validation split, covering all 27 classes, stored as GZIP-compressed TFRecords. **Every
+accuracy figure in this README is measured on that subset, not on the full validation
+set.** See [Using the full validation set](#using-the-full-validation-set) to evaluate on
+all of it.
+
+Each clip is stored as JPEG frames 100 pixels high. For evaluation, the pipeline takes 16
+frames at a stride of 2 from the first frame and center-crops each to 100 × 100, without
+resizing or normalizing. See [jester_preprocessing.py](jester_preprocessing.py), a
+self-contained copy of the `akida_models` implementation; `python jester_data.py
+--check-preprocessing` checks that the two are bit-identical.
+
+No Jester frames are included in this repository.
+
+Original dataset licensed under Qualcomm's
+[Data License Agreement – Research Use](https://www.qualcomm.com/content/dam/qcomm-martech/dm-assets/documents/jester_something_something_exercise_research_license_final_qti_28jul2022.pdf)
+(non-commercial research use only; no redistribution):
+> J. Materzynska, G. Berger, I. Bax and R. Memisevic (2019), *"The Jester Dataset: A
+> Large-Scale Video Dataset of Human Gestures"*, IEEE/CVF International Conference on
+> Computer Vision Workshops (ICCVW).
+> [Paper](https://openaccess.thecvf.com/content_ICCVW_2019/html/HANDS/Materzynska_The_Jester_Dataset_A_Large-Scale_Video_Dataset_of_Human_Gestures_ICCVW_2019_paper.html)
+
+## Dataset setup
+
+You need two files from BrainChip's dataset mirror: the Jester subset and a calibration
+pack (see [Calibration samples](#calibration-samples)). The scripts download both into
+`data/` automatically if they're missing: `jester_eval.sh`, `jester_eval.py` and
+`jester_data.py` fetch the subset, and `jester_eval.sh` fetches the calibration pack. You
+only need the commands below if you're walking through the example by hand or want to
+download ahead of time.
+
+Download the subset (about 100 MB) and extract it into `data/`:
+
+```bash
+wget -N https://data.brainchip.com/dataset-mirror/jester/jester_subset.tar.gz -P data/
+tar -xzf data/jester_subset.tar.gz -C data/
+```
+
+Keep the archive in `data/`: on their first run the scripts check it against its sha256
+and use it instead of downloading it again. The extracted subset looks like this:
+
+```
+data/jester_subset/
+├── jester-v1-labels.csv            the 27 class names, in label-index order
+├── jester-v1-validation.csv        the full validation split's clip list
+└── tfrecords/
+    └── jester-validation.tfrecord-001-028    541 clips
+```
+
+`data/jester_subset` is the default dataset path. If you want to store the dataset on a
+dedicated data drive, pass the path explicitly to each script (see `--data` / `-d` in the
+individual scripts). Alternatively, create a symbolic link from the default path (one-off
+step):
+
+```bash
+ln -s /path/to/your/data/jester_subset ./data/jester_subset
+```
+
+This way the scripts work out of the box without any extra arguments.
+
+### Calibration samples
+
+Quantization with `quantizeml` is calibrated on real data. The calibration pack is the set
+of samples BrainChip calibrated the published 8-bit model on: 100 clips of 16 frames from
+the Jester train split, stored as one `(1600, 100, 100, 3)` uint8 array in clip order.
+`jester_eval.sh` fetches it into `data/` automatically:
+
+```bash
+wget -N https://data.brainchip.com/dataset-mirror/samples/jester_video/jester_video_bs100.npz -P data/
+```
+
+It lands at `data/jester_video_bs100.npz`.
+
+### Using the full validation set
+
+BrainChip doesn't host the full Jester dataset publicly. The scripts read Jester in
+BrainChip's TFRecord layout:
+
+```
+/path/to/jester/
+├── jester-v1-labels.csv
+├── jester-v1-train.csv
+├── jester-v1-validation.csv
+└── tfrecords/
+    ├── *train*         GZIP TFRecords, one SequenceExample per clip
+    └── *validation*
+```
+
+This example only reads `jester-v1-labels.csv` and the TFRecords with `validation` in their
+names; the train files are what BrainChip's training script uses. Each record is a
+`tf.train.SequenceExample` for one clip, with:
+
+- context features `filename` (string) and `height`, `width`, `depth`, `frame_count` and
+  `label` (int64), all required. `label` is the class index in the order of
+  `jester-v1-labels.csv`.
+- a sequence feature `frames`: one JPEG-encoded frame per step, 100 pixels high, in time
+  order.
+
+The official download, from Qualcomm after registration, is folders of JPEG frames, one
+folder per clip, so you have to convert it to this layout first. This example doesn't
+include a converter. Once you have the converted dataset, pass its folder with `--data`:
+
+```bash
+bash jester_eval.sh /path/to/jester
+```
+
+The accuracy figures you get are then full-validation-set results.
+
+## Pipeline
+
+| Stage | Description |
+|---|---|
+| Float model | BrainChip's published TENN spatiotemporal Jester model (`Conv3D`, whole clips) |
+| Calibration samples | BrainChip's pack of 100 train clips × 16 frames |
+| 8-bit quantization | `quantizeml quantize -w 8 -i 8 -a 8 --per_tensor_activations -id uint8 -e 1 -bs 100`; PTQ only, no QAT. Temporal `Conv3D` layers become `BufferTempConv` |
+| Reproduction check | The result compared with the published 8-bit model: structure, weights, and the converted Akida model |
+| Conversion to Akida | `cnn2snn convert` to an Akida 2 model |
+| Evaluation | Clip and frame accuracy for all three variants, streaming the quantized and Akida models, plus activation sparsity |
+| Hardware benchmark | Akida 2 FPGA latency per frame, in three mapping modes |
+
+## Training recipe
+
+The float model was trained by BrainChip on the full Jester train split, with
+`train_spatiotemporal_jester.sh`. It is quoted here as the documented recipe; this
+example doesn't run it. `tenn_jester_train` comes with `akida_models`, and `-d` is a
+full Jester directory, train split included, in the layout described under
+[Using the full validation set](#using-the-full-validation-set):
+
+```bash
+wget -N https://data.brainchip.com/dataset-mirror/samples/jester_video/jester_video_bs100.npz
+
+akida_models create tenn_spatiotemporal_jester
+
+tenn_jester_train train -d /path/to/jester/ \
+                        -e 200 -m tenn_spatiotemporal_jester.h5 -s tenn_spatiotemporal_jester.h5
+
+tenn_jester_train eval -d /path/to/jester/ -m tenn_spatiotemporal_jester.h5
+
+quantizeml quantize -m tenn_spatiotemporal_jester.h5 -w 8 -i 8 -a 8 \
+                    --per_tensor_activations -id uint8 -e 1 -bs 100 -sa jester_video_bs100.npz \
+                    -s tenn_spatiotemporal_jester_buffer_i8_w8_a8.h5
+
+tenn_jester_train eval -d /path/to/jester/ \
+                       -m tenn_spatiotemporal_jester_buffer_i8_w8_a8.h5
+
+tenn_jester_train eval -d /path/to/jester/ -ak \
+                       -m tenn_spatiotemporal_jester_buffer_i8_w8_a8.h5
+```
+
+`jester_eval.sh` reproduces the steps after training. Its `-bs 100` matters: the
+calibration pack is one array of frames in clip order, and for a spatiotemporal TENN the
+batch size tells the calibration how to cut it back into clips, so it must equal the
+number of clips in the pack.
+
+## Reference Models
+
+The models are in `pretrained_models/`, handled with `git-lfs` (git large file storage).
+To get the real files rather than text pointers, you need `git-lfs` set up: see the
+[Trained models](../../../README.md#trained-models) section of the top-level README.
+
+```
+tenn_spatiotemporal_jester.h5                    float Keras model (Conv3D)
+tenn_spatiotemporal_jester_buffer_i8_w8_a8.h5    8-bit quantized Keras model (buffered)
+tenn_spatiotemporal_jester_buffer_i8_w8_a8.fbz   converted Akida model
+```
+
+The two `.h5` files are BrainChip's published models, the ones
+`akida_models.tenn_spatiotemporal_jester_pretrained` downloads, and the `.fbz` is the
+8-bit model converted with `cnn2snn`. The scripts check each file against a sha256 pinned
+in [jester_model.py](jester_model.py), so a Git LFS pointer that was never pulled fails
+with a clear message.
+
+Reproducing the quantization gives the same model: identical structure and, after
+conversion, identical integer weights and thresholds. Only a few float values differ, by
+rounding, in the Keras model and in the Akida model's output scales. Both evaluate
+identically. `python jester_model.py --compare <model>` prints the comparison.
+
+## Usage
+
+### Notebooks
+
+[jester_notebook_evaluation.ipynb](jester_notebook_evaluation.ipynb) takes the float model
+to an Akida model: evaluation of the whole-clip float model, 8-bit PTQ and the
+reproduction check, streaming evaluation, conversion, mapping onto Akida 2 devices, and
+activation sparsity.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Brainchip-Inc/brainchip_devhub/blob/main/akida2/model_zoo/jester/jester_notebook_evaluation.ipynb)
+
+[jester_notebook_benchmark.ipynb](jester_notebook_benchmark.ipynb) benchmarks the model on
+the Akida 2 FPGA: latency per frame in each mapping mode, and per layer.
+
+> **Note:** the hardware benchmark requires a physical Akida 2 FPGA platform.
+
+### Script
+
+To reproduce the evaluation and quantization end to end (float evaluation, quantization,
+the check against the published model, conversion, and quantized and Akida evaluation)
+into `models/`:
+
+```bash
+bash jester_eval.sh [DATADIR]
+```
+
+Without `DATADIR` it uses the BrainChip Jester subset. To benchmark the published model on
+the FPGA:
+
+```bash
+python jester_benchmark.py
+```
+
+## Contributing and Maintenance
+
+This README is generated from `docs/README.md.template`, so that the accuracy and
+hardware benchmark values are written directly by the code (via `docs/metrics.json`).
+
+When the models or the pipeline change, rerun the evaluations of all three variants and
+the hardware benchmark with `--save-metrics`, then regenerate the README:
+
+```bash
+python jester_eval.py --variant float --save-metrics
+python jester_eval.py --variant quantized --save-metrics
+python jester_eval.py --variant akida --save-metrics
+python jester_benchmark.py --save-metrics   # needs the Akida 2 FPGA
+
+python update_readme.py
+```
+
+If you evaluate on a different dataset directory, update the wording that names the
+BrainChip Jester subset in the template and in `docs/zoo_card.json`. Then commit the
+changed files (template, metrics, figures and the regenerated README). To edit this
+README, edit `docs/README.md.template`, not the README itself, and run
+`python update_readme.py`.

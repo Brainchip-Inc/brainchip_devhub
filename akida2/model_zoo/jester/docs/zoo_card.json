@@ -1,0 +1,16 @@
+{
+    "domain": "Video",
+    "order": 10,
+    "rows": [
+        {
+            "task": "Hand gesture recognition",
+            "category": "Classification",
+            "dataset": "Jester (BrainChip subset)",
+            "variant": "8-bit",
+            "metric_key": "w8a8_akida_clip_acc",
+            "metric_label": "clip acc.",
+            "bench_prefix": "w8a8_",
+            "notes": "TENN spatiotemporal, streaming; latency per frame"
+        }
+    ]
+}
