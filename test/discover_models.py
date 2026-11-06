@@ -9,7 +9,7 @@ follow the naming convention:
     <name>.fbz      Akida model
 
 The architecture is derived from the top-level directory: ``akida1`` -> v1,
-``akida2`` -> v2.
+``akida2`` -> v2, ``akida_pico`` -> pico.
 
 Used in two ways:
 - imported by ``test/conftest.py`` to parametrize the pytest suites;
@@ -30,7 +30,7 @@ from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-ARCH_BY_DIR = {"akida1": "v1", "akida2": "v2"}
+ARCH_BY_DIR = {"akida1": "v1", "akida2": "v2", "akida_pico": "pico"}
 HARNESS_PREFIXES = ("test/", ".github/workflows/")
 PYPROJECT = "pyproject.toml"
 
@@ -40,7 +40,7 @@ class ModelSpec:
     """A single pretrained model artifact."""
     path: str   # repo-relative posix path
     kind: str   # float | quantized | akida
-    arch: str   # v1 | v2
+    arch: str   # v1 | v2 | pico
 
     @property
     def abs_path(self):

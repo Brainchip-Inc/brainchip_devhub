@@ -60,7 +60,7 @@ def check_readme_drift():
         if not readme.exists() or readme.read_text() != expected:
             yield "readme-drift", rel, "out of sync with docs/README.md.template + docs/metrics.json"
 
-    for platform in ("akida1", "akida2"):
+    for platform in ("akida1", "akida2", "akida_pico"):
         landing = ROOT / platform / "README.md"
         rel = f"{platform}/README.md"
         try:
@@ -96,7 +96,8 @@ def check_version_badges():
     pin = re.search(r"akida_models==([\w.]+)", (ROOT / "pyproject.toml").read_text())
     if not pin:
         return
-    for rel in ("README.md", "akida1/docs/README.md.template", "akida2/docs/README.md.template"):
+    for rel in ("README.md", "akida1/docs/README.md.template", "akida2/docs/README.md.template",
+                "akida_pico/docs/README.md.template"):
         for lineno, line in enumerate((ROOT / rel).read_text().splitlines(), 1):
             for badge in re.findall(r"akida__models-([\d.]+)-", line):
                 if badge != pin.group(1):

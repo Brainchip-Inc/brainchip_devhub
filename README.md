@@ -42,7 +42,7 @@ Resources for developing and deploying AI models on BrainChip Akida neuromorphic
 
 | Goal | Where to go |
 | --- | --- |
-| Train, convert, and evaluate a model | [Akida 1](akida1) · [Akida 2](akida2) · Akida Pico (**COMING SOON**) |
+| Train, convert, and evaluate a model | [Akida 1](akida1) · [Akida 2](akida2) · [Akida Pico](akida_pico) |
 | Deploy to hardware and benchmark | Deployment (**COMING SOON**) |
 | Understand how Akida works | Concepts (**COMING SOON**) |
 | New to Akida — not sure where to start | [Getting Started](#getting-started) |
@@ -51,13 +51,13 @@ Resources for developing and deploying AI models on BrainChip Akida neuromorphic
 
 ## Platform overview
 
-Akida 1 and Akida 2 examples are available today; more Akida 2 models can be found [here](https://doc.brainchipinc.com/model_zoo_performance.html#akida-2-0-models) in the official docs, and Akida Pico content for this repo is on the way.
+Akida 1, Akida 2 and Akida Pico examples are available today; more Akida 2 models can be found [here](https://doc.brainchipinc.com/model_zoo_performance.html#akida-2-0-models) in the official docs. Akida Pico has its first example, with more to follow.
 
 | | Akida 1 | Akida 2 | Akida Pico |
 | --- | --- | --- | --- |
 | **Chip** | AKD1500 | AKD2500 | — |
 | **Typical use cases** | Image classification, keyword spotting, object detection | Larger models, higher accuracy targets | Always-on sensing, edge inference |
-| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) · [Image Classification (PlantVillage)](akida2/model_zoo/plant_village) · [Keyword Spotting](akida2/model_zoo/speech_commands) | 🔜 Coming soon |
+| **Examples in this repo** | [Image Classification (PlantVillage)](akida1/model_zoo/plant_village) · [ImageNet / AkidaNet](akida1/model_zoo/imagenet_akidanet) · [Visual Wake Words](akida1/model_zoo/vww) · [Keyword Spotting](akida1/model_zoo/speech_commands) · [ECG Arrhythmia](akida1/model_zoo/arrhythmia_classification) | [Visual Wake Words](akida2/model_zoo/vww) · [Image Classification (PlantVillage)](akida2/model_zoo/plant_village) · [Keyword Spotting](akida2/model_zoo/speech_commands) | [Keyword Spotting](akida_pico/model_zoo/speech_commands) |
 
 ---
 

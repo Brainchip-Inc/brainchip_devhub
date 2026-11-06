@@ -20,6 +20,7 @@ jobs:
       run_all: ${{ steps.discover.outputs.run_all }}
       v1_float: ${{ steps.discover.outputs.v1_float }}
       v2_float: ${{ steps.discover.outputs.v2_float }}
+      pico_float: ${{ steps.discover.outputs.pico_float }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -37,11 +38,11 @@ jobs:
 
   float-sanity:
     needs: scope
-    if: needs.scope.outputs.v1_float != '' || needs.scope.outputs.v2_float != ''
+    if: needs.scope.outputs.v1_float != '' || needs.scope.outputs.v2_float != '' || needs.scope.outputs.pico_float != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
-      MODELS: ${{ needs.scope.outputs.v1_float }} ${{ needs.scope.outputs.v2_float }}
+      MODELS: ${{ needs.scope.outputs.v1_float }} ${{ needs.scope.outputs.v2_float }} ${{ needs.scope.outputs.pico_float }}
     steps:
       - uses: actions/checkout@v5
         with:
