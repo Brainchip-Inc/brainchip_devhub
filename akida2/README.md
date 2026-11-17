@@ -109,6 +109,49 @@ benchmarks for every mapping, and the steps to reproduce them.
   </thead>
   <tbody>
     <tr>
+      <td rowspan="5"><a href="model_zoo/imagenet_mobilenet">General image classification</a></td>
+      <td rowspan="5">Classification</td>
+      <td rowspan="5">ImageNet-1k</td>
+      <td>8-bit</td>
+      <td>67.47% top-1</td>
+      <td>AllNPs</td>
+      <td align="right">313.992</td>
+      <td align="right">7.850</td>
+      <td>MobileNetV1 &alpha;=0.75</td>
+    </tr>
+    <tr>
+      <td>8-bit</td>
+      <td>62.77% top-1</td>
+      <td>HwPr</td>
+      <td align="right">268.127</td>
+      <td align="right">6.703</td>
+      <td>MobileNetV1 &alpha;=0.5</td>
+    </tr>
+    <tr>
+      <td>8-bit</td>
+      <td>47.89% top-1</td>
+      <td>HwPr</td>
+      <td align="right">113.428</td>
+      <td align="right">2.836</td>
+      <td>MobileNetV1 &alpha;=0.25</td>
+    </tr>
+    <tr>
+      <td>8-bit</td>
+      <td>63.55% top-1</td>
+      <td>HwPr</td>
+      <td align="right">275.338</td>
+      <td align="right">6.883</td>
+      <td>MobileNetV2 &alpha;=0.5</td>
+    </tr>
+    <tr>
+      <td>8-bit</td>
+      <td>58.98% top-1</td>
+      <td>HwPr</td>
+      <td align="right">226.843</td>
+      <td align="right">5.671</td>
+      <td>MobileNetV2 &alpha;=0.35</td>
+    </tr>
+    <tr>
       <td rowspan="2"><a href="model_zoo/vww">Person detection</a></td>
       <td rowspan="2">Classification</td>
       <td rowspan="2">Visual Wake Words</td>

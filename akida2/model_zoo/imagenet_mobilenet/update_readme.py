@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+# Copyright 2026 Brainchip Holdings Ltd.  Apache 2.0 License
+"""Regenerate README.md from README.md.template + metrics.json.
+
+Also regenerates the benchmark summary figure, which is drawn from the same
+metrics file and would otherwise drift away from the tables beneath it.
+"""
+import json
+import pathlib
+import runpy
+
+from imagenet_mobilenet_summary_plot import plot_summary
+
+here = pathlib.Path(__file__).parent
+metrics = json.loads((here / "docs" / "metrics.json").read_text())
+template = (here / "docs" / "README.md.template").read_text()
+(here / "README.md").write_text(template.format_map(metrics))
+print("README.md updated.")
+
+summary_path = here / "docs" / "ref_benchmark_summary.png"
+plot_summary(metrics, savepath=summary_path)
+print(f"{summary_path.name} updated.")
+
+# Refresh the Akida 2 landing README, whose model zoo table reads this metrics.json.
+runpy.run_path(str(here.parents[1] / "update_readme.py"), run_name="__main__")
