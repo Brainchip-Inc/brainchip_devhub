@@ -1,0 +1,13 @@
+{
+    "akida_acc": "95.05%",
+    "akida_hw_acc": "95.07%",
+    "chunk_period_ms": "16",
+    "float_acc": "95.89%",
+    "fps": "690.6",
+    "hw_clock_mhz": "50",
+    "hw_reference": "the `examples/kws` notebook in [bc_cloud_pico](https://github.com/Brainchip-Inc/bc_cloud_pico) (commit `818dfc9`), run on the Pico FPGA",
+    "latency_ms": "1.448",
+    "params": "47,584",
+    "quant_acc": "95.03%",
+    "stateful_acc": "95.89%"
+}

@@ -60,7 +60,7 @@ def check_readme_drift():
         if not readme.exists() or readme.read_text() != expected:
             yield "readme-drift", rel, "out of sync with docs/README.md.template + docs/metrics.json"
 
-    for platform in ("akida1", "akida2"):
+    for platform in ("akida1", "akida2", "akida_pico"):
         landing = ROOT / platform / "README.md"
         rel = f"{platform}/README.md"
         try:

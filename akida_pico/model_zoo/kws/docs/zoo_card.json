@@ -1,0 +1,15 @@
+{
+    "domain": "Audio",
+    "order": 10,
+    "rows": [
+        {
+            "task": "Keyword spotting",
+            "category": "Classification",
+            "dataset": "Google Speech Commands",
+            "variant": "8-bit",
+            "metric_key": "akida_hw_acc",
+            "metric_label": "acc.",
+            "notes": "10 keywords + silence + unknown, raw audio"
+        }
+    ]
+}
