@@ -23,6 +23,11 @@ Example
 -------
     python kws_eval.py -l pretrained_models/tenn_recurrent_sc12.h5
     python kws_eval.py -l models/tenn_recurrent_sc12_stateful_i8_w8_a8.h5
+
+With ``-c <config>`` the same stages are scored on the held-out test split of your own data
+instead (see ``kws_train_custom.py``):
+
+    python kws_eval.py -c kws_config.yaml -l models/kws_custom.h5
 """
 import argparse
 import json
@@ -118,8 +123,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate a Pico KWS model on Speech Commands (12 classes)')
     parser.add_argument('-l', '--loadmodel', required=True,
                         help='Model to load (.h5 keras model or .fbz Akida model)')
+    parser.add_argument('-c', '--config', default=None,
+                        help='Score the held-out test split of your own data (the config you trained '
+                             'with, see kws_train_custom.py) instead of Speech Commands')
     parser.add_argument('-d', '--data', default=None,
-                        help='TFDS data directory (default: ~/tensorflow_datasets)')
+                        help='TFDS data directory (default: ~/tensorflow_datasets), or with --config '
+                             "the data folder (overrides the config's 'data')")
     parser.add_argument('-b', '--batch-size', type=int, default=64,
                         help='Clips per batch for keras models (Akida runs one clip at a time)')
     parser.add_argument('--hardware', action='store_true',
@@ -128,7 +137,13 @@ if __name__ == '__main__':
                         help='Write the accuracy (and parameter count for the float model) to docs/metrics.json')
     args = parser.parse_args()
 
-    X, y = load_split('test', SAMPLE_LENGTH, args.data)
+    if args.config:
+        if args.save_metrics:
+            parser.error('--save-metrics records the Speech Commands example; it cannot be used with --config')
+        from kws_custom_data import load_config, load_dataset_from_config
+        X, y = load_dataset_from_config(load_config(args.config), args.data).test
+    else:
+        X, y = load_split('test', SAMPLE_LENGTH, args.data)
     print(f'Test set: {X.shape[0]} clips of {X.shape[1]} samples')
 
     if args.loadmodel.endswith('.fbz'):

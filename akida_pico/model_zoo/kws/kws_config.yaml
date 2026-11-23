@@ -1,0 +1,29 @@
+# Training config for kws_train_custom.py: the Pico KWS model on your own keywords.
+# Paths are relative to where you run the script. Every setting below is optional
+# except `keywords`; the values shown are the defaults unless noted.
+
+# --- Data ---------------------------------------------------------------------
+data: data/keywords             # folder with one sub-folder of .wav files per keyword
+keywords: [hello, stop, go]     # required; the first classes, in this order. Quote yes/no/on/off: ['yes']
+silence: true                   # add a "silence" class (needs a silence/ folder or _background_noise_/)
+unknown: true                   # add an "unknown" class (every other folder is unknown speech)
+validation_fraction: 0.1        # share of files (by speaker group) held out to pick the best epoch
+test_fraction: 0.1              # share held out for the final accuracy, never used in training
+
+# --- Training -----------------------------------------------------------------
+epochs: 100
+batch_size: 128
+# clips_per_class: 500          # clips of each class per epoch; default: the largest keyword class
+seed: 42
+# model: my_models:build_model  # your own model; default is tenn_recurrent_sc12
+
+# --- Augmentation -------------------------------------------------------------
+# Applied to training clips only, in this order. Each step runs on a clip with probability p.
+# Add your own as `name: "module:factory"`; see kws_augment.py.
+augmentations:
+  - {name: speed, p: 0.5, min_factor: 0.9, max_factor: 1.1}       # also shifts pitch
+  - {name: time_shift, p: 0.5, max_shift_ms: 100}
+  - {name: echo, p: 0.3, min_rt60: 0.1, max_rt60: 0.5}            # room reverberation
+  - {name: background_noise, p: 0.8, min_snr_db: 5, max_snr_db: 20}
+  - {name: gain, p: 1.0, min_db: -9, max_db: 3}
+  # - {name: pitch_shift, p: 0.2, min_semitones: -2, max_semitones: 2}   # needs librosa
