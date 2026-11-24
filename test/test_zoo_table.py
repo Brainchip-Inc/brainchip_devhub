@@ -40,3 +40,13 @@ def test_akida2_table_prefers_the_simpler_mapping_on_a_tie():
     assert gen['_fastest_mapping'](metrics, 'w8a8_') == 'allnps'
     metrics['w8a8_hwpr_cycles'] = '600000'
     assert gen['_fastest_mapping'](metrics, 'w8a8_') == 'hwpr'
+
+
+def test_pico_table_reports_one_latency_per_example():
+    gen = runpy.run_path(str(ROOT / 'akida_pico' / 'update_readme.py'))
+    metrics = {'akida_hw_acc': '95.00%', 'latency_ms': '1.448'}
+    row = {'task': 'T', 'category': 'C', 'dataset': 'D', 'variant': '8-bit',
+           'metric_key': 'akida_hw_acc', 'metric_label': 'acc.'}
+    cells = gen['_cells']('ex', row, metrics)
+    assert cells[4:6] == ['95.00% acc.', '1.448']
+    assert gen['_cells']('ex', row, {})[4:6] == ['—', '—']

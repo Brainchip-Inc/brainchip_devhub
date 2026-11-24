@@ -144,12 +144,42 @@ each example's `docs/metrics.json`; sweep trials in the HUB-21 PR.*
 | AKD1500 [Akida 1] | 32 | yes | 400 MHz | reference chip for Akida 1 numbers in this repo |
 | AKD2500 [Akida 2] | | yes | 1 GHz target | pre-production; the clock may change |
 | Akida 2 FPGA [Akida 2] | 24 (6 nodes) | yes | 25 MHz | current Akida 2 benchmark platform; no power measurement |
+| Pico FPGA [Pico] | 1 × `TNP_R` used by KWS (total unconfirmed) | unconfirmed | 50 MHz | only Pico benchmark platform in this repo; no power measurement |
 
 **[both] A node is 4 NPs.** Akida 2 hardware is often described in nodes, so the
 6-node FPGA has 24 NPs.
 
 *Source: akida1/README.md; `brainchip_utils/hardware_utils.py` (`AKIDA_CLOCKS_HZ`);
-BrainChip engineering, 2026-10-09 (Akida 2 HwPr, nodes and NP counts).*
+BrainChip engineering, 2026-10-09 (Akida 2 HwPr, nodes and NP counts); Pico row:
+`akida_pico/model_zoo/kws/kws_benchmark.py` (`FPGA_CLOCK_HZ`) and its `docs/metrics.json`.*
+
+## Akida Pico
+
+**[Pico] Pico is delivered as IP, and the Pico FPGA is the only platform benchmarked in this
+repo.** It runs at 50 MHz and has no power measurement, so Pico results are latency only.
+*Source: `akida_pico/docs/README.md.template`; `akida_pico/model_zoo/kws/kws_benchmark.py`.*
+
+**[Pico] The processing element is the `TNP_R`, and the KWS model maps to one.** The
+whole model runs as a single hardware sequence on one `TNP_R`, so there are no mapping modes
+to compare. `model.map(device, hw_only=True)` is expected to report 1 sequence and 1 `TNP_R`.
+*Source: measured, Pico FPGA, `akida_pico/model_zoo/kws` (`kws_notebook_evaluation`).*
+
+**[Pico] Latency follows from cycles, not from the clock.** The cycles per chunk come from
+`model.metrics['inference_clk']` divided by the number of chunks, and latency is cycles ÷
+clock. The KWS model's 256-sample chunk at 16 kHz is a 16 ms decision period, and it
+runs in 1.448 ms per chunk at 50 MHz.
+*Source: measured, Pico FPGA, `akida_pico/model_zoo/kws/docs/metrics.json`.*
+
+**[Pico] Models read raw 1-D input and carry state between chunks.** Training uses the
+kernelized state-space form; conversion to the stateful form (`convert_to_stateful`) is
+exact and takes one chunk per call. Quantization is post-training with `quantizeml`
+(8-bit weights and activations, 16-bit input for raw audio).
+*Source: `akida_pico/model_zoo/kws/docs/README.md.template`.*
+
+**Not yet recorded (unconfirmed; BrainChip engineering input would settle each):**
+how many `TNP_R` the FPGA has, and how a `TNP_R` relates to an Akida 2 NP; whether Pico has a
+HwPr equivalent; memory limits for weights and state; input-size limits; silicon status and
+target clock; power or energy figures.
 
 ## Graph constraints
 
