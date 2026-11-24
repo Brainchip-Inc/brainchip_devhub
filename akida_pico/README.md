@@ -45,13 +45,27 @@ What changes for you as a developer, compared with the Akida 1 and Akida 2 examp
   a 16-bit input for raw audio.
 - **One mapping.** The model maps to a single `TNP_R`, the Pico recurrent processing element, so
   there are no mapping modes to compare.
+- **Constant cost per chunk.** The model carries a small state between chunks instead of
+  re-reading a window, so the cycles per chunk are fixed by the model, not by how long the
+  stream has been running.
 
 ## Hardware
 
-Pico is delivered as IP. The examples here are benchmarked on the **Pico FPGA** reference
-platform, clocked at 50 MHz. The number of clock cycles per inference does not depend on the
-clock, so the latency at another clock follows from the cycle count. Power is not measured on
-the FPGA, so no energy figures are reported.
+Pico is delivered as IP. The examples here are benchmarked on the **Pico FPGA**, a reference
+implementation of Pico.
+
+| Platform | Processing element | Clock | Power measured | |
+| --- | :---: | :---: | :---: | --- |
+| **Pico FPGA** | `TNP_R`<sup>†</sup> | 50 MHz | No | Reference implementation of Pico. Every Pico benchmark in this repo is measured on it. Available for testing through [Akida Cloud](https://brainchip.com/aclp/) and the [`bc_cloud_pico`](https://github.com/Brainchip-Inc/bc_cloud_pico) repository |
+
+<sub>† **`TNP_R`**: the Pico recurrent processing element. It runs the stateful form of the
+state-space layers, taking one chunk of input per call and carrying the state between calls.
+The KWS model maps to one `TNP_R` in a single hardware sequence.</sub>
+
+The FPGA runs at 50 MHz, so its absolute latencies are not those of a Pico implementation at
+another clock. The number of clock cycles per inference does not depend on the clock, so the
+latency at another clock follows from the cycle count (cycles ÷ clock). Power is not measured on
+the FPGA, so no energy figures are reported for Pico yet.
 
 ---
 
