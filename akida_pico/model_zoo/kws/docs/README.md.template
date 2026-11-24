@@ -15,7 +15,7 @@ single `TNP_R` on Pico.
 
 **Accuracy at each stage of the pipeline**
 
-Every row scores the same 4,890 test clips, one prediction per clip.
+Every row scores the same test clips, one prediction per clip.
 
 <table>
   <thead>
